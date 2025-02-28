@@ -1,0 +1,7 @@
+[package]
+name = "neo4g"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+neo4g_macros = {path = "../neo4g_macros" }
