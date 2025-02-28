@@ -2,7 +2,7 @@ use neo4g_macros::Neo4g;
 
 #[derive(Neo4g)]
 struct User {
-    id: i32,
+    id: i32, // this didn't work - user id enum required a string? (UserProps::Id(String???))
     name: String,
 }
 
