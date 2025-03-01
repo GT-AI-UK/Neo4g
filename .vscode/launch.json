@@ -1,0 +1,15 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run Cargo",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/neo4g/target/debug/neo4g",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "cargo build",
+            "sourceLanguages": ["rust"]
+        }
+    ]
+}

@@ -1,0 +1,29 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "cargo build",
+            "type": "shell",
+            "command": "cargo",
+            "args": ["build"],
+            "options": {
+                "cwd": "${workspaceFolder}/neo4g"
+            },
+            "isBackground": true,
+            "problemMatcher": {
+                "owner": "custom",
+                "pattern": {
+                    "regexp": "."
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "^.$",
+                    "endsPattern": "^Finished `dev` profile$"
+                }
+            },
+            "presentation": {
+                "clear": false
+            }
+        }
+    ]
+}

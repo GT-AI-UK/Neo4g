@@ -34,6 +34,7 @@ impl Neo4gBuilder {
 
     fn create_node<T: Neo4gEntity>(mut self, entity: &T) -> Self {
         self.node_number += 1;
+        self
     }
 
     fn match_node<T: Neo4gEntity>(mut self, entity: &T, props: &[T::Props]) -> Self {
@@ -55,38 +56,40 @@ impl Neo4gBuilder {
     fn relate_inline(mut self, relationship_type: &str) -> Self {
         self.relationship_number += 1;
         self.query.push_str(&format!("-[neo4g_rel{}:{}]->", self.relationship_number, relationship_type));
+        self
     }
 
-    // unsure if this is the correct syntax
-    fn relate_inline_with_props(mut self, relationship_type: &str, props: &[HashMap<String, QueryParam>]) -> Self {
-        self.relationship_number += 1;
-        self.query.push_str(&format!("-[neo4g_rel{}:{} {{", self.relationship_number, relationship_type));
-        let vec: Vec<String> = props.iter()
-            .map(|prop| {
-                let (key, value) = prop.to_query_param();
-                self.params.insert(key.to_string(), value);
-                format!("{}: ${}", key, key)
-            })
-            .collect();
-        self.query.push_str(&format!("{}", vec.join(", ")));
-        self.query.push_str("}}]->");
-    }
+    // create a relationship macro as well
+    // fn relate_inline_with_props(mut self, relationship_type: &str, props: &[HashMap<String, QueryParam>]) -> Self {
+    //     self.relationship_number += 1;
+    //     self.query.push_str(&format!("-[neo4g_rel{}:{} {{", self.relationship_number, relationship_type));
+    //     let vec: Vec<String> = props.iter()
+    //         .map(|prop| {
+    //             let (key, value) = (prop.key(), value);
+    //             self.params.insert(key.to_string(), value);
+    //             format!("{}: ${}", key, key)
+    //         })
+    //         .collect();
+    //     self.query.push_str(&format!("{}", vec.join(", ")));
+    //     self.query.push_str("}}]->");
+    //     self
+    // }
 
-    fn relate_with_node_vars(mut self, ) -> Self {
-        todo!("");
-    }
+    // fn relate_with_node_vars(mut self, ) -> Self {
+    //     todo!("");
+    // }
 
-    fn relate_with_node_vars_with_props(mut self, ) -> Self {
-        todo!("");
-    }
+    // fn relate_with_node_vars_with_props(mut self, ) -> Self {
+    //     todo!("");
+    // }
 
-    fn on_create_set(mut self, props: &[T::Props]) -> Self { // may need to impl T::Props for relationship props in some way or use &[HashMap<String, QueryParam>]
-        todo!("");
-    }
+    // fn on_create_set<T: Neo4gEntity>(mut self, props: &[T::Props]) -> Self { // may need to impl T::Props for relationship props in some way or use &[HashMap<String, QueryParam>]
+    //     todo!("");
+    // }
 
-    fn on_match_set(mut self, props: &[T::Props]) -> Self { // may need to impl T::Props for relationship props in some way or use &[HashMap<String, QueryParam>]
+    // fn on_match_set<T: Neo4gEntity>(mut self, props: &[T::Props]) -> Self { // may need to impl T::Props for relationship props in some way or use &[HashMap<String, QueryParam>]
 
-    }
+    // }
 
     fn build(self) -> (String, HashMap<String, QueryParam>) {
         (self.query, self.params)
