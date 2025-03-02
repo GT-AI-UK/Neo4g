@@ -3,6 +3,7 @@ mod node;
 mod relationship;
 mod generators;
 mod utils;
+//mod entity_wrapper;
 
 #[proc_macro_derive(Neo4gNode)]
 pub fn neo4g_node_derive(input: TokenStream) -> TokenStream {
@@ -13,3 +14,8 @@ pub fn neo4g_node_derive(input: TokenStream) -> TokenStream {
 pub fn neo4g_relationship_derive(input: TokenStream) -> TokenStream {
     relationship::generate_neo4g_relationship(input)
 }
+
+// #[proc_macro_derive(Neo4gEnum)] // New macro
+// pub fn neo4g_enum_derive(input: TokenStream) -> TokenStream {
+//     entity_wrapper::generate_entity_wrapper(input)
+// }
