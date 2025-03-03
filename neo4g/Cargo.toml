@@ -4,4 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-neo4g_macros = {path = "../neo4g_macros" }
+neo4g_derive = {path = "../neo4g_derive" }
+neo4g_macro_rules = {path = "../neo4g_macro_rules" }
+neo4g_traits = {path = "../neo4g_traits" }
+paste = "1.0.15"

@@ -1,6 +1,7 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, DeriveInput, Data, Fields};
+use neo4g_traits::*;
 use crate::{generators, utils};
 
 pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {

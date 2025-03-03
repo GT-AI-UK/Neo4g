@@ -1,5 +1,8 @@
-use neo4g_macros::Neo4gNode;
-use neo4g::neo4g_traits::*;
+use neo4g_derive::Neo4gNode;
+use neo4g_derive::Neo4gEntityWrapper;
+use neo4g_traits::*;
+use neo4g_macro_rules::{generate_props_wrapper, generate_entity_wrapper};
+use paste::paste;
 
 #[derive(Neo4gNode)]
 struct UserTemplate {
@@ -14,10 +17,18 @@ struct GroupTemplate {
     something: String,
 }
 
-pub enum EntityWrapper {
-    User(User),
+#[derive(Neo4gEntityWrapper, Debug)]
+enum Test {
     Group(Group),
+    User(User),
 }
+
+generate_entity_wrapper!(User, Group);
+
+// pub enum Neo4gEntityWrapper {
+//     User(User),
+//     Group(Group),
+// }
 
     // impl EntityWrapper {
     //     pub fn inner(self) -> Neo4gEntity {
@@ -119,6 +130,7 @@ impl Neo4gBuilder {
     // }
 
     // fn add_to_return(mut self) -> Self {
+    //     add the previous element to the return hashmap
     //     if let Some(ret_ref) = self.previous_entity {
     //         self.return_refs.push(String::from(ret_ref));
     //     }
@@ -140,7 +152,10 @@ impl Neo4gBuilder {
         (self.query, self.params)
     }
 
-    //async fn run()
+    //async fn run(self) -> Vec<Neo4gEntity>
+        //use the hashmap of return_val -("neo4j alias", returnType,eg. User)
+        //query the database and return a vec of Neo4gEntities from within the EntityWrapper - database query must be declared here 
+        //because that's where the match arms can be generated for the unwrapping of the Entity vec!
 
     //fn run? (could send query, params, and return values to neo4rs runner?)
 }
@@ -149,7 +164,8 @@ impl Neo4gBuilder {
 
 
 fn main() {
-    let (query, params) = User::get_node_by(&[UserProps::Name("Test".to_string())]); // Should print: "Generated code for User"
+    let (query, params) = User::get_node_by(&[UserProps::Name("Test".to_string())]);
+    let (query, params) = Group::get_node_by(&[GroupProps::Name("TestG".to_string())]);
     println!("{}", query);
     let user = User::new(12, "Test".to_string());
     println!("{}", user.get_entity_type());
@@ -162,6 +178,12 @@ fn main() {
     let test_user_props = UserProps::Id(15);
     println!("{:?}", test_user_props);
     println!("{}", user.id());
+    let test = EntityWrapper::Group(Group::new(32, "TestG2".to_string(), "asdf".to_string()));
+    println!("{:?}", test);
+
+    let test2 = Test::Group(Group::new(32, "TestG2".to_string(), "asdf".to_string()));
+    println!("{:?}", test2);
+    let another_test = test2.inner_test();
 }
 
 // use neo4g_macros::{Neo4gNode};

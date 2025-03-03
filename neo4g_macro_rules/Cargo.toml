@@ -1,0 +1,8 @@
+[package]
+name = "neo4g_macro_rules"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+neo4g_derive = {path = "../neo4g_derive" }
+paste = "1.0.15"
