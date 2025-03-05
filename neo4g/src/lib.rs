@@ -1,24 +1,37 @@
+use neo4g_derive::Neo4gNode;
+use neo4g_derive::Neo4gEntityWrapper;
+use neo4g_traits::*;
+use neo4g_macro_rules::{generate_props_wrapper, generate_entity_wrapper};
+use paste::paste;
 use neo4rs::{Graph, Query, Node, Relation, BoltType};
 use std::collections::HashMap;
 
-pub trait Neo4gEntityTrait {
-    type Props;
-    fn entity_from_node(node: neo4rs::Node) -> Neo4gEntity;
-    fn create_node_from<T: Neo4gEntity>(node: T) -> (String, HashMap<String, BoltType>);
-    fn get_name() -> String;
-    // fn match_by(&self, props: &[Self::Props]) -> (String, std::collections::HashMap<String, String>);
-    // fn merge_by(&self, props: &[Self::Props]) -> (String, std::collections::HashMap<String, String>);
-}
-
-pub enum EntityType {
-    Node,
-    Relation,
-}
-
-pub struct Neo4gEntity {
-    entity_type: EntityType,
+#[derive(Neo4gNode)]
+struct UserTemplate {
+    id: i32,
     name: String,
-    props: HashMap<String, BoltType>,
+}
+
+#[derive(Neo4gNode)]
+struct ThingTemplate {
+    id: i32,
+    test: String,
+}
+
+#[derive(Neo4gNode)]
+struct GroupTemplate {
+    id: i32,
+    name: String,
+    something: String,
+}
+
+//generate_entity_wrapper!(User, Group, Thing);
+
+
+#[derive(EntityWrapper, Debug)] //move to traits and import? but then I'll have interwoven dependencies..... fml!
+enum Test {
+    Group(Group),
+    User(User),
 }
 
 pub struct Neo4gBuilder {
@@ -28,6 +41,11 @@ pub struct Neo4gBuilder {
     relationship_number: i32,
     return_refs: Vec<String>,
     previous_entity: Option<String>,
+}
+
+pub enum EntityType {
+    Node,
+    Relation,
 }
 
 impl Neo4gBuilder {
@@ -44,31 +62,110 @@ impl Neo4gBuilder {
 
     pub fn create_node<T: Neo4gEntity>(mut self, entity: &T) -> Self {
         self.node_number += 1;
-        let entity_name = entity.get_name();
-        let name = format!("{}{}", entity_name, self.node_number);
+        let name = format!("neo4g_node{}", self.node_number);
         self.previous_entity = Some(name.clone());
-        let (query_part, params) = entity.create_node_from(entity);
+        self
+    }
+
+    pub fn match_node<T: Neo4gEntity>(mut self, entity: &T, props: &[T::Props]) -> Self {
+        self.node_number += 1;
+        let name = format!("neo4g_node{}", self.node_number);
+        self.previous_entity = Some(name.clone());
+        let (query_part, params) = entity.match_by(props);
         self.query.push_str(&query_part.replace("neo4g_node", &name.clone()));
         self.params.extend(params);
         self
     }
 
-    pub async fn run_query<T>(graph: Graph, query: Query, returns: Vec<(&str, EntityType, T)>) -> anyhow::Result<Vec<Neo4gEntity>> where T: Neo4gEntityTrait {
-        let return_vec: Vec<Neo4gEntity> = Vec::new();
+    pub fn merge_node<T: Neo4gEntity>(mut self, entity: &T, props: &[T::Props]) -> Self {
+        self.node_number += 1;
+        let name = format!("neo4g_node{}", self.node_number);
+        self.previous_entity = Some(name.clone());
+        let (query_part, params) = entity.merge_by(props);
+        self.query.push_str(&query_part.replace("neo4g_node", &name.clone()));
+        self.params.extend(params);
+        self
+    }
+
+    pub fn relate_inline<T: Neo4gEntity>(mut self, entity: &T, props: &[T::Props]) -> Self {
+        self.relationship_number += 1;
+        let name = format!("neo4g_rel{}", self.relationship_number);
+        self.previous_entity = Some(name.clone());
+        self.query.push_str(&format!("-[neo4g_rel{}:]->", self.relationship_number));//, self.relationship_type));
+        self
+    }
+
+    // create a relationship macro as well
+    // fn relate_inline_with_props(mut self, relationship_type: &str, props: &[HashMap<String, QueryParam>]) -> Self {
+    //     self.relationship_number += 1;
+    //     self.query.push_str(&format!("-[neo4g_rel{}:{} {{", self.relationship_number, relationship_type));
+    //     let vec: Vec<String> = props.iter()
+    //         .map(|prop| {
+    //             let (key, value) = (prop.key(), value);
+    //             self.params.insert(key.to_string(), value);
+    //             format!("{}: ${}", key, key)
+    //         })
+    //         .collect();
+    //     self.query.push_str(&format!("{}", vec.join(", ")));
+    //     self.query.push_str("}}]->");
+    //     self
+    // }
+
+    // fn relate_with_node_vars(mut self, ) -> Self {
+    //     todo!("");
+    // }
+
+    // fn relate_with_node_vars_with_props(mut self, ) -> Self {
+    //     todo!("");
+    // }
+
+    // fn on_create_set<T: Neo4gEntity>(mut self, props: &[T::Props]) -> Self { // may need to impl T::Props for relationship props in some way or use &[HashMap<String, QueryParam>]
+    //     todo!("");
+    // }
+
+    // fn on_match_set<T: Neo4gEntity>(mut self, props: &[T::Props]) -> Self { // may need to impl T::Props for relationship props in some way or use &[HashMap<String, QueryParam>]
+
+    // }
+
+    // fn add_to_return(mut self) -> Self {
+    //     add the previous element to the return hashmap
+    //     if let Some(ret_ref) = self.previous_entity {
+    //         self.return_refs.push(String::from(ret_ref));
+    //     }
+    //     self
+    // }
+
+    // fn return_objs(mut self) -> Self {
+    //     self.query.push(format!("RETURN {}", self.return_refs.join(", ")));
+    //     self
+    // }
+
+    // fn return_objs_by_refs(mut self, refs: &[&str]) -> Self {
+    //     //add to return_refs
+    //     //return the query string
+    //     todo!("hmmm");
+    // }
+
+    pub fn build(self) -> (String, HashMap<String, String>) {
+        (self.query, self.params)
+    }
+
+    pub async fn run_query<T>(graph: Graph, query: Query, returns: Vec<(&str, EntityType, T)>) -> anyhow::Result<Vec<EntityWrapper>> where T: Neo4gEntity {
+        let return_vec: Vec<EntityWrapper> = Vec::new();
         if let Ok(mut result) = graph.execute(query).await {
             while let Ok(Some(row)) = result.next().await {
                 for (alias, entity_type, ret_obj) in returns {
                     match entity_type {
                         EntityType::Node => {
                             if let Ok(entity) = row.get(alias) {
-                                return_vec.push(ret_obj.entity_from_node(entity));
+                                return_vec.push(ret_obj.from_entity(entity));
                             } else {
                                 println!("error getting {} from db result", alias);
                             }
                         },
                         EntityType::Relation => {
                             if let Ok(entity) = row.get(alias) {
-                                return_vec.push(ret_obj.entity_from_node(entity));
+                                return_vec.push(ret_obj.from_entity(entity));
                             } else {
                                 println!("error getting {} from db result", alias);
                             }
@@ -80,36 +177,178 @@ impl Neo4gBuilder {
         Ok(return_vec)
     }
 
-    
-    // pub fn match_node<T: Neo4gEntity>(mut self, entity: &T, props: &[T::Props]) -> Self {
-    //     self.node_number += 1;
-    //     let name = format!("neo4g_node{}", self.node_number);
-    //     self.previous_entity = Some(name.clone());
-    //     let (query_part, params) = entity.match_by(props);
-    //     self.query.push_str(&query_part.replace("neo4g_node", &name.clone()));
-    //     self.params.extend(params);
-    //     self
-    // }
+    //async fn run(self) -> Vec<Neo4gEntity>
+        //use the hashmap of return_val -("neo4j alias", returnType,eg. User)
+        //query the database and return a vec of Neo4gEntities from within the EntityWrapper - database query must be declared here 
+        //because that's where the match arms can be generated for the unwrapping of the Entity vec!
 
-    // pub fn merge_node<T: Neo4gEntity>(mut self, entity: &T, props: &[T::Props]) -> Self {
-    //     self.node_number += 1;
-    //     let name = format!("neo4g_node{}", self.node_number);
-    //     self.previous_entity = Some(name.clone());
-    //     let (query_part, params) = entity.merge_by(props);
-    //     self.query.push_str(&query_part.replace("neo4g_node", &name.clone()));
-    //     self.params.extend(params);
-    //     self
-    // }
-
-    // pub fn relate_inline<T: Neo4gEntity>(mut self, entity: &T, props: &[T::Props]) -> Self {
-    //     self.relationship_number += 1;
-    //     let name = format!("neo4g_rel{}", self.relationship_number);
-    //     self.previous_entity = Some(name.clone());
-    //     self.query.push_str(&format!("-[neo4g_rel{}:]->", self.relationship_number));//, self.relationship_type));
-    //     self
-    // }
-
-    // pub fn build(self) -> (String, HashMap<String, String>) {
-    //     (self.query, self.params)
-    // }
+    //fn run? (could send query, params, and return values to neo4rs runner?)
 }
+
+//fn test<T: Neo4gEntity>(entities: )
+
+
+
+
+// use neo4g_macros::{Neo4gNode};
+// use std::any::type_name;
+
+// #[derive(Debug)]
+// pub enum EntityWrapper {
+//     User(User),
+// }
+
+// impl EntityWrapper {
+//     pub fn inner(self) -> Neo4gEntity {
+//         match self {
+//             EntityWrapper::User(user) => user,
+//         }
+//     }
+// }
+// #[derive(Neo4gNode, Debug, Clone)]
+// struct User {
+//     id: i32, // this didn't work - user id enum required a string? (UserProps::Id(String???))
+//     name: String,
+// }
+
+// impl User {
+//     fn new() -> EntityWrapper {
+//         EntityWrapper::User(User {
+//             id: UserProps::Id(0),
+//             name: UserProps::Name("test".to_string()),
+//         })
+//     }
+// }
+
+// use std::collections::HashMap;
+
+// struct Neo4gBuilder<E, P> {
+//     query: String,
+//     params: HashMap<String, P>,
+//     node_number: i32,
+//     relationship_number: i32,
+//     return_refs: Vec<String>,
+//     alias_map: HashMap<String, E>,
+// }
+
+// impl Neo4gBuilder {
+//     fn new() -> Self {
+//         Self {
+//             query: String::new(),
+//             params: HashMap::new(),
+//             node_number: 0,
+//             relationship_number: 0,
+//             return_refs: Vec::new(),
+//             alias_map: HashMap::new(),
+//         }
+//     }
+
+//     //fn q_create<T: Neo4gEntity>(mut self, alias: &str, entity: &T) -> Self {
+//     fn q_create(mut self, alias: &str, wrapped_entity: EntityWrapper) -> Self {
+//         //let entity_type = entity.get_entity_type();
+//         //let entity_props = entity.props();
+//         let node_string = String::from("node");
+//         let rel_string = String::from("relationsihp");
+//         // match entity_type.clone() {
+//         //     node_string => {self.node_number += 1;},
+//         //     rel_string => {self.relationship_number += 1;}
+//         // }
+//         println!("{:?}", wrapped_entity.unwrap_as_user().unwrap());
+//         if alias.is_empty() {
+//             let name = format!("neo4g_node{}", self.node_number);
+//         } else {
+//             //self.alias_map.insert(alias.to_string(), wrapped_entity);
+//             let name = alias.to_owned();
+//         }
+//         self
+//     }
+
+//     fn q_match<T: Neo4gEntity>(mut self, entity: &T, props: &[T::Props]) -> Self {
+//         self.node_number += 1;
+//         let name = format!("neo4g_node{}", self.node_number);
+//         let (query_part, params) = entity.match_by(props);
+//         self.query.push_str(&query_part.replace("neo4g_node", &name));
+//         self.params.extend(params);
+//         self
+//     }
+
+//     fn q_merge<T: Neo4gEntity>(mut self, entity: &T, props: &[T::Props]) -> Self {
+//         self.node_number += 1;
+//         let name = format!("neo4g_node{}", self.node_number);
+//         let (query_part, params) = entity.merge_by(props);
+//         self.query.push_str(&query_part.replace("neo4g_node", &name));
+//         self.params.extend(params);
+//         self
+//     }
+
+//     // fn relate_inline<T: Neo4gEntity>(mut self, entity: &T, props: &[T::Props]) -> Self {
+//     //     self.relationship_number += 1;
+//     //     let name = format!("neo4g_rel{}", self.relationship_number);
+//     //     self.query.push_str(&format!("-[neo4g_rel{}:{}]->", self.relationship_number));//, self.relationship_type));
+//     //     self
+//     // }
+
+//     // create a relationship macro as well
+//     // fn relate_inline_with_props(mut self, relationship_type: &str, props: &[HashMap<String, QueryParam>]) -> Self {
+//     //     self.relationship_number += 1;
+//     //     self.query.push_str(&format!("-[neo4g_rel{}:{} {{", self.relationship_number, relationship_type));
+//     //     let vec: Vec<String> = props.iter()
+//     //         .map(|prop| {
+//     //             let (key, value) = (prop.key(), value);
+//     //             self.params.insert(key.to_string(), value);
+//     //             format!("{}: ${}", key, key)
+//     //         })
+//     //         .collect();
+//     //     self.query.push_str(&format!("{}", vec.join(", ")));
+//     //     self.query.push_str("}}]->");
+//     //     self
+//     // }
+
+//     // fn relate_with_node_vars(mut self, ) -> Self {
+//     //     todo!("");
+//     // }
+
+//     // fn relate_with_node_vars_with_props(mut self, ) -> Self {
+//     //     todo!("");
+//     // }
+
+//     // fn on_create_set<T: Neo4gEntity>(mut self, props: &[T::Props]) -> Self { // may need to impl T::Props for relationship props in some way or use &[HashMap<String, QueryParam>]
+//     //     todo!("");
+//     // }
+
+//     // fn on_match_set<T: Neo4gEntity>(mut self, props: &[T::Props]) -> Self { // may need to impl T::Props for relationship props in some way or use &[HashMap<String, QueryParam>]
+
+//     // }
+
+//     // fn return_objs(mut self) -> Self {
+//     //     self.query.push(format!("RETURN {}", self.return_refs.join(", ")));
+//     //     self
+//     // }
+
+//     fn return_objs_by_refs(mut self, refs: &[&str]) -> Self {
+//         //add to return_refs
+//         //return the query string
+//         todo!("hmmm");
+//         self
+//     }
+
+//     fn build(self) -> (String, HashMap<String, P>) {
+//         (self.query, self.params)
+//     }
+
+//     //fn run? (could send query, params, and return values to neo4rs runner?)
+// }
+
+
+// fn main() {
+//     let (query, params) = User::get_node_by(&[UserProps::Name("Test".to_string())]); // Should print: "Generated code for User"
+//     println!("{}", query);
+//     let user = User::new();
+//     let test = Neo4gBuilder::new()
+//         .q_create("Test", user.clone())
+//         .q_match(&user, &[UserProps::Name("Sasd".to_string())])
+//         .q_merge(&user, &[UserProps::Name("Sasd".to_string())])
+//         .build();
+//     println!("{}", test.0)
+// }
+

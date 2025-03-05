@@ -64,7 +64,7 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
         let variant = syn::Ident::new(&utils::capitalize(&field_ident.to_string()), struct_name.span());
         let key = syn::LitStr::new(&field_ident.to_string(), struct_name.span());
         quote! {
-            #props_enum_name::#variant(val) => (#key, val.to_string(), struct_name.span())
+            #props_enum_name::#variant(val) => (#key, val, struct_name.span())
         }
     }).collect();
 
@@ -233,7 +233,7 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
 
         impl #props_enum_name {
             /// Converts a Props variant to a key and its stringified value.
-            pub fn to_query_param(&self) -> (&'static str, String) {
+            pub fn to_query_param(&self) -> (&'static str, T) {
                 match self {
                     #(#to_query_param_match_arms),*
                 }

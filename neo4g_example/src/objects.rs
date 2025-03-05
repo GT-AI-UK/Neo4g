@@ -1,4 +1,4 @@
-use neo4g::{Neo4gEntity, Neo4gEntityTrait};
+use neo4g::{Neo4gEntity, Neo4gEntityTrait, Neo4gPropsTrait};
 use neo4rs::Node;
 
 pub struct User {
@@ -46,8 +46,6 @@ impl User {
 }
 
 impl Neo4gEntityTrait for User {
-    type Props = UserProps;
-
     fn get_name () -> String {
         "User"
     }
@@ -81,8 +79,8 @@ pub enum UserProps {
     Name(String),
 }
 
-impl UserProps {
-    pub fn to_query_param(prop: UserProps) -> BoltType {
+impl Neo4gPropsTrait for UserProps {
+    fn to_query_param(prop: UserProps) -> BoltType {
         match prop {
             UserProps::Id(id) => BoltType::from(id),
             UserProps::Name(name) => BoltType::from(name),

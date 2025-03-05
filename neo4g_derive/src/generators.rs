@@ -12,7 +12,7 @@ pub fn generate_get_node_entity_type() -> proc_macro2::TokenStream {
 
 pub fn generate_get_node_by(struct_name: &Ident, struct_name_str: &str, props_enum_name: &Ident) -> proc_macro2::TokenStream {
     quote! {
-        fn get_node_by(props: &[#props_enum_name]) -> (String, std::collections::HashMap<String, String>) {
+        fn get_node_by(props: &[#props_enum_name]) -> (String, std::collections::HashMap<String, T>) {
             let mut query = format!("MATCH (neo4g_node:{})", #struct_name_str);
             let mut params = std::collections::HashMap::new();
 
@@ -34,7 +34,7 @@ pub fn generate_get_node_by(struct_name: &Ident, struct_name_str: &str, props_en
 
 pub fn generate_merge_node_by(struct_name: &Ident, struct_name_str: &str, props_enum_name: &Ident) -> proc_macro2::TokenStream {
     quote! {
-        fn merge_node_by(props: &[#props_enum_name]) -> (String, std::collections::HashMap<String, String>) {
+        fn merge_node_by(props: &[#props_enum_name]) -> (String, std::collections::HashMap<String, T>) {
             let mut query = format!("MERGE (neo4g_node:{} {{", #struct_name_str);
             let mut params = std::collections::HashMap::new();
 

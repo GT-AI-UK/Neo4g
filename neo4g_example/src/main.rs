@@ -18,11 +18,11 @@ pub async fn connect_neo4j() -> Graph { //return db object, run on startup, bind
     graph
 }
 
+#[tokio::main]
 fn main() {
     let graph = connect_neo4j().await;
     let user = User::new(32, "test");
-    let return_obj = //something
-    let query_test = Neo4gBuilder::new()
-        .create_node(user)
-        .run_query(graph)
+    let query_test = Neo4gBuilder::new(graph)
+        .create_node(user);
+    println!(query_test.0);
 }
