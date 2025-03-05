@@ -17,13 +17,23 @@ struct GroupTemplate {
     something: String,
 }
 
-#[derive(Neo4gEntityWrapper, Debug)]
-enum Test {
-    Group(Group),
-    User(User),
-}
+// #[derive(Neo4gEntityWrapper, Debug)]
+// enum Test {
+//     Group(Group),
+//     User(User),
+// }
 
-generate_entity_wrapper!(User, Group);
+generate_entity_wrapper!(User, Group); // how to export EntityWrapper?
+
+impl User {
+    pub fn test_unwrap(test: EntityWrapper) -> Option<User> {
+        if let EntityWrapper::User(user) = test {
+            return Some(user);
+        } else {
+            return None;
+        }
+    }
+}
 
 // pub enum Neo4gEntityWrapper {
 //     User(User),
@@ -177,13 +187,16 @@ fn main() {
     println!("{}", test.0);
     let test_user_props = UserProps::Id(15);
     println!("{:?}", test_user_props);
-    println!("{}", user.id());
     let test = EntityWrapper::Group(Group::new(32, "TestG2".to_string(), "asdf".to_string()));
     println!("{:?}", test);
 
-    let test2 = Test::Group(Group::new(32, "TestG2".to_string(), "asdf".to_string()));
-    println!("{:?}", test2);
-    let another_test = test2.inner_test();
+    let test2 = EntityWrapper::Group(Group::new(32, "TestG2".to_string(), "asdf".to_string()));
+    let maybe_user = User::test_unwrap(EntityWrapper::User(user.clone()));
+    println!("{:?}", maybe_user);
+    let maybe_user2 = User::test_unwrap(test2.clone());
+    println!("{:?}", maybe_user2);
+    let maybe_user3 = EntityWrapper::User(user);
+    println!("{}", maybe_user3 == test2);
 }
 
 // use neo4g_macros::{Neo4gNode};

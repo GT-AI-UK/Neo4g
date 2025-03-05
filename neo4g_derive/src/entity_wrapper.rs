@@ -46,7 +46,7 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
         accessors.push(accessor_tokens);
 
         let match_arm = quote! {
-            #enum_name::#var_name(var) => var,
+            #enum_name::#var_name(var) => println!("Matched a {:?}", var),
         };
         match_arms.push(match_arm); // use two tuples:
         //(User, Group, etc.)
@@ -56,12 +56,12 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
     }
 
     let inner_fn = quote! {
-        fn inner_test(&self) -> #enum_name {
+        fn inner_test(&self) -> () {// #enum_name {
             let entity = match self {
                 #(#match_arms)*
             };
             println!("{:?}", entity);
-            #enum_name::from(entity)
+            //#enum_name::from(entity)
         }
     };
 
@@ -70,6 +70,15 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
         #(#accessors)*
         impl #enum_name {
             #inner_fn
+        }
+        impl PartialEq for EntityWrapper {
+            fn eq(&self, other: &Self) -> bool {
+                match (self, other) {
+                    (EntityWrapper::User(_), EntityWrapper::User(_)) => true,
+                    (EntityWrapper::Group(_), EntityWrapper::Group(_)) => true,
+                    _ => false,
+                }
+            }
         }
     };
     gen.into()
