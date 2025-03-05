@@ -1,5 +1,6 @@
 use quote::quote;
 use syn::Ident;
+use crate::utils;
 
 pub fn generate_get_node_entity_type() -> proc_macro2::TokenStream {
     quote! {
@@ -49,6 +50,30 @@ pub fn generate_merge_node_by(struct_name: &Ident, struct_name_str: &str, props_
             query.push_str(&props_str.join(", "));
             query.push_str("})");
             (query, params)
+        }
+    }
+}
+
+pub fn generate_from_node_return(new_struct_name: &Ident, new_struct_name_str: &str, fields: &Vec<(&syn::Ident, syn::Type)>) -> proc_macro2::TokenStream {
+    let output_struct = quote! {
+        let mut output = #new_struct_name::new(9, "test".to_string());
+    };
+    let database_field_ifs: Vec<_> = fields.iter().map(|(field_ident, _)| {
+        let variant = syn::Ident::new(&utils::capitalize(&field_ident.to_string()), new_struct_name.span());
+        let key = syn::LitStr::new(&field_ident.to_string(), new_struct_name.span());
+        quote! {
+            println!("Getting #key from the thing");
+            // if let Ok(field) = node.get(&#key) {
+            //     output.#key = field;
+            // }
+        }
+    }).collect();
+    
+    quote! {
+        fn from_node_return(node: neo4rs::Node) -> EntityWrapper {
+            #output_struct
+            #(#database_field_ifs)*
+            EntityWrapper::from(output)
         }
     }
 }

@@ -11,3 +11,4 @@ proc-macro2 = "1.0.93"
 quote = "1.0.38"
 syn = {version = "2.0.98", features = ["full"]}
 neo4g_traits = {path = "../neo4g_traits" }
+neo4rs = "0.8.0"
