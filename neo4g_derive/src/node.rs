@@ -36,35 +36,12 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
         quote! { #variant(#field_type) }
     }).collect();
 
-    let variant_idents: Vec<_> = fields.iter().map(|(field_ident, _)| {
-        syn::Ident::new(&utils::capitalize(&field_ident.to_string()), struct_name.span())
-    }).collect();
-
-    let enum_definition = quote! {
-        pub enum #props_enum_name {
-            #(#props_enum_variants),*
-        }
-    };
-    
-    let into_impl = quote! {
-        impl Into<BoltType> for #props_enum_name {
-            fn into(self) -> BoltType {
-                match self {
-                    #(
-                        #props_enum_name::#variant_idents(val) => val.into(),
-                    )*
-                }
-            }
-        }
-    };
-    
-
     // Generate match arms for converting a variant’s inner value to a query parameter.
     let to_query_param_match_arms: Vec<_> = fields.iter().map(|(field_ident, _)| {
         let variant = syn::Ident::new(&utils::capitalize(&field_ident.to_string()), struct_name.span());
         let key = syn::LitStr::new(&field_ident.to_string(), struct_name.span());
         quote! {
-            #props_enum_name::#variant(val) => (#key, val, struct_name.span())
+            #props_enum_name::#variant(val) => (#key, val.to_string())
         }
     }).collect();
 
@@ -123,7 +100,6 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
 
     // Generate the new struct name by removing "Template" from the original struct name.
     let new_struct_name = syn::Ident::new(base_name, struct_name.span());
-    let new_struct_name_str = new_struct_name.to_string();
 
     // Generate fields for the new struct: same field names, but type is the Props enum.
     let new_struct_fields: Vec<_> = fields.iter().map(|(field_ident, _)| {
@@ -201,9 +177,11 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
     
     // Generate a constructor method for the generated struct.
     let generated_constructor = quote! {
-        pub fn new( #(#constructor_params),* ) -> Self {
-            Self {
-                #(#constructor_body),*
+        impl #new_struct_name {
+            pub fn new( #(#constructor_params),* ) -> Self {
+                Self {
+                    #(#constructor_body),*
+                }
             }
         }
     };
@@ -217,11 +195,18 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
         }
     };
 
+    // Generate the impl block for the new struct with accessor methods.
+    let new_struct_name_str = new_struct_name.to_string();
+    let struct_impl = quote! {
+        impl #new_struct_name {
+            #(#struct_accessor_methods)*
+        }
+    };
+
     // Generate query functions using the generated Props enum.
     let get_node_entity_type_fn = generators::generate_get_node_entity_type();
     let get_node_by_fn = generators::generate_get_node_by(&new_struct_name, &new_struct_name_str, &props_enum_name);
     let merge_node_by_fn = generators::generate_merge_node_by(&new_struct_name, &new_struct_name_str, &props_enum_name);
-    let from_node_return_fn = generators::generate_from_node_return(&new_struct_name, &new_struct_name_str, &fields);
 
     // Assemble the final output.
     let expanded = quote! {
@@ -233,7 +218,7 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
 
         impl #props_enum_name {
             /// Converts a Props variant to a key and its stringified value.
-            pub fn to_query_param(&self) -> (&'static str, T) {
+            pub fn to_query_param(&self) -> (&'static str, String) {
                 match self {
                     #(#to_query_param_match_arms),*
                 }
@@ -264,32 +249,22 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
             fn merge_by(&self, props: &[Self::Props]) -> (String, std::collections::HashMap<String, String>) {
                 Self::merge_node_by(props)
             }
-
-            fn from_node(node: neo4rs::Node) -> EntityWrapper {
-                Self::from_node_return(node)
-            }
         }
         
         impl #new_struct_name {
-            #generated_constructor
             #get_node_entity_type_fn
             #get_node_by_fn
             #merge_node_by_fn
-            #from_node_return_fn
-            #(#struct_accessor_methods)*
-            
         }
 
         // Constructor for the generated struct.
-        
+        #generated_constructor
 
         // New() method for the template struct that forwards to the generated struct's new().
         #template_new_method
 
         // Accessor methods for the generated struct.
-        //#struct_impl
-
-        #into_impl
+        #struct_impl
     };
 
     TokenStream::from(expanded)

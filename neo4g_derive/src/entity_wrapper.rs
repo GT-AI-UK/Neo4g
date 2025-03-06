@@ -20,6 +20,7 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
     };
 
     let mut accessors = Vec::new();
+    let mut match_arms = Vec::new();
 
     for variant in data_enum.variants.iter() {
         let var_name = &variant.ident;
