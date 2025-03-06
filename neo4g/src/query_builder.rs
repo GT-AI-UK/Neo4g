@@ -70,7 +70,7 @@ impl Neo4gBuilder {
     pub fn returns(mut self, alias: &[&str], entity_type: &[EntityType], entity: &[EntityWrapper]) -> Self {
         self.query.push_str("RETURN ");
         self.query.push_str(&alias.join(", "));
-        self.return_refs.ex((alias.to_string(), entity_type, entity));
+        //self.return_refs.ex((alias.to_string(), entity_type, entity));
         self
     }
 

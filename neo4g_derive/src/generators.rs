@@ -26,6 +26,7 @@ pub fn generate_get_node_by(struct_name: &Ident, struct_name_str: &str, props_en
                     .collect();
                 query.push_str(&format!(" WHERE {}", filters.join(" AND ")));
             }
+            query.push_str("\n");
             (query, params)
         }
     }
@@ -47,7 +48,7 @@ pub fn generate_merge_node_by(struct_name: &Ident, struct_name_str: &str, props_
                 .collect();
 
             query.push_str(&props_str.join(", "));
-            query.push_str("})");
+            query.push_str("})\n");
             (query, params)
         }
     }
@@ -57,7 +58,7 @@ pub fn generate_merge_node_by(struct_name: &Ident, struct_name_str: &str, props_
 pub fn generate_get_relationship_by(struct_name: &Ident, struct_name_str: &str, props_enum_name: &Ident) -> proc_macro2::TokenStream {
     quote! {
         pub fn get_relationship_by(props: &[#props_enum_name]) -> (String, std::collections::HashMap<String, QueryParam>) {
-            let mut query = format!("MATCH (a)-[neo4g_rel:{}]->(b)", #struct_name_str);
+            let mut query = format!("MATCH (a)-[neo4g_rel:{}]->(b)\n", #struct_name_str);
             let mut params = std::collections::HashMap::new();
 
             if !props.is_empty() {
@@ -71,7 +72,7 @@ pub fn generate_get_relationship_by(struct_name: &Ident, struct_name_str: &str, 
                     .collect();
                 query.push_str(&format!(" WHERE {}", filters.join(" AND ")));
             }
-            query.push_str(" RETURN a, neo4g_rel, b");
+            query.push_str("\n");
             (query, params)
         }
     }
@@ -93,7 +94,7 @@ pub fn generate_merge_relationship_by(struct_name: &Ident, struct_name_str: &str
                 .collect();
 
             query.push_str(&props_str.join(", "));
-            query.push_str("}]->(b)");
+            query.push_str("}]->(b)\n");
             (query, params)
         }
     }
