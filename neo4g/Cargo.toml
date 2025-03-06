@@ -6,5 +6,5 @@ edition = "2021"
 [dependencies]
 neo4g_derive = {path = "../neo4g_derive" }
 neo4g_macro_rules = {path = "../neo4g_macro_rules" }
-neo4g_traits = {path = "../neo4g_traits" }
 paste = "1.0.15"
+tokio = { version = "1.43.0", features = ["full"] }
