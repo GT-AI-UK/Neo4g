@@ -24,7 +24,7 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
 
     for variant in data_enum.variants.iter() {
         let var_name = &variant.ident;
-        let unwrap_fn_name = format_ident!("get_{}", var_name);
+        let unwrap_fn_name = format_ident!("get_{}", var_name.to_string().to_lowercase());
 
         let accessor_tokens = quote! {
             impl From<#var_name> for #enum_name {

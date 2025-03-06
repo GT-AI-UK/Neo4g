@@ -1,6 +1,7 @@
 use crate::entity_wrapper::EntityWrapper;
 use crate::objects::{User, Group};
 use crate::traits::Neo4gEntity;
+use neo4rs::{Query, Node, Graph};
 
 use std::collections::HashMap;
 
@@ -9,8 +10,14 @@ pub struct Neo4gBuilder {
     params: HashMap<String, String>,
     node_number: i32,
     relationship_number: i32,
-    return_refs: Vec<String>,
+    return_refs: Vec<(String, EntityType, EntityWrapper)>,
     previous_entity: Option<String>,
+}
+
+#[derive(Clone, Debug)]
+pub enum EntityType {
+    Node,
+    Relation,
 }
 
 impl Neo4gBuilder {
@@ -60,14 +67,42 @@ impl Neo4gBuilder {
         self
     }
 
-    pub fn build(self) -> (String, HashMap<String, String>) {
+    pub fn returns(mut self, alias: &[&str], entity_type: &[EntityType], entity: &[EntityWrapper]) -> Self {
+        self.query.push_str("RETURN ");
+        self.query.push_str(&alias.join(", "));
+        self.return_refs.ex((alias.to_string(), entity_type, entity));
+        self
+    }
+
+    pub fn build(self) -> (String, HashMap<String, String>) { // add returns to query string here and in run_query, or add in the return method (above)?
         (self.query, self.params)
     }
 
-    //async fn run(self) -> Vec<Neo4gEntity>
-        //use the hashmap of return_val -("neo4j alias", returnType,eg. User)
-        //query the database and return a vec of Neo4gEntities from within the EntityWrapper - database query must be declared here 
-        //because that's where the match arms can be generated for the unwrapping of the Entity vec!
-
-    //fn run? (could send query, params, and return values to neo4rs runner?)
+    pub async fn run_query(self, graph: Graph) -> anyhow::Result<Vec<EntityWrapper>> {
+        let query = Query::new(self.query);
+        let mut return_vec: Vec<EntityWrapper> = Vec::new();
+        if let Ok(mut result) = graph.execute(query).await {
+            while let Ok(Some(row)) = result.next().await {
+                for (alias, entity_type, ret_obj) in self.return_refs.clone() {
+                    match entity_type {
+                        EntityType::Node => {
+                            if let Ok(node) = row.get(&alias) {
+                                return_vec.push(ret_obj.from_node(node));
+                            } else {
+                                println!("error getting {} from db result", alias);
+                            }
+                        },
+                        EntityType::Relation => {
+                            if let Ok(relation) = row.get(&alias) {
+                                return_vec.push(ret_obj.from_relation(relation));
+                            } else {
+                                println!("error getting {} from db result", alias);
+                            }
+                        },
+                    }
+                }
+            }
+        }
+        Ok(return_vec)
+    }
 }
