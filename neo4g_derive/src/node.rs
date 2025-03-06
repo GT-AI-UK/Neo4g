@@ -1,7 +1,7 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, DeriveInput, Data, Fields};
-use neo4g_traits::*;
+//use neo4g_traits::*;
 use crate::{generators, utils};
 
 pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
@@ -250,7 +250,7 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
         }
 
         // Implement the Neo4gEntity trait from neo4g_traits.
-        impl ::neo4g_traits::Neo4gEntity for #new_struct_name {
+        impl Neo4gEntity for #new_struct_name {
             type Props = #props_enum_name;
 
             fn get_entity_type(&self) -> String {

@@ -44,74 +44,40 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
         };
         accessors.push(accessor_tokens);
 
+        let match_arm = quote! {
+            #enum_name::#var_name(var) => println!("Matched a {:?}", var),
+        };
+        match_arms.push(match_arm); // use two tuples:
         //(User, Group, etc.)
         //None, Some(1), None, etc.
         // iterate over tuples until a Some() is reached, get the associated value from the other
         // use if let? to update mutable tuples?
     }
 
-    let tuple_type = {
-        let types = data_enum.variants.iter().map(|variant| {
-            // Assumes each variant is a newtype variant
-            let field = variant.fields.iter().next().expect("Expected a single field");
-            let ty = &field.ty;
-            quote! { Option<& #ty> }
-        });
-        quote! { ( #(#types),* ) }
-    };
-
-    let match_arms = data_enum.variants.iter().map(|current_variant| {
-        let current_ident = &current_variant.ident;
-        // Build the tuple literal by iterating over all variants.
-        let tuple_expr = {
-            let fields = data_enum.variants.iter().map(|v| {
-                if v.ident == *current_ident {
-                    // For the matched variant, produce Some(value)
-                    quote! { Some(value) }
-                } else {
-                    // For the others, produce None
-                    quote! { None }
-                }
-            });
-            quote! { ( #(#fields),* ) }
-        };
-    
-        quote! {
-            #enum_name::#current_ident(ref value) => #tuple_expr
-        }
-    });
-    
-    let tuple_stuff = quote! {
-        pub fn as_tuple(&self) -> #tuple_type {
-            match self {
-                #(#match_arms),*
-            }
+    let inner_fn = quote! {
+        fn inner_test(&self) -> () {// #enum_name {
+            let entity = match self {
+                #(#match_arms)*
+            };
+            println!("{:?}", entity);
+            //#enum_name::from(entity)
         }
     };
-
-    // let inner_fn = quote! {
-    //     fn inner_test(&self) -> #enum_name { //forget having inner test. Run the query here - use as_tuple to destructure:
-    //         // while let result
-    //         // return node = destructured tuple of that type.
-    //         // destructured_var::from(node) - use node.get()
-    //         // return type of the line above is an EntityWrapper.
-    //         // append to entity wrapper vec
-    //         // return vec. caller of querybuilder can destructure :D
-    //         let entity = match self {
-    //             #(#match_arms)*
-    //         };
-    //         println!("{:?}", entity);
-    //         #enum_name::from(entity)
-    //     }
-    // };
 
 
     let gen = quote! {
         #(#accessors)*
         impl #enum_name {
-            #tuple_stuff
-            pub fn boring() -> () {};
-           // #inner_fn
+            #inner_fn
+        }
+        impl PartialEq for EntityWrapper {
+            fn eq(&self, other: &Self) -> bool {
+                match (self, other) {
+                    (EntityWrapper::User(_), EntityWrapper::User(_)) => true,
+                    (EntityWrapper::Group(_), EntityWrapper::Group(_)) => true,
+                    _ => false,
+                }
+            }
         }
     };
     gen.into()
