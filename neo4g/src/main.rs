@@ -38,7 +38,8 @@ async fn main() {
         .match_node(user.clone(), &[UserProps::Name("admin".to_string())])
         //.merge_node(&user, &[UserProps::Name("Sasd".to_string())])
     
-        .add_to_return();
+        .add_to_return()
+        .set_returns(&[]);
         println!("match?: {:?}", test1.clone());
         let test = test1.run_query(graph).await;
     println!("{:?}", test);
