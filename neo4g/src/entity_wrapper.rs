@@ -38,23 +38,21 @@ pub struct NothingTemplate {
 
 generate_entity_wrapper!(Nothing, User, Group);
 
-impl EntityWrapper {
-    pub fn from_node(node: Node) -> Self { // need to generate from macro - need if labels contains for each variant
-        let labels = node.labels();
-        if labels.contains(&"User") {
-            println!("lables containers user");
-            return EntityWrapper::User(User::from(node));
-            // let nothing = Nothing::new(true);
-            // return EntityWrapper::Nothing(nothing)
-        }
-        let nothing = Nothing::new(true);
-        EntityWrapper::Nothing(nothing)
-    }
-    // pub fn from_relation(relation: Relation) -> Self {
-    //     let user = User::new(32, "test".to_string());
-    //     EntityWrapper::User(user)
-    // }
-}
+// impl EntityWrapper {
+//     pub fn from_node(node: Node) -> Self { // need to generate from macro - need if labels.contains for each variant
+//         let labels = node.labels();
+//         if labels.contains(&"User") {
+//             println!("lables containers user");
+//             return EntityWrapper::User(User::from(node));
+//         }
+//         let nothing = Nothing::new(true);
+//         EntityWrapper::Nothing(nothing)
+//     }
+//     // pub fn from_relation(relation: Relation) -> Self {
+//     //     let user = User::new(32, "test".to_string());
+//     //     EntityWrapper::User(user)
+//     // }
+// }
 //     pub fn from_node_struct<T: Neo4gEntity>(node: &T) -> Self {
 //         EntityWrapper::Type(node)
 //     }

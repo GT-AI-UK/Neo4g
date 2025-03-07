@@ -12,7 +12,7 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
         _ => {
             return syn::Error::new_spanned(
                 enum_name,
-                "Neo4gPropsWrapper can only be derived for enums"
+                "EntityWrapper can only be derived for enums"
             )
             .to_compile_error()
             .into();
@@ -20,12 +20,14 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
     };
 
     let mut accessors = Vec::new();
-    let mut match_arms = Vec::new();
+    let mut _match_arms = Vec::new();
+    let mut from_node_checks = Vec::new();
 
     for variant in data_enum.variants.iter() {
         let var_name = &variant.ident;
         let unwrap_fn_name = format_ident!("get_{}", var_name.to_string().to_lowercase());
 
+        // Generate accessor impls.
         let accessor_tokens = quote! {
             impl From<#var_name> for #enum_name {
                 fn from(entity: #var_name) -> Self {
@@ -34,7 +36,7 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
             }
             
             impl #enum_name {
-                fn #unwrap_fn_name(&self) -> Option<&#var_name> {
+                pub fn #unwrap_fn_name(&self) -> Option<&#var_name> {
                     if let #enum_name::#var_name(ref entity) = self {
                         Some(entity)
                     } else {
@@ -45,41 +47,65 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
         };
         accessors.push(accessor_tokens);
 
+        // (Optional) Generate some match arms for other internal functions.
         let match_arm = quote! {
             #enum_name::#var_name(var) => println!("Matched a {:?}", var),
         };
-        match_arms.push(match_arm); // use two tuples:
-        //(User, Group, etc.)
-        //None, Some(1), None, etc.
-        // iterate over tuples until a Some() is reached, get the associated value from the other
-        // use if let? to update mutable tuples?
+        _match_arms.push(match_arm);
+
+        // Skip the Nothing variant for label checks.
+        if var_name.to_string() == "Nothing" {
+            continue;
+        }
+        // Use the variant name as the label we search for.
+        let var_name_str = var_name.to_string();
+        let check = quote! {
+            if labels.contains(&#var_name_str) {
+                println!("labels contains {}", #var_name_str);
+                return #enum_name::#var_name(#var_name::from(node));
+            }
+        };
+        from_node_checks.push(check);
     }
 
+    // You can keep your existing inner_test function if needed.
     let inner_fn = quote! {
-        fn inner_test(&self) -> () {// #enum_name {
-            let entity = match self {
-                #(#match_arms)*
+        fn inner_test(&self) -> () {
+            let _entity = match self {
+                #(#_match_arms)*
             };
-            println!("{:?}", entity);
-            //#enum_name::from(entity)
+            println!("{:?}", _entity);
         }
     };
 
+    // Generate the from_node function.
+    let from_node_fn = quote! {
+        pub fn from_node(node: Node) -> Self {
+            let labels = node.labels();
+            #(#from_node_checks)*
+            // Fallback: if no label matched, return the Nothing variant.
+            #enum_name::Nothing(Nothing::new(true))
+        }
+    };
 
     let gen = quote! {
         #(#accessors)*
+
         impl #enum_name {
             #inner_fn
+            #from_node_fn
         }
-        impl PartialEq for EntityWrapper {
+        
+        impl PartialEq for #enum_name {
             fn eq(&self, other: &Self) -> bool {
                 match (self, other) {
-                    (EntityWrapper::User(_), EntityWrapper::User(_)) => true,
-                    (EntityWrapper::Group(_), EntityWrapper::Group(_)) => true,
+                    (#enum_name::User(_), #enum_name::User(_)) => true,
+                    (#enum_name::Group(_), #enum_name::Group(_)) => true,
                     _ => false,
                 }
             }
         }
     };
+
     gen.into()
 }
