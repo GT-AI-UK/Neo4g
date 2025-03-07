@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 mod node;
-mod relationship;
+mod relation;
 mod generators;
 mod utils;
 mod entity_wrapper;

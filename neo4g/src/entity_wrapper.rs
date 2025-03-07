@@ -2,7 +2,32 @@ use neo4g_macro_rules::{generate_props_wrapper, generate_entity_wrapper};
 use paste::paste;
 use crate::objects::{User, Group};
 use neo4g_derive::Neo4gEntityWrapper;
-use neo4rs::{Node, Relation};
+use neo4rs::{
+    Node,
+    Relation,
+    BoltType,
+    BoltString,
+    BoltBoolean,
+    BoltMap,
+    BoltNull,
+    BoltInteger,
+    BoltFloat,
+    BoltList,
+    BoltNode,
+    BoltRelation,
+    BoltUnboundedRelation,
+    BoltPoint2D,
+    BoltPoint3D,
+    BoltBytes,
+    BoltPath,
+    BoltDuration,
+    BoltDate,
+    BoltTime,
+    BoltLocalTime,
+    BoltDateTime,
+    BoltLocalDateTime,
+    BoltDateTimeZoneId,
+};
 use neo4g_derive::Neo4gNode;
 use crate::traits::Neo4gEntity;
 
@@ -19,6 +44,8 @@ impl EntityWrapper {
         if labels.contains(&"User") {
             println!("lables containers user");
             return EntityWrapper::User(User::from(node));
+            // let nothing = Nothing::new(true);
+            // return EntityWrapper::Nothing(nothing)
         }
         let nothing = Nothing::new(true);
         EntityWrapper::Nothing(nothing)

@@ -11,7 +11,7 @@ pub fn generate_get_node_entity_type() -> proc_macro2::TokenStream {
 
 pub fn generate_get_node_by(struct_name: &Ident, struct_name_str: &str, props_enum_name: &Ident) -> proc_macro2::TokenStream {
     quote! {
-        pub fn get_node_by(props: &[#props_enum_name]) -> (String, std::collections::HashMap<String, String>) {
+        pub fn get_node_by(props: &[#props_enum_name]) -> (String, std::collections::HashMap<String, BoltType>) {
             let mut query = format!("MATCH (neo4g_node:{})", #struct_name_str);
             let mut params = std::collections::HashMap::new();
 
@@ -34,7 +34,7 @@ pub fn generate_get_node_by(struct_name: &Ident, struct_name_str: &str, props_en
 
 pub fn generate_merge_node_by(struct_name: &Ident, struct_name_str: &str, props_enum_name: &Ident) -> proc_macro2::TokenStream {
     quote! {
-        pub fn merge_node_by(props: &[#props_enum_name]) -> (String, std::collections::HashMap<String, String>) {
+        pub fn merge_node_by(props: &[#props_enum_name]) -> (String, std::collections::HashMap<String, BoltType>) {
             let mut query = format!("MERGE (neo4g_node:{} {{", #struct_name_str);
             let mut params = std::collections::HashMap::new();
 
@@ -55,9 +55,17 @@ pub fn generate_merge_node_by(struct_name: &Ident, struct_name_str: &str, props_
 }
 
 
-pub fn generate_get_relationship_by(struct_name: &Ident, struct_name_str: &str, props_enum_name: &Ident) -> proc_macro2::TokenStream {
+pub fn generate_get_relation_entity_type() -> proc_macro2::TokenStream {
     quote! {
-        pub fn get_relationship_by(props: &[#props_enum_name]) -> (String, std::collections::HashMap<String, QueryParam>) {
+        pub fn get_relation_entity_type() -> String {
+            String::from("relation")
+        }
+    }
+}
+
+pub fn generate_get_relation_by(struct_name: &Ident, struct_name_str: &str, props_enum_name: &Ident) -> proc_macro2::TokenStream {
+    quote! {
+        pub fn get_relation_by(props: &[#props_enum_name]) -> (String, std::collections::HashMap<String, BoltType>) {
             let mut query = format!("MATCH (a)-[neo4g_rel:{}]->(b)\n", #struct_name_str);
             let mut params = std::collections::HashMap::new();
 
@@ -78,9 +86,9 @@ pub fn generate_get_relationship_by(struct_name: &Ident, struct_name_str: &str, 
     }
 }
 
-pub fn generate_merge_relationship_by(struct_name: &Ident, struct_name_str: &str, props_enum_name: &Ident) -> proc_macro2::TokenStream {
+pub fn generate_merge_relation_by(struct_name: &Ident, struct_name_str: &str, props_enum_name: &Ident) -> proc_macro2::TokenStream {
     quote! {
-        pub fn merge_relationship_by(props: &[#props_enum_name]) -> (String, std::collections::HashMap<String, QueryParam>) {
+        pub fn merge_relation_by(props: &[#props_enum_name]) -> (String, std::collections::HashMap<String, BoltType>) {
             let mut query = format!("MATCH (a), (b) MERGE (a)-[neo4g_rel:{} {{", #struct_name_str);
             let mut params = std::collections::HashMap::new();
 

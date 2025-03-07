@@ -1,14 +1,14 @@
 use crate::entity_wrapper::EntityWrapper;
 use crate::objects::{User, Group};
 use crate::traits::Neo4gEntity;
-use neo4rs::{Query, Node, Graph};
+use neo4rs::{Query, Node, Graph, BoltType};
 
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub struct Neo4gBuilder {
     query: String,
-    params: HashMap<String, String>,
+    params: HashMap<String, BoltType>,
     node_number: i32,
     relationship_number: i32,
     return_refs: Vec<(String, EntityType, EntityWrapper)>,
@@ -90,7 +90,7 @@ impl Neo4gBuilder {
         //     self
         // }
 
-    pub fn build(self) -> (String, HashMap<String, String>) { // add returns to query string here and in run_query, or add in the return method (above)?
+    pub fn build(self) -> (String, HashMap<String, BoltType>) { // add returns to query string here and in run_query, or add in the return method (above)?
         (self.query, self.params)
     }
 

@@ -4,7 +4,7 @@ use syn::{parse_macro_input, DeriveInput, Data, Fields};
 //use neo4g_traits::*;
 use crate::{generators, utils};
 
-pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
+pub fn generate_neo4g_relation(input: TokenStream) -> TokenStream {
     // Parse the input tokens into a syntax tree.
     let input = parse_macro_input!(input as DeriveInput);
     let struct_name = &input.ident;
@@ -57,7 +57,7 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
             quote! {
                 BoltType::String(BoltString::from(val.clone()))
             }
-        } else if ["i8", "i16", "i32", "i64", "i128", "u8", "u16", "u32", "u64", "u128", ].contains(&field_type_str.as_str()) {
+        } else if field_type_str == "i32" {
             quote! {
                 BoltType::Integer(BoltInteger::from(*val))
             }
@@ -231,73 +231,10 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
         }
     };
 
-        // Generate field initializers for the From<Node> impl.
-        let field_inits: Vec<_> = fields.iter().map(|(field_ident, field_type)| {
-        // Create the variant name (capitalized) for the Props enum.
-        let variant = syn::Ident::new(&utils::capitalize(&field_ident.to_string()), struct_name.span());
-        // Create a literal string key for node lookup.
-        let key = syn::LitStr::new(&field_ident.to_string(), struct_name.span());
-        // Convert the field type into a string for matching.
-        let field_type_str = field_type.to_token_stream().to_string();
-
-        // Generate the extraction expression based on the type.
-        let extraction = if field_type_str == "String" {
-            // For String: simply extract from the node.
-            quote! {
-                node.get(#key).unwrap_or_default()
-            }
-        } else if ["i8", "i16", "i32", "i64", "i128",
-                "u8", "u16", "u32", "u64", "u128"]
-            .contains(&field_type_str.as_str())
-        {
-            // For integer types: assume node.get returns a u64, then cast.
-            quote! {
-                {
-                    let tmp: u64 = node.get(#key).unwrap_or_default();
-                    tmp as #field_type
-                }
-            }
-        } else if field_type_str == "bool" {
-            // For bool: extract the value (bool::default() is false).
-            quote! {
-                node.get(#key).unwrap_or_default()
-            }
-        } else if field_type_str == "f32" || field_type_str == "f64" {
-            // For floating point types: assume node.get returns a f64, then cast.
-            quote! {
-                {
-                    let tmp: f64 = node.get(#key).unwrap_or_default();
-                    tmp as #field_type
-                }
-            }
-        } else {
-            // Fallback: simply extract the value.
-            quote! {
-                node.get(#key).unwrap_or_default()
-            }
-        };
-
-        // Wrap the extracted value in the corresponding Props enum variant.
-        quote! {
-            #field_ident: #props_enum_name::#variant(#extraction)
-        }
-    }).collect();
-
-    // Generate the complete From<Node> implementation for the struct.
-    let from_impl = quote! {
-        impl From<Node> for #new_struct_name {
-            fn from(node: Node) -> Self {
-                Self {
-                    #(#field_inits),*
-                }
-            }
-        }
-    };
-
     // Generate query functions using the generated Props enum.
-    let get_node_entity_type_fn = generators::generate_get_node_entity_type();
-    let get_node_by_fn = generators::generate_get_node_by(&new_struct_name, &new_struct_name_str, &props_enum_name);
-    let merge_node_by_fn = generators::generate_merge_node_by(&new_struct_name, &new_struct_name_str, &props_enum_name);
+    let get_relation_entity_type_fn = generators::generate_get_relation_entity_type();
+    let get_relation_by_fn = generators::generate_get_relation_by(&new_struct_name, &new_struct_name_str, &props_enum_name);
+    let merge_relation_by_fn = generators::generate_merge_relation_by(&new_struct_name, &new_struct_name_str, &props_enum_name);
 
     // Assemble the final output.
     let expanded = quote! {
@@ -330,22 +267,22 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
             type Props = #props_enum_name;
 
             fn get_entity_type(&self) -> String {
-                Self::get_node_entity_type()
+                Self::get_relation_entity_type()
             }
             
             fn match_by(&self, props: &[Self::Props]) -> (String, std::collections::HashMap<String, BoltType>) {
-                Self::get_node_by(props)
+                Self::get_relation_by(props)
             }
             
             fn merge_by(&self, props: &[Self::Props]) -> (String, std::collections::HashMap<String, BoltType>) {
-                Self::merge_node_by(props)
+                Self::merge_relation_by(props)
             }
         }
         
         impl #new_struct_name {
-            #get_node_entity_type_fn
-            #get_node_by_fn
-            #merge_node_by_fn
+            #get_relation_entity_type_fn
+            #get_relation_by_fn
+            #merge_relation_by_fn
         }
 
         // Constructor for the generated struct.
@@ -353,8 +290,6 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
 
         // New() method for the template struct that forwards to the generated struct's new().
         #template_new_method
-
-        #from_impl
 
         // Accessor methods for the generated struct.
         #struct_impl
