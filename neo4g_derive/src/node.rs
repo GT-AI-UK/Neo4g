@@ -298,6 +298,7 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
     let get_node_entity_type_fn = generators::generate_get_node_entity_type();
     let get_node_by_fn = generators::generate_get_node_by(&new_struct_name, &new_struct_name_str, &props_enum_name);
     let merge_node_by_fn = generators::generate_merge_node_by(&new_struct_name, &new_struct_name_str, &props_enum_name);
+    //let create_node_from_self_fn = generators::generate_create_from_self(&new_struct_name, &new_struct_name_str, &fields);
 
     // Assemble the final output.
     let expanded = quote! {
@@ -346,6 +347,7 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
             #get_node_entity_type_fn
             #get_node_by_fn
             #merge_node_by_fn
+            //#create_node_from_self_fn
         }
 
         // Constructor for the generated struct.

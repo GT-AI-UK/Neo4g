@@ -5,6 +5,7 @@ pub trait Neo4gEntity {
     fn get_entity_type(&self) -> String;
     fn match_by(&self, props: &[Self::Props]) -> (String, std::collections::HashMap<String, BoltType>);
     fn merge_by(&self, props: &[Self::Props]) -> (String, std::collections::HashMap<String, BoltType>);
+    //fn create_from_self(&self) -> (String, std::collections::HashMap<String, BoltType>);
 }
 
 pub trait Neo4gProp: std::any::Any {
@@ -19,4 +20,5 @@ pub trait Neo4gEntityObjectSafe {
         -> (String, std::collections::HashMap<String, BoltType>);
     fn merge_by_obj(&self, props: &[Box<dyn Neo4gProp>])
         -> (String, std::collections::HashMap<String, BoltType>);
+    //fn create_from_self(&self) -> (String, std::collections::HashMap<String, BoltType>);
 }
