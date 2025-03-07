@@ -21,6 +21,7 @@ pub async fn connect_neo4j() -> Graph { //return db object, run on startup, bind
     if let Ok(env_db_password) = env::var("DB_PASSWORD") {db_password = env_db_password.to_string();} else {println!("DB_PASSWORD is not set in the .env file");}
     let uri = format!("bolt://{}:{}", host, port);
     let graph = Graph::new(&uri, &db_user, &db_password).await.unwrap();
+    println!("connected to graph");
     graph
 }
 
@@ -30,15 +31,17 @@ async fn main() {
     let (query, params) = User::get_node_by(&[UserProps::Name("Test".to_string())]);
     let (query, params) = Group::get_node_by(&[GroupProps::Name("TestG".to_string())]);
     println!("{}", query);
-    let user = User::new(12, "Test".to_string());
+    let user = User::new(0, "Test".to_string());
     println!("{}", user.get_entity_type());
     println!("{:?}", user.clone());
-    let test = Neo4gBuilder::new()
-        .match_node(&user, &[UserProps::Name("admin".to_string())])
+    let test1 = Neo4gBuilder::new()
+        .match_node(user.clone(), &[UserProps::Name("admin".to_string())])
         //.merge_node(&user, &[UserProps::Name("Sasd".to_string())])
-        
-        .run_query(graph).await;
-    //println!("{:?}", test);
+    
+        .add_to_return();
+        println!("match?: {:?}", test1.clone());
+        let test = test1.run_query(graph).await;
+    println!("{:?}", test);
     let test_user_props = UserProps::Id(15);
     println!("{:?}", test_user_props);
     let test = EntityWrapper::Group(Group::new(32, "TestG2".to_string(), "asdf".to_string()));
