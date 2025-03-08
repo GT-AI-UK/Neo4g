@@ -27,7 +27,7 @@ use neo4rs::{
 };
 use crate::entity_wrapper::EntityWrapper;
 use neo4g_derive::Neo4gNode;
-use crate::traits::Neo4gEntity;
+use crate::traits::{Neo4gEntity, PropValue};
 
 #[derive(Neo4gNode)]
 pub struct UserTemplate {

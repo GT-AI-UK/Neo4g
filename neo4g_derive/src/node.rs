@@ -47,7 +47,8 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
         // We assume the accessor method has the same name as the field.
         let access_method_ident = syn::Ident::new(&field_name, field_ident.span());
         quote! {
-            (#field_name_lit.to_string(), BoltType::from(self.#access_method_ident().clone()))
+            //(#field_name_lit.to_string(), BoltType::from(self.#access_method_ident().clone()))
+            (#field_name_lit.to_string(), self.#access_method_ident().clone())
         }
     }).collect();
     
@@ -60,10 +61,10 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
     }).collect();
     
     let create_node_from_self_fn = quote! {
-        pub fn create_node_from_self(&self) -> (String, std::collections::HashMap<String, BoltType>) {
+        pub fn create_node_from_self(&self) -> (String, std::collections::HashMap<String, impl Into<BoltType>>) {
             let keys: Vec<String> = vec![ #(#create_query_params),* ];
             let query = format!("CREATE (neo4g_node:{} {{{}}})\n", #new_struct_name_str, keys.join(", "));
-            let params_map: std::collections::HashMap<String, BoltType> = std::collections::HashMap::from([
+            let params_map: std::collections::HashMap<String, Self::ParamValue> = std::collections::HashMap::from([
                 #(#create_node_params),*
             ]);
             (query, params_map)
@@ -81,16 +82,19 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
         // Determine the correct conversion for each type.
         let conversion = if field_type_str == "String" {
             quote! {
-                BoltType::String(BoltString::from(val.clone()))
+                //BoltType::String(BoltString::from(val.clone()))
+                val.clone()
             }
         } else if ["i8", "i16", "i32", "i64", "i128", "u8", "u16", "u32", "u64", "u128", ].contains(&field_type_str.as_str()) {
             quote! {
-                BoltType::Integer(BoltInteger::from(*val))
+                //BoltType::Integer(BoltInteger::from(*val))
+                *val
             }
         } else {
             // Fallback: convert the value to a string and wrap it in a BoltType::String.
             quote! {
-                BoltType::String(BoltString::from(val.to_string()))
+                //BoltType::String(BoltString::from(val.to_string()))
+                val.to_string()
             }
         };
 
@@ -331,13 +335,19 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
         }
 
         impl #props_enum_name {
-            /// Converts a Props variant to a key and its stringified value.
-            pub fn to_query_param(&self) -> (&'static str, BoltType) {
+            /// Converts a Props variant to a key and a value that can later be converted into a BoltType.
+            pub fn to_query_param(&self) -> (&'static str, impl Into<BoltType>) {
                 match self {
-                    #(#to_query_param_match_arms),*
+                    // For example, if your match arms previously were generated like:
+                    // #props_enum_name::Id(val) => ("id", BoltType::from(val.clone())),
+                    // now you can write:
+                    #(
+                        #to_query_param_match_arms  // Each arm should return something like:
+                        //   #props_enum_name::Id(val) => ("id", val.clone())
+                    ),*
                 }
             }
-
+        
             // Accessor methods for the Props enum.
             #(#props_accessor_methods)*
         }
@@ -352,19 +362,21 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
         impl Neo4gEntity for #new_struct_name {
             type Props = #props_enum_name;
 
+            type ParamValue = PropValue;;
+
             fn get_entity_type(&self) -> String {
                 Self::get_node_entity_type()
             }
             
-            fn match_by(&self, props: &[Self::Props]) -> (String, std::collections::HashMap<String, BoltType>) {
+            fn match_by(&self, props: &[Self::Props]) -> (String, std::collections::HashMap<String, impl Into<BoltType>>) {
                 Self::get_node_by(props)
             }
             
-            fn merge_by(&self, props: &[Self::Props]) -> (String, std::collections::HashMap<String, BoltType>) {
+            fn merge_by(&self, props: &[Self::Props]) -> (String, std::collections::HashMap<String, impl Into<BoltType>>) {
                 Self::merge_node_by(props)
             }
 
-            fn create_from_self(&self) -> (String, std::collections::HashMap<String, BoltType>) {
+            fn create_from_self(&self) -> (String, std::collections::HashMap<String, impl Into<BoltType>>) {
                 self.create_node_from_self()
             }
         }
