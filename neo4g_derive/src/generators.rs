@@ -99,13 +99,13 @@ pub fn generate_create_node_from_self(struct_name: &Ident, struct_name_str: &str
     quote! {
         pub fn create_node_from_self(props: &[#props_enum_name]) -> (String, std::collections::HashMap<String, BoltType>) {
             let mut query = format!("CREATE (neo4g_node:{} {{", #struct_name_str);
-            let mut params = std::collections::HashMap::new();
+            let mut params: std::collections::HashMap<String, BoltType> = std::collections::HashMap::new();
 
             let props_str: Vec<String> = props
                 .iter()
                 .map(|prop| {
                     let (key, value) = prop.to_query_param();
-                    params.insert(key.to_string(), value);
+                    params.insert(key.to_string(), value.into());
                     format!("{}: ${}", key, key)
                 })
                 .collect();
@@ -121,14 +121,14 @@ pub fn generate_get_node_by(struct_name: &Ident, struct_name_str: &str, props_en
     quote! {
         pub fn get_node_by(props: &[#props_enum_name]) -> (String, std::collections::HashMap<String, BoltType>) {
             let mut query = format!("MATCH (neo4g_node:{})", #struct_name_str);
-            let mut params = std::collections::HashMap::new();
+            let mut params: std::collections::HashMap<String, BoltType> = std::collections::HashMap::new();
 
             if !props.is_empty() {
                 let filters: Vec<String> = props
                     .iter()
                     .map(|prop| {
                         let (key, value) = prop.to_query_param();
-                        params.insert(key.to_string(), value);
+                        params.insert(key.to_string(), value.into());
                         format!("neo4g_node.{} = ${}", key, key)
                     })
                     .collect();
@@ -144,13 +144,13 @@ pub fn generate_merge_node_by(struct_name: &Ident, struct_name_str: &str, props_
     quote! {
         pub fn merge_node_by(props: &[#props_enum_name]) -> (String, std::collections::HashMap<String, BoltType>) {
             let mut query = format!("MERGE (neo4g_node:{} {{", #struct_name_str);
-            let mut params = std::collections::HashMap::new();
+            let mut params: std::collections::HashMap<String, BoltType> = std::collections::HashMap::new();
 
             let props_str: Vec<String> = props
                 .iter()
                 .map(|prop| {
                     let (key, value) = prop.to_query_param();
-                    params.insert(key.to_string(), value);
+                    params.insert(key.to_string(), value.into());
                     format!("{}: ${}", key, key)
                 })
                 .collect();
@@ -175,14 +175,14 @@ pub fn generate_get_relation_by(struct_name: &Ident, struct_name_str: &str, prop
     quote! {
         pub fn get_relation_by(props: &[#props_enum_name]) -> (String, std::collections::HashMap<String, BoltType>) {
             let mut query = format!("MATCH (a)-[neo4g_rel:{}]->(b)\n", #struct_name_str);
-            let mut params = std::collections::HashMap::new();
+            let mut params: std::collections::HashMap<String, BoltType> = std::collections::HashMap::new();
 
             if !props.is_empty() {
                 let filters: Vec<String> = props
                     .iter()
                     .map(|prop| {
                         let (key, value) = prop.to_query_param();
-                        params.insert(key.to_string(), value);
+                        params.insert(key.to_string(), value.into());
                         format!("neo4g_rel.{} = ${}", key, key)
                     })
                     .collect();
@@ -198,13 +198,13 @@ pub fn generate_merge_relation_by(struct_name: &Ident, struct_name_str: &str, pr
     quote! {
         pub fn merge_relation_by(props: &[#props_enum_name]) -> (String, std::collections::HashMap<String, BoltType>) {
             let mut query = format!("MATCH (a), (b) MERGE (a)-[neo4g_rel:{} {{", #struct_name_str);
-            let mut params = std::collections::HashMap::new();
+            let mut params: std::collections::HashMap<String, BoltType> = std::collections::HashMap::new();
 
             let props_str: Vec<String> = props
                 .iter()
                 .map(|prop| {
                     let (key, value) = prop.to_query_param();
-                    params.insert(key.to_string(), value);
+                    params.insert(key.to_string(), value.into());
                     format!("{}: ${}", key, key)
                 })
                 .collect();

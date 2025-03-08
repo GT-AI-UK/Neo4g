@@ -4,7 +4,7 @@ use neo4g::traits::{Neo4gEntity, Neo4gProp};
 use neo4g::objects::{User, Group, UserProps, GroupProps};
 use neo4g::entity_wrapper::EntityWrapper;
 use neo4g::query_builder::Neo4gBuilder;
-use neo4rs::Graph;
+use neo4rs::{BoltInteger, BoltType, Graph};
 use dotenv::dotenv;
 use std::env;
 use paste::paste;
@@ -27,6 +27,15 @@ pub async fn connect_neo4j() -> Graph { //return db object, run on startup, bind
 
 #[tokio::main]
 async fn main() {
+    let wtf = BoltType::Integer(BoltInteger::from(32));
+    let mut wtf2: BoltType;
+    
+    wtf2 = wtf.into();
+    match wtf2 {
+            BoltType::Integer(intsdf) => println!("it converted?"),
+            _ => println!("no convert"),
+        }
+    
     let graph = connect_neo4j().await;
     let (query, params) = User::get_node_by(&[UserProps::Name("Test".to_string())]);
     let (query, params) = Group::get_node_by(&[GroupProps::Name("TestG".to_string())]);
