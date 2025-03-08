@@ -35,7 +35,7 @@ async fn main() {
     println!("{}", user.get_entity_type());
     println!("{:?}", user.clone());
     let test1 = Neo4gBuilder::new()
-        .match_node(user.clone(), &[UserProps::Name("admin".to_string())])
+        .create_node(user.clone())
         //.merge_node(&user, &[UserProps::Name("Sasd".to_string())])
     
         .add_to_return()

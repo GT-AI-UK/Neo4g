@@ -95,7 +95,27 @@ pub fn generate_get_node_entity_type() -> proc_macro2::TokenStream {
 //         }
 //     }
 // }
+pub fn generate_create_node_from_self(struct_name: &Ident, struct_name_str: &str, props_enum_name: &Ident) -> proc_macro2::TokenStream {
+    quote! {
+        pub fn create_node_from_self(props: &[#props_enum_name]) -> (String, std::collections::HashMap<String, BoltType>) {
+            let mut query = format!("CREATE (neo4g_node:{} {{", #struct_name_str);
+            let mut params = std::collections::HashMap::new();
 
+            let props_str: Vec<String> = props
+                .iter()
+                .map(|prop| {
+                    let (key, value) = prop.to_query_param();
+                    params.insert(key.to_string(), value);
+                    format!("{}: ${}", key, key)
+                })
+                .collect();
+
+            query.push_str(&props_str.join(", "));
+            query.push_str("})\n");
+            (query, params)
+        }
+    }
+}
 
 pub fn generate_get_node_by(struct_name: &Ident, struct_name_str: &str, props_enum_name: &Ident) -> proc_macro2::TokenStream {
     quote! {

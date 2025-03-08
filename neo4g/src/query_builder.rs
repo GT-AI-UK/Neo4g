@@ -83,6 +83,8 @@ impl<Q: CanCreate> Neo4gBuilder<Q> {
         let name = format!("neo4g_node{}", self.node_number);
         self.previous_entity = Some((name.clone(), EntityType::Node, EntityWrapper::from(entity.clone())));
         let (query_part, params) = entity.create_from_self();
+        self.query.push_str(&query_part.replace("neo4g_node", &name.clone()));
+        self.params.extend(params);
         self.transition::<CreatedNode>()
     }
 
@@ -98,15 +100,15 @@ impl<Q: CanCreate> Neo4gBuilder<Q> {
         self.transition::<CreatedNode>()
     }
 
-    pub fn delete_node<T: Neo4gEntity>(mut self, entity: T, props: &[T::Props], detach: bool) -> Neo4gBuilder<DeletedEntity>
-    where EntityWrapper: From<T>, T: Clone {
-        self.clause = Clause::Delete;
-        let (query_part, params) = entity.delete_by(props);
-        let (query_part, params) = ("//Not Implemented".to_string(), vec![("//Not Implemented".to_string(),BoltType::Null(BoltNull))]);
-        self.query.push_str(&query_part);
-        self.params.extend(params);
-        self.transition::<DeletedEntity>()
-    }
+    // pub fn delete_node<T: Neo4gEntity>(mut self, entity: T, props: &[T::Props], detach: bool) -> Neo4gBuilder<DeletedEntity>
+    // where EntityWrapper: From<T>, T: Clone {
+    //     self.clause = Clause::Delete;
+    //     let (query_part, params) = entity.delete_by(props);
+    //     let (query_part, params) = ("//Not Implemented".to_string(), vec![("//Not Implemented".to_string(),BoltType::Null(BoltNull))]);
+    //     self.query.push_str(&query_part);
+    //     self.params.extend(params);
+    //     self.transition::<DeletedEntity>()
+    // }
 }
 
 impl<Q: CanMatch> Neo4gBuilder<Q> {
@@ -123,46 +125,46 @@ impl<Q: CanMatch> Neo4gBuilder<Q> {
     }
 }
 
-impl<Q: CanInlineRelate> Neo4gBuilder<Q> {
-    pub fn relate_inline<T: Neo4gEntity>(mut self, entity: T, props: &[T::Props]) -> Neo4gBuilder<CreatedInlineRelation>
-    where EntityWrapper: From<T>, T: Clone {
-        // IMPLEMENT THESE!
-        self.relationship_number += 1;
-        let name = format!("neo4g_rel{}", self.relationship_number);
-        self.previous_entity = Some((name.clone(), EntityType::Node, EntityWrapper::from(entity.clone())));
-        let (query_part, params) = entity.inline_with(props);
-        self.query.push_str(&query_part.replace("neo4g_node", &name.clone()));
-        self.params.extend(params);
-        //self.query.push_str(&format!("-[neo4g_rel{}:]->", self.relationship_number));//, self.relationship_type));
-        self.transition::<CreatedInlineRelation>()
-    }
-}
+// impl<Q: CanInlineRelate> Neo4gBuilder<Q> {
+//     pub fn relate_inline<T: Neo4gEntity>(mut self, entity: T, props: &[T::Props]) -> Neo4gBuilder<CreatedInlineRelation>
+//     where EntityWrapper: From<T>, T: Clone {
+//         // IMPLEMENT THESE!
+//         self.relationship_number += 1;
+//         let name = format!("neo4g_rel{}", self.relationship_number);
+//         self.previous_entity = Some((name.clone(), EntityType::Node, EntityWrapper::from(entity.clone())));
+//         let (query_part, params) = entity.inline_with(props);
+//         self.query.push_str(&query_part.replace("neo4g_node", &name.clone()));
+//         self.params.extend(params);
+//         //self.query.push_str(&format!("-[neo4g_rel{}:]->", self.relationship_number));//, self.relationship_type));
+//         self.transition::<CreatedInlineRelation>()
+//     }
+// }
 
-impl<Q: CanInlineNode> Neo4gBuilder<Q> {
-    pub fn node_inline<T: Neo4gEntity>(mut self, entity: T, props: &[T::Props]) -> Neo4gBuilder<CreatedNode>
-    where EntityWrapper: From<T>, T: Clone {
-        self.node_number += 1;
-        let name = format!("neo4g_rel{}", self.relationship_number);
-        self.previous_entity = Some((name.clone(), EntityType::Node, EntityWrapper::from(entity.clone())));
-        let (query_part, params) = entity.inline_with(props);
-        self.query.push_str(&query_part.replace("neo4g_node", &name.clone()));
-        self.params.extend(params);
-        self.transition::<CreatedNode>()
-    }
-}
+// impl<Q: CanInlineNode> Neo4gBuilder<Q> {
+//     pub fn node_inline<T: Neo4gEntity>(mut self, entity: T, props: &[T::Props]) -> Neo4gBuilder<CreatedNode>
+//     where EntityWrapper: From<T>, T: Clone {
+//         self.node_number += 1;
+//         let name = format!("neo4g_rel{}", self.relationship_number);
+//         self.previous_entity = Some((name.clone(), EntityType::Node, EntityWrapper::from(entity.clone())));
+//         let (query_part, params) = entity.inline_with(props);
+//         self.query.push_str(&query_part.replace("neo4g_node", &name.clone()));
+//         self.params.extend(params);
+//         self.transition::<CreatedNode>()
+//     }
+// }
 
-impl<Q: CanInlineNode> Neo4gBuilder<Q> {
-    pub fn node_inline_match<T: Neo4gEntity>(mut self, entity: T, props: &[T::Props]) -> Neo4gBuilder<MatchedNode>
-    where EntityWrapper: From<T>, T: Clone {
-        self.node_number += 1;
-        let name = format!("neo4g_rel{}", self.relationship_number);
-        self.previous_entity = Some((name.clone(), EntityType::Node, EntityWrapper::from(entity.clone())));
-        let (query_part, params) = entity.inline_match_with(props);
-        self.query.push_str(&query_part.replace("neo4g_node", &name.clone()));
-        self.params.extend(params);
-        self.transition::<MatchedNode>()
-    }
-}
+// impl<Q: CanInlineNode> Neo4gBuilder<Q> {
+//     pub fn node_inline_match<T: Neo4gEntity>(mut self, entity: T, props: &[T::Props]) -> Neo4gBuilder<MatchedNode>
+//     where EntityWrapper: From<T>, T: Clone {
+//         self.node_number += 1;
+//         let name = format!("neo4g_rel{}", self.relationship_number);
+//         self.previous_entity = Some((name.clone(), EntityType::Node, EntityWrapper::from(entity.clone())));
+//         let (query_part, params) = entity.inline_match_with(props);
+//         self.query.push_str(&query_part.replace("neo4g_node", &name.clone()));
+//         self.params.extend(params);
+//         self.transition::<MatchedNode>()
+//     }
+// }
 
 impl<Q: CanCall> Neo4gBuilder<Q> {
     pub fn call(mut self, inner_bulder: Neo4gBuilder<Called>) -> Neo4gBuilder<Called> {
@@ -185,17 +187,17 @@ impl<Q: CanAddReturn> Neo4gBuilder<Q> {
 }
 
 impl<Q: CanReturn> Neo4gBuilder<Q> {
-    pub fn relate_between<T: Neo4gEntity>(mut self, source: &str, dest: &str, entity: T, props: &[T::Props]) -> Neo4gBuilder<CreatedRelation>
-    where EntityWrapper: From<T>, T: Clone {
-        // IMPLEMENT THESE!
-        self.relationship_number += 1;
-        let name = format!("neo4g_rel{}", self.relationship_number);
-        self.previous_entity = Some((name.clone(), EntityType::Node, EntityWrapper::from(entity.clone())));
-        let (query_part, params) = entity.relate_with(source, dest, props);
-        self.query.push_str(&query_part.replace("neo4g_node", &name.clone()));
-        self.params.extend(params);
-        self.transition::<CreatedRelation>()
-    }
+    // pub fn relate_between<T: Neo4gEntity>(mut self, source: &str, dest: &str, entity: T, props: &[T::Props]) -> Neo4gBuilder<CreatedRelation>
+    // where EntityWrapper: From<T>, T: Clone {
+    //     // IMPLEMENT THESE!
+    //     self.relationship_number += 1;
+    //     let name = format!("neo4g_rel{}", self.relationship_number);
+    //     self.previous_entity = Some((name.clone(), EntityType::Node, EntityWrapper::from(entity.clone())));
+    //     let (query_part, params) = entity.relate_with(source, dest, props);
+    //     self.query.push_str(&query_part.replace("neo4g_node", &name.clone()));
+    //     self.params.extend(params);
+    //     self.transition::<CreatedRelation>()
+    // }
 
     pub fn set_returns(mut self, returns: &[(String, EntityType, EntityWrapper)]) -> Neo4gBuilder<ReturnSet> {
         if returns.is_empty() && self.return_refs.is_empty() {
@@ -223,6 +225,7 @@ impl<T: CanRun> Neo4gBuilder<T> {
         let query = Query::new(self.query).param("name", "admin");
         let mut return_vec: Vec<EntityWrapper> = Vec::new();
         if let Ok(mut result) = graph.execute(query).await {
+            println!("query ran");
             while let Ok(Some(row)) = result.next().await {
                 for (alias, entity_type, ret_obj) in self.return_refs.clone() {
                     match entity_type {
@@ -238,15 +241,15 @@ impl<T: CanRun> Neo4gBuilder<T> {
                             }
                         },
                         EntityType::Relation => {
-                            if let Ok(relation) = row.get::<Relation>(&alias) {
-                                println!("got relation for: {}", &alias);
-                                let label = relation.typ();
-                                println!("got labels: {:?}", label.clone()); //probably not label?
-                                let wrapped_entity = EntityWrapper::from_relation(relation.clone());
-                                return_vec.push(wrapped_entity);
-                            } else {
-                                println!("error getting {} from db result", alias);
-                            }
+                            // if let Ok(relation) = row.get::<Relation>(&alias) {
+                            //     println!("got relation for: {}", &alias);
+                            //     let label = relation.typ();
+                            //     println!("got labels: {:?}", label.clone()); //probably not label?
+                            //     let wrapped_entity = EntityWrapper::from_relation(relation.clone());
+                            //     return_vec.push(wrapped_entity);
+                            // } else {
+                            //     println!("error getting {} from db result", alias);
+                            // }
                         },
                     }
                 }

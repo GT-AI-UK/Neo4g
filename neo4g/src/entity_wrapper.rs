@@ -31,10 +31,10 @@ use neo4rs::{
 use neo4g_derive::Neo4gNode;
 use crate::traits::Neo4gEntity;
 
-#[derive(Neo4gNode, Clone, Debug)]
-pub struct NothingTemplate {
-    pub nothing: bool,
-}
+    #[derive(Neo4gNode, Clone, Debug)]
+    pub struct NothingTemplate {
+        pub nothing: bool,
+    }
 
 generate_entity_wrapper!(Nothing, User, Group);
 
