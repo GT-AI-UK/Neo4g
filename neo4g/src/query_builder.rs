@@ -222,7 +222,7 @@ impl<Q: CanReturn> Neo4gBuilder<Q> {
 impl<T: CanRun> Neo4gBuilder<T> {
     pub async fn run_query(self, graph: Graph) -> anyhow::Result<Vec<EntityWrapper>> {
         println!("query: {}", self.query.clone());
-        let query = Query::new(self.query).param("name", "admin");
+        let query = Query::new(self.query).params(self.params);
         let mut return_vec: Vec<EntityWrapper> = Vec::new();
         if let Ok(mut result) = graph.execute(query).await {
             println!("query ran");

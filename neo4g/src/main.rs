@@ -31,7 +31,7 @@ async fn main() {
     let (query, params) = User::get_node_by(&[UserProps::Name("Test".to_string())]);
     let (query, params) = Group::get_node_by(&[GroupProps::Name("TestG".to_string())]);
     println!("{}", query);
-    let user = User::new(0, "Test".to_string());
+    let user = User::new(0, "Test3".to_string());
     println!("{}", user.get_entity_type());
     println!("{:?}", user.clone());
     let test1 = Neo4gBuilder::new()
