@@ -89,7 +89,8 @@ impl<Q: CanNode> Neo4gCreateStatement<Q> {
     pub fn node<T: Neo4gEntity>(mut self, entity: T) -> Neo4gCreateStatement<CreatedNode>
     where EntityWrapper: From<T>, T: Clone {
         self.node_number += 1;
-        let name = format!("neo4g_node{}", self.node_number);
+        let label = entity.get_label();
+        let name = format!("{}{}:AdditionalLabels", label, self.node_number);
         self.previous_entity = Some((name.clone(), EntityType::Node, EntityWrapper::from(entity.clone())));
         let (query_part, params) = entity.create_from_self();
         self.query.push_str(&query_part.replace("neo4g_node", &name.clone()));
@@ -105,7 +106,8 @@ impl Neo4gCreateStatement<CreatedNode> {
     pub fn relation<T: Neo4gEntity>(mut self, entity: T) -> Neo4gCreateStatement<CreatedRelation>
     where EntityWrapper: From<T>, T: Clone {
         self.relation_number += 1;
-        let name = format!("neo4g_relation{}", self.relation_number);
+        let label = entity.get_label();
+        let name = format!("{}{}:AdditionalLabels", label, self.node_number);
         self.previous_entity = Some((name.clone(), EntityType::Relation, EntityWrapper::from(entity.clone())));
         let (query_part, params) = entity.create_from_self();
         self.query.push_str(&query_part.replace("neo4g_relation", &name.clone()));
@@ -124,29 +126,35 @@ impl <Q: CanAddReturn> Neo4gCreateStatement<Q> {
         }
         self
     }
+    pub fn set_additional_labels(mut self, labels: &[&str]) -> Self {
+        self.query = self.query.replace(":AdditionalLabels", &labels.join(":"));
+        self
+    }
 }
 impl <Q: PossibleStatementEnd> Neo4gCreateStatement<Q> {
-    pub fn end_statement(self) -> Neo4gBuilder<CreatedNode> {
+    pub fn end_statement(mut self) -> Neo4gBuilder<CreatedNode> {
+        self.query = self.query.replace(":AdditionalLabels", "");
         Neo4gBuilder::from(self)
     }
 }
 
 //Merge statement methods
 impl<Q: CanNode> Neo4gMergeStatement<Q> {
-    pub fn node<T: Neo4gEntity>(mut self, entity: T) -> Neo4gMergeStatement<CreatedNode>
+    // pub fn node<T: Neo4gEntity>(mut self, entity: T) -> Neo4gMergeStatement<CreatedNode>
+    // where EntityWrapper: From<T>, T: Clone {
+    //     self.node_number += 1;
+    //     let name = format!("neo4g_node{}", self.node_number);
+    //     self.previous_entity = Some((name.clone(), EntityType::Node, EntityWrapper::from(entity.clone())));
+    //     let (query_part, params) = entity.merge_from_self();
+    //     self.query.push_str(&query_part.replace("neo4g_node", &name.clone()));
+    //     self.params.extend(params);
+    //     self.transition::<CreatedNode>()
+    // }
+    pub fn node<T: Neo4gEntity>(mut self, entity: T, props: &[T::Props]) -> Neo4gMergeStatement<CreatedNode>
     where EntityWrapper: From<T>, T: Clone {
         self.node_number += 1;
-        let name = format!("neo4g_node{}", self.node_number);
-        self.previous_entity = Some((name.clone(), EntityType::Node, EntityWrapper::from(entity.clone())));
-        let (query_part, params) = entity.merge_from_self();
-        self.query.push_str(&query_part.replace("neo4g_node", &name.clone()));
-        self.params.extend(params);
-        self.transition::<CreatedNode>()
-    }
-    pub fn node_by_props<T: Neo4gEntity>(mut self, entity: T, props: &[T::Props]) -> Neo4gMergeStatement<CreatedNode>
-    where EntityWrapper: From<T>, T: Clone {
-        self.node_number += 1;
-        let name = format!("neo4g_node{}", self.node_number);
+        let label = entity.get_label();
+        let name = format!("{}{}:AdditionalLabels", label, self.node_number);
         self.previous_entity = Some((name.clone(), EntityType::Node, EntityWrapper::from(entity.clone())));
         let (query_part, params) = entity.merge_by(props);
         self.query.push_str(&query_part.replace("neo4g_node", &name.clone()));
@@ -159,20 +167,22 @@ impl<Q: CanNode> Neo4gMergeStatement<Q> {
     }
 }
 impl Neo4gMergeStatement<CreatedNode> {
-    pub fn relation<T: Neo4gEntity>(mut self, entity: T) -> Neo4gMergeStatement<CreatedRelation>
+    // pub fn relation<T: Neo4gEntity>(mut self, entity: T) -> Neo4gMergeStatement<CreatedRelation>
+    // where EntityWrapper: From<T>, T: Clone {
+    //     self.relation_number += 1;
+    //     let label = entity.get_label();
+    //     let name = format!("{}{}:AdditionalLabels", label, self.node_number);
+    //     self.previous_entity = Some((name.clone(), EntityType::Relation, EntityWrapper::from(entity.clone())));
+    //     let (query_part, params) = entity.merge_from_self();
+    //     self.query.push_str(&query_part.replace("neo4g_relation", &name.clone()));
+    //     self.params.extend(params);
+    //     self.transition::<CreatedRelation>()
+    // }
+    pub fn relation<T: Neo4gEntity>(mut self, entity: T, props: &[T::Props]) -> Neo4gMergeStatement<CreatedRelation>
     where EntityWrapper: From<T>, T: Clone {
         self.relation_number += 1;
-        let name = format!("neo4g_relation{}", self.relation_number);
-        self.previous_entity = Some((name.clone(), EntityType::Relation, EntityWrapper::from(entity.clone())));
-        let (query_part, params) = entity.merge_from_self();
-        self.query.push_str(&query_part.replace("neo4g_relation", &name.clone()));
-        self.params.extend(params);
-        self.transition::<CreatedRelation>()
-    }
-    pub fn relation_by_props<T: Neo4gEntity>(mut self, entity: T, props: &[T::Props]) -> Neo4gMergeStatement<CreatedRelation>
-    where EntityWrapper: From<T>, T: Clone {
-        self.relation_number += 1;
-        let name = format!("neo4g_relation{}", self.relation_number);
+        let label = entity.get_label();
+        let name = format!("{}{}:AdditionalLabels", label, self.node_number);
         self.previous_entity = Some((name.clone(), EntityType::Relation, EntityWrapper::from(entity.clone())));
         let (query_part, params) = entity.merge_by(props);
         self.query.push_str(&query_part.replace("neo4g_relation", &name.clone()));
@@ -189,6 +199,10 @@ impl <Q: CanAddReturn> Neo4gMergeStatement<Q> {
         if let Some(previous) = self.previous_entity.clone() {
             self.return_refs.push(previous);
         }
+        self
+    }
+    pub fn set_additional_labels(mut self, labels: &[&str]) -> Self {
+        self.query = self.query.replace(":AdditionalLabels", &labels.join(":"));
         self
     }
 }
@@ -210,6 +224,7 @@ impl <Q: PossibleStatementEnd> Neo4gMergeStatement<Q> {
         self
     }
     pub fn end_statement(mut self) -> Neo4gBuilder<CreatedNode> {
+        self.query = self.query.replace(":AdditionalLabels", "");
         self.query.push_str(&format!("{}\n{}", self.on_match_str, self.on_create_str));
         Neo4gBuilder::from(self)
     }
@@ -217,22 +232,27 @@ impl <Q: PossibleStatementEnd> Neo4gMergeStatement<Q> {
 
 //Match statement methods
 impl<Q: CanNode> Neo4gMatchStatement<Q> {
-    pub fn node<T: Neo4gEntity>(mut self, entity: T) -> Neo4gMatchStatement<MatchedNode>
+    // pub fn node<T: Neo4gEntity>(mut self, entity: T) -> Neo4gMatchStatement<MatchedNode>
+    // where EntityWrapper: From<T>, T: Clone {
+    //     self.node_number += 1;
+    //     let name = format!("neo4g_node{}", self.node_number);
+    //     self.previous_entity = Some((name.clone(), EntityType::Node, EntityWrapper::from(entity.clone())));
+    //     let (query_part, params) = entity.match_from_self();
+    //     self.query.push_str(&query_part.replace("neo4g_node", &name.clone()));
+    //     self.params.extend(params);
+    //     self.transition::<MatchedNode>()
+    // }
+    pub fn node<T: Neo4gEntity>(mut self, entity: T, props: &[T::Props]) -> Neo4gMatchStatement<MatchedNode>
     where EntityWrapper: From<T>, T: Clone {
         self.node_number += 1;
-        let name = format!("neo4g_node{}", self.node_number);
+        let label = entity.get_label();
+        let name = format!("{}{}:AdditionalLabels", label, self.node_number);
         self.previous_entity = Some((name.clone(), EntityType::Node, EntityWrapper::from(entity.clone())));
-        let (query_part, params) = entity.match_from_self();
-        self.query.push_str(&query_part.replace("neo4g_node", &name.clone()));
-        self.params.extend(params);
-        self.transition::<MatchedNode>()
-    }
-    pub fn node_by_props<T: Neo4gEntity>(mut self, entity: T, props: &[T::Props]) -> Neo4gMatchStatement<MatchedNode>
-    where EntityWrapper: From<T>, T: Clone {
-        self.node_number += 1;
-        let name = format!("neo4g_node{}", self.node_number);
-        self.previous_entity = Some((name.clone(), EntityType::Node, EntityWrapper::from(entity.clone())));
-        let (query_part, params) = entity.match_by(props);
+        let (query_part, where_str, params) = entity.match_by(props);
+        if self.where_str.is_empty() {
+            self.where_str.push_str("WHERE ")
+        }
+        self.where_str.push_str(&where_str);
         self.query.push_str(&query_part.replace("neo4g_node", &name.clone()));
         self.params.extend(params);
         self.transition::<MatchedNode>()
@@ -243,22 +263,28 @@ impl<Q: CanNode> Neo4gMatchStatement<Q> {
     }
 }
 impl Neo4gMatchStatement<MatchedNode> {
-    pub fn relation<T: Neo4gEntity>(mut self, entity: T) -> Neo4gMatchStatement<MatchedRelation>
-    where EntityWrapper: From<T>, T: Clone {
-        self.relation_number += 1;
-        let name = format!("neo4g_relation{}", self.relation_number);
-        self.previous_entity = Some((name.clone(), EntityType::Relation, EntityWrapper::from(entity.clone())));
-        let (query_part, params) = entity.match_from_self();
-        self.query.push_str(&query_part.replace("neo4g_relation", &name.clone()));
-        self.params.extend(params);
-        self.transition::<MatchedRelation>()
-    }
-    pub fn relation_by_props<T: Neo4gEntity>(mut self, entity: T, props: &[T::Props]) -> Neo4gMatchStatement<MatchedRelation>
+    // pub fn relation<T: Neo4gEntity>(mut self, entity: T) -> Neo4gMatchStatement<MatchedRelation>
+    // where EntityWrapper: From<T>, T: Clone {
+    //     self.relation_number += 1;
+    //     let label = entity.get_label();
+    //     let name = format!("{}{}:AdditionalLabels", label, self.node_number);
+    //     self.previous_entity = Some((name.clone(), EntityType::Relation, EntityWrapper::from(entity.clone())));
+    //     let (query_part, params) = entity.match_from_self();
+    //     self.query.push_str(&query_part.replace("neo4g_relation", &name.clone()));
+    //     self.params.extend(params);
+    //     self.transition::<MatchedRelation>()
+    // }
+    pub fn relation<T: Neo4gEntity>(mut self, entity: T, props: &[T::Props]) -> Neo4gMatchStatement<MatchedRelation>
     where EntityWrapper: From<T>, T: Clone { // do I need this - will it generate an inner where?
         self.relation_number += 1;
-        let name = format!("neo4g_relation{}", self.relation_number);
+        let label = entity.get_label();
+        let name = format!("{}{}:AdditionalLabels", label, self.node_number);
         self.previous_entity = Some((name.clone(), EntityType::Relation, EntityWrapper::from(entity.clone())));
-        let (query_part, params) = entity.match_by(props);
+        let (query_part, where_str, params) = entity.match_by(props);
+        if self.where_str.is_empty() {
+            self.where_str.push_str("WHERE ")
+        }
+        self.where_str.push_str(&where_str);
         self.query.push_str(&query_part.replace("neo4g_relation", &name.clone()));
         self.params.extend(params);
         self.transition::<MatchedRelation>()
@@ -275,6 +301,10 @@ impl <Q: CanAddReturn> Neo4gMatchStatement<Q> {
         }
         self
     }
+    pub fn set_additional_labels(mut self, labels: &[&str]) -> Self {
+        self.query = self.query.replace(":AdditionalLabels", &labels.join(":"));
+        self
+    }
 }
 impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> {
     pub fn r#where<T: Neo4gEntity>(mut self, alias: &str, entity: T, props: &[T::Props]) -> Self
@@ -287,6 +317,7 @@ impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> {
     }
     pub fn end_statement(mut self) -> Neo4gBuilder<MatchedNode> {
         self.query.push_str(&format!("{}", self.where_str));
+        self.query = self.query.replace(":AdditionalLabels", "");
         Neo4gBuilder::from(self)
     }
 }

@@ -10,10 +10,10 @@ pub fn neo4g_node_derive(input: TokenStream) -> TokenStream {
     node::generate_neo4g_node(input)
 }
 
-// #[proc_macro_derive(Neo4gRelationship)]
-// pub fn neo4g_relationship_derive(input: TokenStream) -> TokenStream {
-//     relationship::generate_neo4g_relationship(input)
-// }
+#[proc_macro_derive(Neo4gRelationship)]
+pub fn neo4g_relationship_derive(input: TokenStream) -> TokenStream {
+    relation::generate_neo4g_relation(input)
+}
 
 #[proc_macro_derive(Neo4gEntityWrapper)] // New macro
 pub fn neo4g_entity_derive(input: TokenStream) -> TokenStream {

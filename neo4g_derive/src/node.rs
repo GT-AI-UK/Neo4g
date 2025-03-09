@@ -26,49 +26,10 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
         vec![]
     };
 
-    let all_fields: Vec<(&syn::Ident, syn::Type)> = if let Data::Struct(data_struct) = &input.data {
-        if let Fields::Named(fields) = &data_struct.fields {
-            fields
-                .named
-                .iter()
-                .map(|f| (f.ident.as_ref().unwrap(), f.ty.clone()))
-                .collect()
-        } else {
-            vec![]
-        }
-    } else {
-        vec![]
-    };
     // Helper to check if a field has the ignore attribute.
     fn should_ignore_field(field: &syn::Field) -> bool {
         field.attrs.iter().any(|attr| attr.path().is_ident("not_query_param"))
     }
-
-    // Collect all fields from the struct.
-    // let all_fields_1: Vec<&syn::Field> = if let Data::Struct(data_struct) = &input.data {
-    //     if let Fields::Named(fields) = &data_struct.fields {
-    //         fields.named.iter().collect()
-    //     } else {
-    //         vec![]
-    //     }
-    // } else {
-    //     vec![]
-    // };
-
-    // let all_fields: Vec<(&syn::Ident, syn::Type)> = all_fields_1
-    //     .iter()
-    //     .map(|field| (field.ident.as_ref().unwrap(), field.ty.clone()))
-    //     .collect();
-
-    // Use all_fields for generating accessor methods, etc.
-
-    // // Then, for query generation, filter out fields with #[neo4j_ignore]
-    // let fields: Vec<(&syn::Ident, syn::Type)> = all_fields_1
-    //     .iter()
-    //     .filter(|field| !should_ignore_field(field))
-    //     .map(|field| (field.ident.as_ref().unwrap(), field.ty.clone()))
-    //     .collect();
-
     
     // Generated Props enum (e.g. UserProps).
     let props_enum_name = syn::Ident::new(&format!("{}Props", base_name), struct_name.span());
@@ -128,34 +89,6 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
     };
 
     // Generate match arms for converting a variant’s inner value to a query parameter.
-    // let to_query_param_match_arms: Vec<_> = fields.iter().map(|(field_ident, field_type)| {
-    //     let variant = syn::Ident::new(&utils::capitalize(&field_ident.to_string()), struct_name.span());
-    //     let key = syn::LitStr::new(&field_ident.to_string(), struct_name.span());
-
-    //     // Convert the field type into a string so we can match on it.
-    //     let field_type_str = field_type.to_token_stream().to_string();
-
-    //     // Determine the correct conversion for each type.
-    //     let conversion = if field_type_str == "String" {
-    //         quote! {
-    //             BoltType::String(BoltString::from(val.clone()))
-    //         }
-    //     } else if ["i8", "i16", "i32", "i64", "i128", "u8", "u16", "u32", "u64", "u128", ].contains(&field_type_str.as_str()) {
-    //         quote! {
-    //             BoltType::Integer(BoltInteger::from(*val))
-    //         }
-    //     } else {
-    //         // Fallback: convert the value to a string and wrap it in a BoltType::String.
-    //         quote! {
-    //             BoltType::String(BoltString::from(val.to_string()))
-    //         }
-    //     };
-
-    //     quote! {
-    //         #props_enum_name::#variant(val) => (#key, #conversion)
-    //     }
-    // }).collect();
-
     let to_query_param_match_arms: Vec<_> = all_fields_full.iter().map(|(field)| {
         let field_ident = field.ident.as_ref().unwrap();
         let variant = syn::Ident::new(&utils::capitalize(&field_ident.to_string()), field_ident.span());
@@ -440,7 +373,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
         let get_node_entity_type_fn = generators::generate_get_node_entity_type();
         let get_node_by_fn = generators::generate_get_node_by(&new_struct_name, &new_struct_name_str, &props_enum_name);
         let merge_node_by_fn = generators::generate_merge_node_by(&new_struct_name, &new_struct_name_str, &props_enum_name);
-        //let create_node_from_self_fn = generators::generate_create_node_from_self(&new_struct_name, &new_struct_name_str, &props_enum_name);
+        let get_node_label_fn = generators::generate_get_node_label(&struct_name_str);
 
     // Assemble the final output.
     let expanded = quote! {
@@ -475,8 +408,12 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
             fn get_entity_type(&self) -> String {
                 Self::get_node_entity_type()
             }
+
+            fn get_label(&self) -> String {
+                Self::get_node_label()
+            }
             
-            fn match_by(&self, props: &[Self::Props]) -> (String, std::collections::HashMap<String, BoltType>) {
+            fn match_by(&self, props: &[Self::Props]) -> (String, String, std::collections::HashMap<String, BoltType>) {
                 Self::get_node_by(props)
             }
             
@@ -494,6 +431,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
             #get_node_by_fn
             #merge_node_by_fn
             #create_node_from_self_fn
+            #get_node_label_fn
         }
 
         // Constructor for the generated struct.

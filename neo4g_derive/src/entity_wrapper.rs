@@ -22,6 +22,8 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
     let mut accessors = Vec::new();
     let mut _match_arms = Vec::new();
     let mut from_node_checks = Vec::new();
+    let mut from_relation_checks = Vec::new();
+    let mut eq_checks = Vec::new();
 
     for variant in data_enum.variants.iter() {
         let var_name = &variant.ident;
@@ -59,13 +61,24 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
         }
         // Use the variant name as the label we search for.
         let var_name_str = var_name.to_string();
-        let check = quote! {
+        let check = quote! { ///////////////////////////////////// THIS NEEDS TO ONLY CALL LABELS FOR NODES... How can I get it to do this???
             if labels.contains(&#var_name_str) {
                 println!("labels contains {}", #var_name_str);
                 return #enum_name::#var_name(#var_name::from(node));
             }
         };
         from_node_checks.push(check);
+        let rcheck = quote! { ///////////////////////////////////// THIS NEEDS TO ONLY CALL LABELS FOR NODES... How can I get it to do this???
+            if &labels.to_string() == &#var_name_str {
+                println!("labels is {}", #var_name_str);
+                return #enum_name::#var_name(#var_name::from(relation));
+            }
+        };
+        from_relation_checks.push(rcheck);
+        let eq_check = quote! {
+            (#enum_name::#var_name(_), #enum_name::#var_name(_)) => true,
+        };
+        eq_checks.push(eq_check);
     }
 
     // You can keep your existing inner_test function if needed.
@@ -88,19 +101,28 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
         }
     };
 
+    let from_relation_fn = quote! {
+        pub fn from_relation(relation: Relation) -> Self {
+            let labels = relation.typ();
+            #(#from_relation_checks)*
+            // Fallback: if no label matched, return the Nothing variant.
+            #enum_name::Nothing(Nothing::new(true))
+        }
+    };
+
     let gen = quote! {
         #(#accessors)*
 
         impl #enum_name {
             #inner_fn
             #from_node_fn
+            #from_relation_fn
         }
         
         impl PartialEq for #enum_name {
             fn eq(&self, other: &Self) -> bool {
                 match (self, other) {
-                    (#enum_name::User(_), #enum_name::User(_)) => true,
-                    (#enum_name::Group(_), #enum_name::Group(_)) => true,
+                    #(#eq_checks)*
                     _ => false,
                 }
             }
