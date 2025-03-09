@@ -36,7 +36,7 @@ use crate::traits::Neo4gEntity;
         pub nothing: bool,
     }
 
-generate_entity_wrapper!(Nothing, User, Group);
+generate_entity_wrapper!(Nothing, User, Group); // copy from_node fn into relation and vice versa to resolve (not perfect, but good enough!)
 
 // impl EntityWrapper {
 //     pub fn from_node(node: Node) -> Self { // need to generate from macro - need if labels.contains for each variant
