@@ -5,7 +5,7 @@ mod generators;
 mod utils;
 mod entity_wrapper;
 
-#[proc_macro_derive(Neo4gNode)]
+#[proc_macro_derive(Neo4gNode, attributes(not_query_param))]
 pub fn neo4g_node_derive(input: TokenStream) -> TokenStream {
     node::generate_neo4g_node(input)
 }
@@ -18,6 +18,12 @@ pub fn neo4g_node_derive(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(Neo4gEntityWrapper)] // New macro
 pub fn neo4g_entity_derive(input: TokenStream) -> TokenStream {
     entity_wrapper::generate_entity_wrapper(input)
+}
+
+#[proc_macro_attribute]
+pub fn not_query_param(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    // Simply return the input unmodified.
+    item
 }
 
 // #[proc_macro_derive(Neo4gPropsWrapper)] // New macro

@@ -16,7 +16,17 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
     let new_struct_name_str = new_struct_name.to_string();
 
     // Collect each field's identifier and type from the template struct.
-    let fields: Vec<(&syn::Ident, syn::Type)> = if let Data::Struct(data_struct) = &input.data {
+    let all_fields_full: Vec<&syn::Field> = if let Data::Struct(data_struct) = &input.data {
+        if let Fields::Named(fields) = &data_struct.fields {
+            fields.named.iter().collect()
+        } else {
+            vec![]
+        }
+    } else {
+        vec![]
+    };
+
+    let all_fields: Vec<(&syn::Ident, syn::Type)> = if let Data::Struct(data_struct) = &input.data {
         if let Fields::Named(fields) = &data_struct.fields {
             fields
                 .named
@@ -29,33 +39,80 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
     } else {
         vec![]
     };
+    // Helper to check if a field has the ignore attribute.
+    fn should_ignore_field(field: &syn::Field) -> bool {
+        field.attrs.iter().any(|attr| attr.path().is_ident("not_query_param"))
+    }
+
+    // Collect all fields from the struct.
+    // let all_fields_1: Vec<&syn::Field> = if let Data::Struct(data_struct) = &input.data {
+    //     if let Fields::Named(fields) = &data_struct.fields {
+    //         fields.named.iter().collect()
+    //     } else {
+    //         vec![]
+    //     }
+    // } else {
+    //     vec![]
+    // };
+
+    // let all_fields: Vec<(&syn::Ident, syn::Type)> = all_fields_1
+    //     .iter()
+    //     .map(|field| (field.ident.as_ref().unwrap(), field.ty.clone()))
+    //     .collect();
+
+    // Use all_fields for generating accessor methods, etc.
+
+    // // Then, for query generation, filter out fields with #[neo4j_ignore]
+    // let fields: Vec<(&syn::Ident, syn::Type)> = all_fields_1
+    //     .iter()
+    //     .filter(|field| !should_ignore_field(field))
+    //     .map(|field| (field.ident.as_ref().unwrap(), field.ty.clone()))
+    //     .collect();
 
     
     // Generated Props enum (e.g. UserProps).
     let props_enum_name = syn::Ident::new(&format!("{}Props", base_name), struct_name.span());
 
     // Generate enum variants that hold the actual field types.
-    let props_enum_variants: Vec<_> = fields.iter().map(|(field_ident, field_type)| {
-        let variant = syn::Ident::new(&utils::capitalize(&field_ident.to_string()), struct_name.span());
-        quote! { #variant(#field_type) }
+    let props_enum_variants: Vec<_> = all_fields_full.iter().map(|field| {
+        if !should_ignore_field(field) {
+            let field_ident = field.ident.as_ref().unwrap();
+            let field_type = &field.ty;
+            let variant = syn::Ident::new(&utils::capitalize(&field_ident.to_string()), struct_name.span());
+            quote! { #variant(#field_type) }
+        } else {
+            quote! {}
+        }
     }).collect();
 
-    let create_node_params: Vec<_> = fields.iter().map(|(field_ident, _)| {
-        let field_name = field_ident.to_string();
-        // Create a literal string for the field name.
-        let field_name_lit = syn::LitStr::new(&field_name, field_ident.span());
-        // We assume the accessor method has the same name as the field.
-        let access_method_ident = syn::Ident::new(&field_name, field_ident.span());
-        quote! {
-            (#field_name_lit.to_string(), BoltType::from(self.#access_method_ident().clone()))
+    let create_node_params: Vec<_> = all_fields_full.iter().map(|field| {
+        if !should_ignore_field(field) {
+            let field_ident = field.ident.as_ref().unwrap();
+            let field_name = field_ident.to_string();
+            // Create a literal string for the field name.
+            let field_name_lit = syn::LitStr::new(&field_name, field_ident.span());
+            // We assume the accessor method has the same name as the field.
+            let access_method_ident = syn::Ident::new(&field_name, field_ident.span());
+            quote! {
+                (#field_name_lit.to_string(), BoltType::from(self.#access_method_ident().clone()))
+            }
+        } else {
+            quote! {}
         }
     }).collect();
     
-    let create_query_params: Vec<_> = fields.iter().map(|(field_ident, _)| {
-        let field_name = field_ident.to_string();
-        let field_name_lit = syn::LitStr::new(&field_name, field_ident.span());
-        quote! {
-            format!("{}: ${}", #field_name_lit, #field_name_lit)
+    let create_query_params: Vec<_> = all_fields_full.iter().map(|field| {
+        if !should_ignore_field(field) {
+            let field_ident = field.ident.as_ref().unwrap();
+
+            let field_name = field_ident.to_string();
+            let field_name_lit = syn::LitStr::new(&field_name, field_ident.span());
+            
+            quote! {
+                format!("{}: ${}", #field_name_lit, #field_name_lit)
+            }
+        } else {
+            quote! {}
         }
     }).collect();
     
@@ -71,53 +128,77 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
     };
 
     // Generate match arms for converting a variant’s inner value to a query parameter.
-    let to_query_param_match_arms: Vec<_> = fields.iter().map(|(field_ident, field_type)| {
-        let variant = syn::Ident::new(&utils::capitalize(&field_ident.to_string()), struct_name.span());
-        let key = syn::LitStr::new(&field_ident.to_string(), struct_name.span());
+    // let to_query_param_match_arms: Vec<_> = fields.iter().map(|(field_ident, field_type)| {
+    //     let variant = syn::Ident::new(&utils::capitalize(&field_ident.to_string()), struct_name.span());
+    //     let key = syn::LitStr::new(&field_ident.to_string(), struct_name.span());
 
-        // Convert the field type into a string so we can match on it.
-        let field_type_str = field_type.to_token_stream().to_string();
+    //     // Convert the field type into a string so we can match on it.
+    //     let field_type_str = field_type.to_token_stream().to_string();
 
-        // Determine the correct conversion for each type.
-        let conversion = if field_type_str == "String" {
-            quote! {
-                BoltType::String(BoltString::from(val.clone()))
-            }
-        } else if ["i8", "i16", "i32", "i64", "i128", "u8", "u16", "u32", "u64", "u128", ].contains(&field_type_str.as_str()) {
-            quote! {
-                BoltType::Integer(BoltInteger::from(*val))
-            }
+    //     // Determine the correct conversion for each type.
+    //     let conversion = if field_type_str == "String" {
+    //         quote! {
+    //             BoltType::String(BoltString::from(val.clone()))
+    //         }
+    //     } else if ["i8", "i16", "i32", "i64", "i128", "u8", "u16", "u32", "u64", "u128", ].contains(&field_type_str.as_str()) {
+    //         quote! {
+    //             BoltType::Integer(BoltInteger::from(*val))
+    //         }
+    //     } else {
+    //         // Fallback: convert the value to a string and wrap it in a BoltType::String.
+    //         quote! {
+    //             BoltType::String(BoltString::from(val.to_string()))
+    //         }
+    //     };
+
+    //     quote! {
+    //         #props_enum_name::#variant(val) => (#key, #conversion)
+    //     }
+    // }).collect();
+
+    let to_query_param_match_arms: Vec<_> = all_fields_full.iter().map(|(field)| {
+        let field_ident = field.ident.as_ref().unwrap();
+        let variant = syn::Ident::new(&utils::capitalize(&field_ident.to_string()), field_ident.span());
+        let key_lit = syn::LitStr::new(&field_ident.to_string(), field_ident.span());
+        
+        if should_ignore_field(field) {
+            // For ignored fields, provide a match arm that essentially does nothing.
+            quote! {}
         } else {
-            // Fallback: convert the value to a string and wrap it in a BoltType::String.
+            // For normal fields, return the key and the value.
             quote! {
-                BoltType::String(BoltString::from(val.to_string()))
+                #props_enum_name::#variant(val) => (#key_lit, val.clone().into())
             }
-        };
-
-        quote! {
-            #props_enum_name::#variant(val) => (#key, #conversion)
         }
     }).collect();
 
     // Generate accessor methods for the Props enum.
     // For non-optional fields, return &T; for Option<T>, return Option<&T>.
-    let props_accessor_methods: Vec<_> = fields.iter().map(|(field_ident, field_type)| {
-        let method_ident = syn::Ident::new(&field_ident.to_string(), struct_name.span());
-        let variant = syn::Ident::new(&utils::capitalize(&field_ident.to_string()), struct_name.span());
+    let props_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
+        if should_ignore_field(field) {
+            quote! {}
+        } else {
+            let field_ident = field.ident.as_ref().unwrap();
+            let field_type = &field.ty;
+            let method_ident = syn::Ident::new(&field_ident.to_string(), struct_name.span());
+            let variant = syn::Ident::new(&utils::capitalize(&field_ident.to_string()), struct_name.span());
 
-        // Check if the field type is Option<T>.
-        let maybe_inner_type = if let syn::Type::Path(type_path) = field_type {
-            if type_path.qself.is_none()
-                && type_path.path.segments.len() == 1
-                && type_path.path.segments[0].ident == "Option"
-            {
-                if let syn::PathArguments::AngleBracketed(angle_bracketed) =
-                    &type_path.path.segments[0].arguments
+            // Check if the field type is Option<T>.
+            let maybe_inner_type = if let syn::Type::Path(type_path) = field_type {
+                if type_path.qself.is_none()
+                    && type_path.path.segments.len() == 1
+                    && type_path.path.segments[0].ident == "Option"
                 {
-                    if let Some(syn::GenericArgument::Type(inner_ty)) =
-                        angle_bracketed.args.first()
+                    if let syn::PathArguments::AngleBracketed(angle_bracketed) =
+                        &type_path.path.segments[0].arguments
                     {
-                        Some(inner_ty)
+                        if let Some(syn::GenericArgument::Type(inner_ty)) =
+                            angle_bracketed.args.first()
+                        {
+                            Some(inner_ty)
+                        } else {
+                            None
+                        }
                     } else {
                         None
                     }
@@ -126,76 +207,115 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
                 }
             } else {
                 None
-            }
-        } else {
-            None
-        };
+            };
 
-        if let Some(inner_type) = maybe_inner_type {
-            quote! {
-                pub fn #method_ident(&self) -> Option<&#inner_type> {
-                    match self {
-                        Self::#variant(ref opt) => opt.as_ref(),
-                        _ => panic!("Called {} accessor on wrong variant", stringify!(#method_ident)),
+            if let Some(inner_type) = maybe_inner_type {
+                quote! {
+                    pub fn #method_ident(&self) -> Option<&#inner_type> {
+                        match self {
+                            Self::#variant(ref opt) => opt.as_ref(),
+                            _ => panic!("Called {} accessor on wrong variant", stringify!(#method_ident)),
+                        }
                     }
                 }
-            }
-        } else {
-            quote! {
-                pub fn #method_ident(&self) -> &#field_type {
-                    match self {
-                        Self::#variant(ref val) => val,
-                        _ => panic!("Called {} accessor on wrong variant", stringify!(#method_ident)),
+            } else {
+                quote! {
+                    pub fn #method_ident(&self) -> &#field_type {
+                        match self {
+                            Self::#variant(ref val) => val,
+                            _ => panic!("Called {} accessor on wrong variant", stringify!(#method_ident)),
+                        }
                     }
                 }
             }
         }
     }).collect();
+
+    let props_impl = quote! {
+        impl #new_struct_name {
+            /// Converts a Props variant to a key and its stringified value.
+            pub fn to_query_param(&self) -> (&'static str, BoltType) {
+                match self {
+                    #(#to_query_param_match_arms),*
+                }
+            }
+    
+            // Accessor methods for the Props enum.
+            #(#props_accessor_methods)*
+        }
+    };
 
     // Generate fields for the new struct: same field names, but type is the Props enum.
-    let new_struct_fields: Vec<_> = fields.iter().map(|(field_ident, _)| {
-        quote! {
-            pub #field_ident: #props_enum_name
+    let new_struct_fields: Vec<_> = all_fields_full.iter().map(|field| {
+        let field_ident = field.ident.as_ref().unwrap();
+        let field_ty = &field.ty;
+        if should_ignore_field(field) {
+            quote! {
+                pub #field_ident: #field_ty
+            }
+        } else {
+            quote! {
+                pub #field_ident: #props_enum_name
+            }
         }
     }).collect();
-
-    // Generate the constructor parameters (with the original types).
-    let constructor_params: Vec<_> = fields.iter().map(|(field_ident, field_type)| {
+    
+    // 2. Generate the constructor parameters (using the original types for all fields).
+    let constructor_params: Vec<_> = all_fields_full.iter().map(|field| {
+        let field_ident = field.ident.as_ref().unwrap();
+        let field_ty = &field.ty;
         quote! {
-            #field_ident: #field_type
+            #field_ident: #field_ty
         }
     }).collect();
-
-    // Generate a list of field identifiers for forwarding.
-    let constructor_args: Vec<_> = fields.iter().map(|(field_ident, _)| {
+    
+    // 3. Generate a list of field identifiers for forwarding.
+    let constructor_args: Vec<_> = all_fields_full.iter().map(|field| {
+        let field_ident = field.ident.as_ref().unwrap();
         quote! { #field_ident }
     }).collect();
-
-    // Generate the constructor body that wraps each field value in the corresponding Props variant.
-    let constructor_body: Vec<_> = fields.iter().map(|(field_ident, _)| {
-        let variant = syn::Ident::new(&utils::capitalize(&field_ident.to_string()), struct_name.span());
-        quote! {
-            #field_ident: #props_enum_name::#variant(#field_ident)
+    
+    // 4. Generate the constructor body. For non-ignored fields, we wrap the value in the
+    // corresponding Props enum variant; for ignored fields, we simply pass the value through.
+    let constructor_body: Vec<_> = all_fields_full.iter().map(|field| {
+        let field_ident = field.ident.as_ref().unwrap();
+        if should_ignore_field(field) {
+            quote! {
+                #field_ident: #field_ident
+            }
+        } else {
+            let variant = syn::Ident::new(&utils::capitalize(&field_ident.to_string()), field_ident.span());
+            quote! {
+                #field_ident: #props_enum_name::#variant(#field_ident)
+            }
         }
     }).collect();
 
     // Generate accessor methods for the new struct.
     // These delegate to the corresponding Props accessor methods.
-    let struct_accessor_methods: Vec<_> = fields.iter().map(|(field_ident, field_type)| {
-        let method_ident = syn::Ident::new(&field_ident.to_string(), struct_name.span());
-        // Check if field_type is Option<T>
-        let maybe_inner_type = if let syn::Type::Path(type_path) = field_type {
-            if type_path.qself.is_none()
-                && type_path.path.segments.len() == 1
-                && type_path.path.segments[0].ident == "Option"
-            {
-                if let syn::PathArguments::AngleBracketed(angle_bracketed) =
-                    &type_path.path.segments[0].arguments
+let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
+        if should_ignore_field(field) {
+            quote! {}
+        } else {
+            let field_ident = field.ident.as_ref().unwrap();
+            let field_type = &field.ty;
+            let method_ident = syn::Ident::new(&field_ident.to_string(), struct_name.span());
+            // Check if field_type is Option<T>
+            let maybe_inner_type = if let syn::Type::Path(type_path) = field_type {
+                if type_path.qself.is_none()
+                    && type_path.path.segments.len() == 1
+                    && type_path.path.segments[0].ident == "Option"
                 {
-                    if let Some(syn::GenericArgument::Type(inner_ty)) =
-                        angle_bracketed.args.first()
+                    if let syn::PathArguments::AngleBracketed(angle_bracketed) =
+                        &type_path.path.segments[0].arguments
                     {
-                        Some(inner_ty)
+                        if let Some(syn::GenericArgument::Type(inner_ty)) =
+                            angle_bracketed.args.first()
+                        {
+                            Some(inner_ty)
+                        } else {
+                            None
+                        }
                     } else {
                         None
                     }
@@ -204,23 +324,21 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
                 }
             } else {
                 None
-            }
-        } else {
-            None
-        };
-    
-        if let Some(inner_ty) = maybe_inner_type {
-            // Field is optional: return Option<&InnerType>
-            quote! {
-                pub fn #method_ident(&self) -> Option<&#inner_ty> {
-                    self.#field_ident.#method_ident()
+            };
+        
+            if let Some(inner_ty) = maybe_inner_type {
+                // Field is optional: return Option<&InnerType>
+                quote! {
+                    pub fn #method_ident(&self) -> Option<&#inner_ty> {
+                        self.#field_ident.#method_ident()
+                    }
                 }
-            }
-        } else {
-            // Field is required: return &FieldType
-            quote! {
-                pub fn #method_ident(&self) -> &#field_type {
-                    self.#field_ident.#method_ident()
+            } else {
+                // Field is required: return &FieldType
+                quote! {
+                    pub fn #method_ident(&self) -> &#field_type {
+                        self.#field_ident.#method_ident()
+                    }
                 }
             }
         }
@@ -254,54 +372,56 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
     };
 
         // Generate field initializers for the From<Node> impl.
-        let field_inits: Vec<_> = fields.iter().map(|(field_ident, field_type)| {
-            // Create the variant name (capitalized) for the Props enum.
-            let variant = syn::Ident::new(&utils::capitalize(&field_ident.to_string()), struct_name.span());
-            // Create a literal string key for node lookup.
-            let key = syn::LitStr::new(&field_ident.to_string(), struct_name.span());
-            // Convert the field type into a string for matching.
-            let field_type_str = field_type.to_token_stream().to_string();
-
-            // Generate the extraction expression based on the type.
-            let extraction = if field_type_str == "String" {
-            // For String: simply extract from the node.
-            quote! {
-                node.get(#key).unwrap_or_default()
-            }
-            } else if ["i8", "i16", "i32", "i64", "i128",
-                    "u8", "u16", "u32", "u64", "u128"]
-                .contains(&field_type_str.as_str())
-            {
-            // For integer types: assume node.get returns a u64, then cast.
-            quote! {
-                {
-                    let tmp: u64 = node.get(#key).unwrap_or_default();
-                    tmp as #field_type
-                }
-            }
-            } else if field_type_str == "bool" {
-                // For bool: extract the value (bool::default() is false).
+        let field_inits: Vec<_> = all_fields_full.iter().map(|(field)| {
+            let field_ident = field.ident.as_ref().unwrap();
+            let field_type = field.ty.clone();
+        
+            if should_ignore_field(field) {
+                // For ignored fields, we just use their default value.
                 quote! {
-                    node.get(#key).unwrap_or_default()
+                    #field_ident: Default::default()
                 }
-            } else if field_type_str == "f32" || field_type_str == "f64" {
-            // For floating point types: assume node.get returns a f64, then cast.
-            quote! {
-                {
-                    let tmp: f64 = node.get(#key).unwrap_or_default();
-                    tmp as #field_type
-                }
-            }
             } else {
-                // Fallback: simply extract the value.
+                // For fields that go into queries, wrap them in the Props enum.
+                let variant = syn::Ident::new(&utils::capitalize(&field_ident.to_string()), field_ident.span());
+                let key = syn::LitStr::new(&field_ident.to_string(), field_ident.span());
+                let field_type_str = field_type.to_token_stream().to_string();
+        
+                // Generate extraction expression based on the type.
+                let extraction = if field_type_str == "String" {
+                    quote! {
+                        node.get(#key).unwrap_or_default()
+                    }
+                } else if ["i8", "i16", "i32", "i64", "i128",
+                          "u8", "u16", "u32", "u64", "u128"]
+                    .contains(&field_type_str.as_str())
+                {
+                    quote! {
+                        {
+                            let tmp: u64 = node.get(#key).unwrap_or_default();
+                            tmp as #field_type
+                        }
+                    }
+                } else if field_type_str == "bool" {
+                    quote! {
+                        node.get(#key).unwrap_or_default()
+                    }
+                } else if field_type_str == "f32" || field_type_str == "f64" {
+                    quote! {
+                        {
+                            let tmp: f64 = node.get(#key).unwrap_or_default();
+                            tmp as #field_type
+                        }
+                    }
+                } else {
+                    quote! {
+                        node.get(#key).unwrap_or_default()
+                    }
+                };
+        
                 quote! {
-                    node.get(#key).unwrap_or_default()
+                    #field_ident: #props_enum_name::#variant(#extraction)
                 }
-            };
-
-            // Wrap the extracted value in the corresponding Props enum variant.
-            quote! {
-                #field_ident: #props_enum_name::#variant(#extraction)
             }
         }).collect();
 

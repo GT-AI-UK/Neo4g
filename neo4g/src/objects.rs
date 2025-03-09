@@ -26,13 +26,15 @@ use neo4rs::{
     BoltDateTimeZoneId,
 };
 use crate::entity_wrapper::EntityWrapper;
-use neo4g_derive::Neo4gNode;
+use neo4g_derive::{Neo4gNode, not_query_param};
 use crate::traits::Neo4gEntity;
 
 #[derive(Neo4gNode)]
 pub struct UserTemplate {
     id: i32,
     name: String,
+    #[not_query_param]
+    groups: Vec<Group>,
 }
 
 #[derive(Neo4gNode)]

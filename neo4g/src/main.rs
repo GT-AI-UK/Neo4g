@@ -31,11 +31,11 @@ async fn main() {
     let (query, params) = User::get_node_by(&[UserProps::Name("Test".to_string())]);
     let (query, params) = Group::get_node_by(&[GroupProps::Name("TestG".to_string())]);
     println!("{}", query);
-    let user = User::new(0, "Test3".to_string());
+    let user = User::new(0, "Test3".to_string(), vec![(Group::new(32, "Nothing happens here".to_string(), "Nothing happens here".to_string()))]);
     println!("{}", user.get_entity_type());
     println!("{:?}", user.clone());
     let test1 = Neo4gBuilder::new()
-        .create_node(user.clone())
+        .merge_node(user.clone(), &[UserProps::Id(34),UserProps::Name("Test234".to_string())])
         //.merge_node(&user, &[UserProps::Name("Sasd".to_string())])
     
         .add_to_return()
