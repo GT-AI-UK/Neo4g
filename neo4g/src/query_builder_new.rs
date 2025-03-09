@@ -7,11 +7,14 @@ use std::marker::PhantomData;
 Could start Neo4gBuilder again but use statements as functions too?
 eg.
 Neo4gBuilder::new().create().node(entity).relation(enitty2).node(entity3).ret(e1, e2, e3).run().await?
-Neo4gBuilder::new().get().node(entity).relation(en2).node(en3).ret(e1, e3).run().await? //get instead of match
-Neo4gBuilder::new().merge(None).node(e1).zero_plus().relation(e2).node(e3).on_match_set(props).on_create_set(props).with(e1, e3).merge(Some(e1, props)).relation(e4).node(e5).run().await?
+Neo4gBuilder::new().get().node(entity).relation(en2).node(en3).where(props).ret(e1, e3).run().await? //get instead of match
+Neo4gBuilder::new().merge(None).node(e1).zero_plus().relation(e2).node(e3).on_match_set(props).on_create_set(props).with(e1, e3).merge_ref(e1).relation(e4).node(e5).run().await?
 // unsure whether to have merge take params... can I create a hashmap in the query builder for which nodes are which aliases? Can I validate aliases or are they better as &str?
+.where may need to be named differently? similar to match...
+using ref of previous node/rel would be interesting too, methods with _ref appended? conditions to call these would be that the statement hasn't just started, so would need yet more states for builder to be in?
 If doing this, need to have differernt structs to navigate between for each different clause?
 Structs/Traits to be in the form: <Clause><PreviousAction>, eg. MergeReferencedNode, MergeReferencedRelation, MatchRefNode, MatchRefRelation
+
 
 use std::collections::HashMap;
 
@@ -23,7 +26,7 @@ pub struct Neo4gBuilder<State> {
     relationship_number: u32,
     return_refs: Vec<(String, EntityType, EntityWrapper)>,
     previous_entity: Option<(String, EntityType, EntityWrapper)>,
-    clause: Clause,
+    clause: Clause, // use clause to determine what .node and .relation call. permissions for where will be interesting. 
 
     _state: PhantomData<State>,
 }
