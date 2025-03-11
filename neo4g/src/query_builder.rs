@@ -45,12 +45,12 @@ impl Neo4gBuilder<Empty> {
             _state: PhantomData,
         }
     }
-    pub fn new_inner(start_num:u32) -> Self {
+    pub fn new_inner(node_number:u32, relation_number: u32) -> Self {
         Self {
             query: String::new(),
             params: HashMap::new(),
-            node_number: start_num,
-            relation_number: start_num,
+            node_number,
+            relation_number,
             return_refs: Vec::new(),
             previous_entity: None,
             clause: Clause::None,
@@ -82,6 +82,11 @@ impl Neo4gBuilder<Empty> {
         self.query.push_str("OPTIONAL MATCH ");
         Neo4gMatchStatement::from(self)
     }
+    pub fn with(mut self, aliases: &[&str]) -> Self {
+        self.query.push_str(&format!("WITH {}\n", aliases.join(", ")));
+        self
+    }
+    //where to put unwind?
 }
 
 //Create statement methods
@@ -209,18 +214,18 @@ impl <Q: CanAddReturn> Neo4gMergeStatement<Q> {
     }
 }
 impl <Q: PossibleStatementEnd> Neo4gMergeStatement<Q> {
-    pub fn on_create_set<T: Neo4gEntity>(mut self, alias: &str, entity: T, props: &[T::Props]) -> Self
+    pub fn on_create<T: Neo4gEntity>(mut self, alias: &str, entity: T, props: &[T::Props]) -> Self
     where EntityWrapper: From<T>, T: Clone {
         if self.on_create_str.is_empty() {
-            self.on_create_str.push_str("ON CREATE SET\n");
+            self.on_create_str.push_str("ON CREATE\n");
         }
         //get params in the right format and join them to str
         self
     }
-    pub fn on_match_set<T: Neo4gEntity>(mut self, alias: &str, entity: T, props: &[T::Props]) -> Self
+    pub fn on_match<T: Neo4gEntity>(mut self, alias: &str, entity: T, props: &[T::Props]) -> Self
     where EntityWrapper: From<T>, T: Clone {
         if self.on_match_str.is_empty() {
-            self.on_match_str.push_str("ON MATCH SET\n");
+            self.on_match_str.push_str("ON MATCH\n"); // separate function for SET as it's required in MATCH as well?
         }
         //get params in the right format and join them to str
         self
@@ -309,10 +314,11 @@ impl <Q: CanAddReturn> Neo4gMatchStatement<Q> {
         }
         self
     }
+    // should I have an add_where() for nodes/rels in here? Or is it more clear and convenient to have where as props here?
 }
-impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> {
-    pub fn r#where<T: Neo4gEntity>(mut self, alias: &str, entity: T, props: &[T::Props]) -> Self
-    where EntityWrapper: From<T>, T: Clone {
+impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> { // is this needed at all?
+    pub fn r#where<T: Neo4gEntity>(mut self, alias: &str, entity: T, props: &[T::Props]) -> Self // does this need to take  &[()]?
+    where EntityWrapper: From<T>, T: Clone { // should this also take a compare_operator? (prop should be singular?)
         if self.where_str.is_empty() {
             self.where_str.push_str("WHERE ")
         }
@@ -328,7 +334,7 @@ impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> {
 
 //Statement combiners
 impl <Q: CanAddReturn> Neo4gBuilder<Q> {
-    pub fn set_returns(mut self, returns: &[(String, EntityType, EntityWrapper)]) -> Neo4gBuilder<ReturnSet> {
+    pub fn set_returns(mut self, returns: &[(String, EntityType, EntityWrapper)]) -> Neo4gBuilder<ReturnSet> { //should be optional - functionality should be included in run_query as well?
         if returns.is_empty() && self.return_refs.is_empty() {
             println!("Nothing will be returned from this query...");
         }
@@ -342,14 +348,10 @@ impl <Q: CanAddReturn> Neo4gBuilder<Q> {
         }
         self.transition::<ReturnSet>()
     }
-    pub fn with(mut self, aliases: &[&str]) -> Self {
-        self.query.push_str(&format!("WITH {}\n", aliases.join(", ")));
-        self
-    }
     pub fn call(mut self, inner_bulder: Neo4gBuilder<Empty>) -> Self {
+        self.node_number = inner_bulder.node_number;
+        self.relation_number = inner_bulder.relation_number;
         let (query, params) = inner_bulder.build();
-        self.node_number += 100;
-        self.relation_number += 100;
         self.query.push_str(format!("CALL {{\n {} \n}}\n", &query).as_str());
         self.params.extend(params);
         self
