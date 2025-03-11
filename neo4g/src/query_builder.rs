@@ -90,7 +90,7 @@ impl<Q: CanNode> Neo4gCreateStatement<Q> {
     where EntityWrapper: From<T>, T: Clone {
         self.node_number += 1;
         let label = entity.get_label();
-        let name = format!("{}{}:AdditionalLabels", label, self.node_number);
+        let name = format!("{}{}:AdditionalLabels", label.to_lowercase(), self.node_number);
         self.previous_entity = Some((name.clone(), EntityType::Node, EntityWrapper::from(entity.clone())));
         let (query_part, params) = entity.create_from_self();
         self.query.push_str(&query_part.replace("neo4g_node", &name.clone()));
@@ -107,7 +107,7 @@ impl Neo4gCreateStatement<CreatedNode> {
     where EntityWrapper: From<T>, T: Clone {
         self.relation_number += 1;
         let label = entity.get_label();
-        let name = format!("{}{}:AdditionalLabels", label, self.node_number);
+        let name = format!("{}{}", label.to_lowercase(), self.node_number);
         self.previous_entity = Some((name.clone(), EntityType::Relation, EntityWrapper::from(entity.clone())));
         let (query_part, params) = entity.create_from_self();
         self.query.push_str(&query_part.replace("neo4g_relation", &name.clone()));
@@ -118,16 +118,17 @@ impl Neo4gCreateStatement<CreatedNode> {
         self.query.push_str(&format!("-[{}]->", relation_ref));
         self.transition::<CreatedRelation>()
     }
+    pub fn set_additional_labels(mut self, labels: &[&str]) -> Self {
+        self.query = self.query.replace(":AdditionalLabels", &labels.join(":"));
+        self
+    }
 }
 impl <Q: CanAddReturn> Neo4gCreateStatement<Q> {
     pub fn add_to_return(mut self) -> Self {
-        if let Some(previous) = self.previous_entity.clone() {
-            self.return_refs.push(previous);
+        if let Some((mut name, entity_type, entity)) = self.previous_entity.clone() {
+            name = name.replace(":AdditionalLabels", "");
+            self.return_refs.push((name, entity_type, entity));
         }
-        self
-    }
-    pub fn set_additional_labels(mut self, labels: &[&str]) -> Self {
-        self.query = self.query.replace(":AdditionalLabels", &labels.join(":"));
         self
     }
 }
@@ -150,11 +151,11 @@ impl<Q: CanNode> Neo4gMergeStatement<Q> {
     //     self.params.extend(params);
     //     self.transition::<CreatedNode>()
     // }
-    pub fn node<T: Neo4gEntity>(mut self, entity: T, props: &[T::Props]) -> Neo4gMergeStatement<CreatedNode>
+    pub fn node<T: Neo4gEntity>(mut self, entity: T, props: &[T::Props]) -> Neo4gMergeStatement<CreatedNode> // could split this into .node and .props() using wrappers?
     where EntityWrapper: From<T>, T: Clone {
         self.node_number += 1;
         let label = entity.get_label();
-        let name = format!("{}{}:AdditionalLabels", label, self.node_number);
+        let name = format!("{}{}:AdditionalLabels", label.to_lowercase(), self.node_number);
         self.previous_entity = Some((name.clone(), EntityType::Node, EntityWrapper::from(entity.clone())));
         let (query_part, params) = entity.merge_by(props);
         self.query.push_str(&query_part.replace("neo4g_node", &name.clone()));
@@ -182,7 +183,7 @@ impl Neo4gMergeStatement<CreatedNode> {
     where EntityWrapper: From<T>, T: Clone {
         self.relation_number += 1;
         let label = entity.get_label();
-        let name = format!("{}{}:AdditionalLabels", label, self.node_number);
+        let name = format!("{}{}", label.to_lowercase(), self.node_number);
         self.previous_entity = Some((name.clone(), EntityType::Relation, EntityWrapper::from(entity.clone())));
         let (query_part, params) = entity.merge_by(props);
         self.query.push_str(&query_part.replace("neo4g_relation", &name.clone()));
@@ -193,16 +194,17 @@ impl Neo4gMergeStatement<CreatedNode> {
         self.query.push_str(&format!("-[{}]->", relation_ref));
         self.transition::<CreatedRelation>()
     }
+    pub fn set_additional_labels(mut self, labels: &[&str]) -> Self {
+        self.query = self.query.replace(":AdditionalLabels", &labels.join(":"));
+        self
+    }
 }
 impl <Q: CanAddReturn> Neo4gMergeStatement<Q> {
     pub fn add_to_return(mut self) -> Self {
-        if let Some(previous) = self.previous_entity.clone() {
-            self.return_refs.push(previous);
+        if let Some((mut name, entity_type, entity)) = self.previous_entity.clone() {
+            name = name.replace(":AdditionalLabels", "");
+            self.return_refs.push((name, entity_type, entity));
         }
-        self
-    }
-    pub fn set_additional_labels(mut self, labels: &[&str]) -> Self {
-        self.query = self.query.replace(":AdditionalLabels", &labels.join(":"));
         self
     }
 }
@@ -225,6 +227,7 @@ impl <Q: PossibleStatementEnd> Neo4gMergeStatement<Q> {
     }
     pub fn end_statement(mut self) -> Neo4gBuilder<CreatedNode> {
         self.query = self.query.replace(":AdditionalLabels", "");
+        println!("INSIDE MERGE! Query: {}", &self.query);
         self.query.push_str(&format!("{}\n{}", self.on_match_str, self.on_create_str));
         Neo4gBuilder::from(self)
     }
@@ -246,7 +249,7 @@ impl<Q: CanNode> Neo4gMatchStatement<Q> {
     where EntityWrapper: From<T>, T: Clone {
         self.node_number += 1;
         let label = entity.get_label();
-        let name = format!("{}{}:AdditionalLabels", label, self.node_number);
+        let name = format!("{}{}:AdditionalLabels", label.to_lowercase(), self.node_number);
         self.previous_entity = Some((name.clone(), EntityType::Node, EntityWrapper::from(entity.clone())));
         let (query_part, where_str, params) = entity.match_by(props);
         if self.where_str.is_empty() {
@@ -278,7 +281,7 @@ impl Neo4gMatchStatement<MatchedNode> {
     where EntityWrapper: From<T>, T: Clone { // do I need this - will it generate an inner where?
         self.relation_number += 1;
         let label = entity.get_label();
-        let name = format!("{}{}:AdditionalLabels", label, self.node_number);
+        let name = format!("{}{}", label.to_lowercase(), self.node_number);
         self.previous_entity = Some((name.clone(), EntityType::Relation, EntityWrapper::from(entity.clone())));
         let (query_part, where_str, params) = entity.match_by(props);
         if self.where_str.is_empty() {
@@ -293,16 +296,17 @@ impl Neo4gMatchStatement<MatchedNode> {
         self.query.push_str(&format!("-[{}]->", relation_ref));
         self.transition::<MatchedRelation>()
     }
+    pub fn set_additional_labels(mut self, labels: &[&str]) -> Self {
+        self.query = self.query.replace(":AdditionalLabels", &labels.join(":"));
+        self
+    }
 }
 impl <Q: CanAddReturn> Neo4gMatchStatement<Q> {
     pub fn add_to_return(mut self) -> Self {
-        if let Some(previous) = self.previous_entity.clone() {
-            self.return_refs.push(previous);
+        if let Some((mut name, entity_type, entity)) = self.previous_entity.clone() {
+            name = name.replace(":AdditionalLabels", "");
+            self.return_refs.push((name, entity_type, entity));
         }
-        self
-    }
-    pub fn set_additional_labels(mut self, labels: &[&str]) -> Self {
-        self.query = self.query.replace(":AdditionalLabels", &labels.join(":"));
         self
     }
 }
@@ -407,40 +411,40 @@ pub enum Clause {
     None,
 }
 
-trait CanMatch {}
-trait CanCreate {}
-trait CanNode {}
-trait PossibleStatementEnd {}
-trait CanRun {}
-trait CanAddReturn {}
-trait CanDelete {}
+pub trait CanMatch {}
+pub trait CanCreate {}
+pub trait CanNode {}
+pub trait PossibleStatementEnd {}
+pub trait CanRun {}
+pub trait CanAddReturn {}
+pub trait CanDelete {}
 
 #[derive(Debug, Clone)]
-struct Empty;
+pub struct Empty;
 
 #[derive(Debug, Clone)]
-struct Statement;
+pub struct Statement;
 
 #[derive(Debug, Clone)]
-struct CreatedNode;
+pub struct CreatedNode;
 
 #[derive(Debug, Clone)]
-struct MatchedNode;
+pub struct MatchedNode;
 
 #[derive(Debug, Clone)]
-struct CreatedRelation;
+pub struct CreatedRelation;
 
 #[derive(Debug, Clone)]
-struct MatchedRelation;
+pub struct MatchedRelation;
 
 #[derive(Debug, Clone)]
-struct ReturnSet;
+pub struct ReturnSet;
 
 #[derive(Debug, Clone)]
-struct Called;
+pub struct Called;
 
 #[derive(Debug, Clone)]
-struct DeletedEntity;
+pub struct DeletedEntity;
 
 impl CanMatch for Empty {}
 impl CanCreate for Empty {}
@@ -464,7 +468,7 @@ impl CanAddReturn for MatchedRelation {}
 
 
 #[derive(Debug, Clone)]
-struct Neo4gMatchStatement<State> {
+pub struct Neo4gMatchStatement<State> {
     query: String,
     params: HashMap<String, BoltType>,
     node_number: u32,
@@ -477,7 +481,7 @@ struct Neo4gMatchStatement<State> {
 }
 
 #[derive(Debug, Clone)]
-struct Neo4gMergeStatement<State> {
+pub struct Neo4gMergeStatement<State> {
     query: String,
     params: HashMap<String, BoltType>,
     node_number: u32,
@@ -491,7 +495,7 @@ struct Neo4gMergeStatement<State> {
 }
 
 #[derive(Debug, Clone)]
-struct Neo4gCreateStatement<State> {
+pub struct Neo4gCreateStatement<State> {
     query: String,
     params: HashMap<String, BoltType>,
     node_number: u32,

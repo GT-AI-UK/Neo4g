@@ -28,17 +28,17 @@ pub async fn connect_neo4j() -> Graph { //return db object, run on startup, bind
 #[tokio::main]
 async fn main() {
     let graph = connect_neo4j().await;
-    let (query, params) = User::get_node_by(&[UserProps::Name("Test".to_string())]);
-    let (query, params) = Group::get_node_by(&[GroupProps::Name("TestG".to_string())]);
+    let (query, where_str, params) = User::get_node_by(&[UserProps::Name("Test".to_string())]);
+    let (query, where_str, params) = Group::get_node_by(&[GroupProps::Name("TestG".to_string())]);
     println!("{}", query);
     let user = User::new(0, "Test3".to_string(), vec![(Group::new(32, "Nothing happens here".to_string(), "Nothing happens here".to_string()))]);
     println!("{}", user.get_entity_type());
     println!("{:?}", user.clone());
     let test1 = Neo4gBuilder::new()
-        .merge_node(user.clone(), &[UserProps::Id(34),UserProps::Name("Test234".to_string())])
-        //.merge_node(&user, &[UserProps::Name("Sasd".to_string())])
-    
-        .add_to_return()
+        .merge()
+            .node(user.clone(), &[UserProps::Id(35),UserProps::Name("Test2345".to_string())])  
+            .add_to_return()
+        .end_statement()
         .set_returns(&[]);
         println!("match?: {:?}", test1.clone());
         let test = test1.run_query(graph).await;

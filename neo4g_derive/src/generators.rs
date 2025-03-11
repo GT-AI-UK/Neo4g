@@ -64,7 +64,7 @@ pub fn generate_get_node_by(struct_name: &Ident, struct_name_str: &str, props_en
 pub fn generate_merge_node_by(struct_name: &Ident, struct_name_str: &str, props_enum_name: &Ident) -> proc_macro2::TokenStream {
     quote! {
         pub fn merge_node_by(props: &[#props_enum_name]) -> (String, std::collections::HashMap<String, BoltType>) {
-            let mut query = format!("MERGE (neo4g_node:{} {{", #struct_name_str);
+            let mut query = format!("(neo4g_node:{} {{", #struct_name_str);
             let mut params = std::collections::HashMap::new();
 
             let props_str: Vec<String> = props

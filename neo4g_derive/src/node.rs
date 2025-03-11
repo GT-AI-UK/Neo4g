@@ -369,11 +369,21 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
             }
         };
 
+        let silly_from_impl = quote! {
+            impl From<Relation> for #new_struct_name {
+                fn from(node: Relation) -> Self {
+                    Self {
+                        #(#field_inits),*
+                    }
+                }
+            }
+        };
+
         // Generate query functions using the generated Props enum.
         let get_node_entity_type_fn = generators::generate_get_node_entity_type();
         let get_node_by_fn = generators::generate_get_node_by(&new_struct_name, &new_struct_name_str, &props_enum_name);
         let merge_node_by_fn = generators::generate_merge_node_by(&new_struct_name, &new_struct_name_str, &props_enum_name);
-        let get_node_label_fn = generators::generate_get_node_label(&struct_name_str);
+        let get_node_label_fn = generators::generate_get_node_label(&new_struct_name_str);
 
     // Assemble the final output.
     let expanded = quote! {
@@ -441,6 +451,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
         #template_new_method
 
         #from_impl
+        #silly_from_impl // could have a different trait to handle the from impl maybe? can functions take two traits?
 
         // Accessor methods for the generated struct.
         #struct_impl

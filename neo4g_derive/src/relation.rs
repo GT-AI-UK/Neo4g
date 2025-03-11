@@ -369,11 +369,21 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
             }
         };
 
+        let silly_from_impl = quote! {
+            impl From<Node> for #new_struct_name {
+                fn from(relation: Node) -> Self {
+                    Self {
+                        #(#field_inits),*
+                    }
+                }
+            }
+        };
+
         // Generate query functions using the generated Props enum.
         let get_relation_entity_type_fn = generators::generate_get_relation_entity_type();
         let get_relation_by_fn = generators::generate_get_relation_by(&new_struct_name, &new_struct_name_str, &props_enum_name);
         let merge_relation_by_fn = generators::generate_merge_relation_by(&new_struct_name, &new_struct_name_str, &props_enum_name);
-        let get_relation_label_fn = generators::generate_get_relation_label(&struct_name_str);
+        let get_relation_label_fn = generators::generate_get_relation_label(&new_struct_name_str);
 
     // Assemble the final output.
     let expanded = quote! {
@@ -441,6 +451,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
         #template_new_method
 
         #from_impl
+        #silly_from_impl
 
         // Accessor methods for the generated struct.
         #struct_impl
