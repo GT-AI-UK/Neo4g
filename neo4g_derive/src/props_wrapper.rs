@@ -102,7 +102,7 @@ pub fn generate_props_wrapper(input: TokenStream) -> TokenStream {
                     .map(|prop| {
                         let (key, value) = prop.to_query_param();
                         params.insert(format!("set_{}", key.to_string()), value);
-                        format!("{}.{} = $set_{}", alias, key, key)
+                        format!("{}.{} = $set_{}\n", alias, key, key)
                     })
                     .collect();
     

@@ -1,4 +1,4 @@
-use crate::entity_wrapper::EntityWrapper;
+use crate::entity_wrapper::{EntityWrapper, PropsWrapper};
 use crate::objects::{User, Group};
 use crate::traits::Neo4gEntity;
 use neo4rs::{BoltNull, BoltType, Graph, Node, Relation, Query};
@@ -214,20 +214,35 @@ impl <Q: CanAddReturn> Neo4gMergeStatement<Q> {
     }
 }
 impl <Q: PossibleStatementEnd> Neo4gMergeStatement<Q> {
-    pub fn on_create<T: Neo4gEntity>(mut self, alias: &str, entity: T, props: &[T::Props]) -> Self
+    fn append_on_string(mut self, query: &str) -> () {
+        match self.current_on_str {
+            OnString::Create => self.on_create_str.push_str(query),
+            OnString::Match => self.on_match_str.push_str(query),
+            OnString::None => (),
+        }
+    }
+    pub fn on_create<T: Neo4gEntity>(mut self) -> Self
     where EntityWrapper: From<T>, T: Clone {
+        self.current_on_str = OnString::Create;
         if self.on_create_str.is_empty() {
             self.on_create_str.push_str("ON CREATE\n");
         }
-        //get params in the right format and join them to str
         self
     }
-    pub fn on_match<T: Neo4gEntity>(mut self, alias: &str, entity: T, props: &[T::Props]) -> Self
+    pub fn on_match<T: Neo4gEntity>(mut self) -> Self
     where EntityWrapper: From<T>, T: Clone {
+        self.current_on_str = OnString::Match;
         if self.on_match_str.is_empty() {
-            self.on_match_str.push_str("ON MATCH\n"); // separate function for SET as it's required in MATCH as well?
+            self.on_match_str.push_str("ON MATCH\n");
         }
-        //get params in the right format and join them to str
+        self
+    }
+    pub fn set(mut self, alias: &str, props: &[PropsWrapper]) -> Self {
+        for prop in props {
+            let (query, params) = props.to_query_params(alias, prop);
+            self.append_on_string(&query);
+            self.params.extend(params);
+        }
         self
     }
     pub fn end_statement(mut self) -> Neo4gBuilder<CreatedNode> {
@@ -491,6 +506,7 @@ pub struct Neo4gMergeStatement<State> {
     relation_number: u32,
     on_create_str: String,
     on_match_str: String,
+    current_on_str: OnString,
     return_refs: Vec<(String, EntityType, EntityWrapper)>,
     previous_entity: Option<(String, EntityType, EntityWrapper)>,
     clause: Clause, // use clause to determine what .node and .relation call. permissions for where will be interesting. 
@@ -573,6 +589,7 @@ impl<S> Neo4gMergeStatement<S> {
             relation_number,
             on_create_str,
             on_match_str,
+            current_on_str,
             return_refs,
             previous_entity,
             clause,
@@ -585,6 +602,7 @@ impl<S> Neo4gMergeStatement<S> {
             relation_number,
             on_create_str,
             on_match_str,
+            current_on_str,
             return_refs,
             previous_entity,
             clause,
@@ -643,6 +661,7 @@ impl <S> From<Neo4gBuilder<S>> for Neo4gMergeStatement<Empty> {
             relation_number: value.relation_number,
             on_create_str: "".to_string(),
             on_match_str: "".to_string(),
+            current_on_str: OnString::None,
             return_refs: value.return_refs,
             previous_entity: value.previous_entity,
             clause: value.clause,
@@ -710,4 +729,11 @@ impl <S> From<Neo4gCreateStatement<S>> for Neo4gBuilder<CreatedNode> {
             _state: std::marker::PhantomData,
         }
     }
+}
+
+#[derive(Debug, Clone)]
+pub enum OnString {
+    Create,
+    Match,
+    None,
 }
