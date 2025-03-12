@@ -32,7 +32,7 @@ pub fn generate_props_wrapper(input: TokenStream) -> TokenStream {
         let var_name = &variant.ident;
         let unwrap_fn_name = format_ident!("get_{}", var_name.to_string().to_lowercase());
         let query_param_match_arm = quote! {
-            #enum_name::#variant(val) => val.to_query_param().clone().into()
+            #enum_name::#var_name(val) => val.to_query_param().clone().into()
         };
         to_query_param_match_arms.push(query_param_match_arm);
         // Generate accessor impls.

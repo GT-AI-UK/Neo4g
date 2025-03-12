@@ -1,6 +1,6 @@
 use neo4g_macro_rules::generate_entity_wrappers;
 use paste::paste;
-use crate::objects::{User, Group};
+use crate::objects::{User, Group, UserProps, GroupProps};
 use neo4g_derive::{Neo4gEntityWrapper, Neo4gPropsWrapper};
 use neo4rs::{
     Node,

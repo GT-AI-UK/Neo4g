@@ -214,13 +214,6 @@ impl <Q: CanAddReturn> Neo4gMergeStatement<Q> {
     }
 }
 impl <Q: PossibleStatementEnd> Neo4gMergeStatement<Q> {
-    fn append_on_string(mut self, query: &str) -> () {
-        match self.current_on_str {
-            OnString::Create => self.on_create_str.push_str(query),
-            OnString::Match => self.on_match_str.push_str(query),
-            OnString::None => (),
-        }
-    }
     pub fn on_create<T: Neo4gEntity>(mut self) -> Self
     where EntityWrapper: From<T>, T: Clone {
         self.current_on_str = OnString::Create;
@@ -238,10 +231,22 @@ impl <Q: PossibleStatementEnd> Neo4gMergeStatement<Q> {
         self
     }
     pub fn set(mut self, alias: &str, props: &[PropsWrapper]) -> Self {
-        for prop in props {
-            let (query, params) = props.to_query_params(alias, prop);
-            self.append_on_string(&query);
-            self.params.extend(params);
+        let (query, params) = PropsWrapper::set_by(alias, props);
+        self.params.extend(params);
+        match self.current_on_str {
+            OnString::Create => {
+                if self.on_create_str.is_empty() {
+                    self.on_create_str = "SET".to_string();
+                }
+                self.on_create_str.push_str(&query)
+            },
+            OnString::Match => {
+                if self.on_match_str.is_empty() {
+                    self.on_match_str = "SET".to_string();
+                }
+                self.on_match_str.push_str(&query)
+            },
+            OnString::None => (),
         }
         self
     }
@@ -340,8 +345,18 @@ impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> { // is this needed at all
         //get params structured correctly and join into where_str
         self
     }
+    pub fn set(mut self, alias: &str, props: &[PropsWrapper]) -> Self {
+        let (query, params) = PropsWrapper::set_by(alias, props);
+        self.params.extend(params);
+        if self.set_str.is_empty() {
+            self.set_str = "SET".to_string();
+        }
+        self.set_str.push_str(&query);
+        self
+    }
     pub fn end_statement(mut self) -> Neo4gBuilder<MatchedNode> {
         self.query.push_str(&format!("{}", self.where_str));
+        self.query.push_str(&format!("{}", self.set_str));
         self.query = self.query.replace(":AdditionalLabels", "");
         Neo4gBuilder::from(self)
     }
@@ -492,6 +507,7 @@ pub struct Neo4gMatchStatement<State> {
     node_number: u32,
     relation_number: u32,
     where_str: String,
+    set_str: String,
     return_refs: Vec<(String, EntityType, EntityWrapper)>,
     previous_entity: Option<(String, EntityType, EntityWrapper)>,
     clause: Clause, // use clause to determine what .node and .relation call. permissions for where will be interesting. 
@@ -560,6 +576,7 @@ impl<S> Neo4gMatchStatement<S> {
             node_number,
             relation_number,
             where_str,
+            set_str,
             return_refs,
             previous_entity,
             clause,
@@ -571,6 +588,7 @@ impl<S> Neo4gMatchStatement<S> {
             node_number,
             relation_number,
             where_str,
+            set_str,
             return_refs,
             previous_entity,
             clause,
@@ -677,7 +695,8 @@ impl <S> From<Neo4gBuilder<S>> for Neo4gMatchStatement<Empty> {
             params: value.params,
             node_number: value.node_number,
             relation_number: value.relation_number,
-            where_str: "".to_string(),
+            where_str: String::new(),
+            set_str: String::new(),
             return_refs: value.return_refs,
             previous_entity: value.previous_entity,
             clause: value.clause,
