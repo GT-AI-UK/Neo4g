@@ -35,11 +35,12 @@ async fn main() {
     println!("{}", user.get_entity_type());
     println!("{:?}", user.clone());
     let test1 = Neo4gBuilder::new()
-        .merge()
-            .node(user.clone(), &[UserProps::Id(45),UserProps::Name("Test2345d".to_string())])  
+        .r#match()
+            .node(user.clone(), &[UserProps::Id(45),UserProps::Name("Test2345d".to_string())])
+            .set("User1", &[UserProps::Id(12).into()])
             .add_to_return()
-        .end_statement()
-        .set_returns(&[]);
+        .end_statement();
+        //.set_returns(&[]);
         println!("match?: {:?}", test1.clone());
         let test = test1.run_query(graph).await;
     println!("{:?}", test);

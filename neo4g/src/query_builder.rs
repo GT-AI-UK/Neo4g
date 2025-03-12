@@ -3,6 +3,7 @@ use crate::objects::{User, Group};
 use crate::traits::Neo4gEntity;
 use neo4rs::{BoltNull, BoltType, Graph, Node, Relation, Query};
 use std::marker::PhantomData;
+use std::fmt;
 
 // Could start Neo4gBuilder again but use statements as functions too?
 // eg.
@@ -276,13 +277,15 @@ impl<Q: CanNode> Neo4gMatchStatement<Q> {
         let label = entity.get_label();
         let name = format!("{}{}:AdditionalLabels", label.to_lowercase(), self.node_number);
         self.previous_entity = Some((name.clone(), EntityType::Node, EntityWrapper::from(entity.clone())));
-        let (query_part, where_str, params) = entity.match_by(props);
-        if self.where_str.is_empty() {
-            self.where_str.push_str("WHERE ")
+        if !props.is_empty() {
+            let (query_part, where_str, params) = entity.match_by(props);
+            if self.where_str.is_empty() {
+                self.where_str.push_str("WHERE ")
+            }
+            self.where_str.push_str(&where_str);
+            self.query.push_str(&query_part.replace("neo4g_node", &name.clone()));
+            self.params.extend(params);
         }
-        self.where_str.push_str(&where_str);
-        self.query.push_str(&query_part.replace("neo4g_node", &name.clone()));
-        self.params.extend(params);
         self.transition::<MatchedNode>()
     }
     pub fn node_ref(mut self, node_ref: &str) -> Neo4gMatchStatement<MatchedNode> {
@@ -337,12 +340,15 @@ impl <Q: CanAddReturn> Neo4gMatchStatement<Q> {
     // should I have an add_where() for nodes/rels in here? Or is it more clear and convenient to have where as props here?
 }
 impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> { // is this needed at all?
-    pub fn r#where<T: Neo4gEntity>(mut self, alias: &str, entity: T, props: &[T::Props]) -> Self // does this need to take  &[()]?
+    pub fn r#where<T: Neo4gEntity>(mut self, alias: &str, props: &[PropsWrapper]) -> Self // does this need to take  &[()]?
     where EntityWrapper: From<T>, T: Clone { // should this also take a compare_operator? (prop should be singular?)
         if self.where_str.is_empty() {
             self.where_str.push_str("WHERE ")
         }
-        //get params structured correctly and join into where_str
+        //get params structured correctly and join into where_str - similar to set impl in PropsWrapper
+        // need to use Enums at the bottom of this file for CompareOperators and CompareJoiners - may need another function to .add_where?
+        // need to find a way to nest conditions for complex queries too.
+        // remember that the return from match_by currently has ANDOR joining the conditions!
         self
     }
     pub fn set(mut self, alias: &str, props: &[PropsWrapper]) -> Self {
@@ -364,7 +370,7 @@ impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> { // is this needed at all
 
 //Statement combiners
 impl <Q: CanAddReturn> Neo4gBuilder<Q> {
-    pub fn set_returns(mut self, returns: &[(String, EntityType, EntityWrapper)]) -> Neo4gBuilder<ReturnSet> { //should be optional - functionality should be included in run_query as well?
+    pub fn set_returns(mut self, returns: &[(String, EntityType, EntityWrapper)]) -> Self { //Neo4gBuilder<ReturnSet> { //should be optional - functionality should be included in run_query as well?
         if returns.is_empty() && self.return_refs.is_empty() {
             println!("Nothing will be returned from this query...");
         }
@@ -376,7 +382,7 @@ impl <Q: CanAddReturn> Neo4gBuilder<Q> {
             let aliases: Vec<String> = self.return_refs.iter().map(|(alias, _, _)| alias.clone()).collect();
             self.query.push_str(&aliases.join(", "));
         }
-        self.transition::<ReturnSet>()
+        self //.transition::<ReturnSet>()
     }
     pub fn call(mut self, inner_bulder: Neo4gBuilder<Empty>) -> Self {
         self.node_number = inner_bulder.node_number;
@@ -386,11 +392,16 @@ impl <Q: CanAddReturn> Neo4gBuilder<Q> {
         self.params.extend(params);
         self
     }
-}
+//}
 
 //Run query
-impl<T: CanRun> Neo4gBuilder<T> {
-    pub async fn run_query(self, graph: Graph) -> anyhow::Result<Vec<EntityWrapper>> {
+//impl<T: CanRun> Neo4gBuilder<T> {
+    pub async fn run_query(mut self, graph: Graph) -> anyhow::Result<Vec<EntityWrapper>> {
+        if !self.return_refs.is_empty() {
+            self.query.push_str("RETURN ");
+            let aliases: Vec<String> = self.return_refs.iter().map(|(alias, _, _)| alias.clone()).collect();
+            self.query.push_str(&aliases.join(", "));
+        }
         println!("query: {}", self.query.clone());
         let query = Query::new(self.query).params(self.params);
         let mut return_vec: Vec<EntityWrapper> = Vec::new();
@@ -755,4 +766,73 @@ pub enum OnString {
     Create,
     Match,
     None,
+}
+
+#[derive(Debug, Clone)]
+pub enum CompareOperator {
+    Eq,
+    Gt,
+    Ge,
+    Lt,
+    Le,
+    Ne,
+}
+
+impl fmt::Display for CompareOperator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Always output with the first letter capitalized
+        let s = match self {
+            CompareOperator::Eq => "Eq",
+            CompareOperator::Gt => "Gt",
+            CompareOperator::Ge => "Ge",
+            CompareOperator::Lt => "Lt",
+            CompareOperator::Le => "Le",
+            CompareOperator::Ne => "Ne",
+        };
+        write!(f, "{}", s)
+    }
+}
+
+impl From<&str> for CompareOperator {
+    fn from(s: &str) -> Self {
+        // Convert the input to lowercase to allow for case-insensitive matching
+        match s.to_lowercase().as_str() {
+            "eq" => CompareOperator::Eq,
+            "gt" => CompareOperator::Gt,
+            "ge" => CompareOperator::Ge,
+            "lt" => CompareOperator::Lt,
+            "le" => CompareOperator::Le,
+            "ne" => CompareOperator::Ne,
+            _ => panic!("Invalid CompareOperator string: {}", s),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum CompareJoiner {
+    And,
+    Or,
+    Not,
+}
+
+impl fmt::Display for CompareJoiner {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            CompareJoiner::And => "And",
+            CompareJoiner::Or  => "Or",
+            CompareJoiner::Not => "Not",
+        };
+        write!(f, "{}", s)
+    }
+}
+
+impl From<&str> for CompareJoiner {
+    fn from(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "and" => CompareJoiner::And,
+            "or"  => CompareJoiner::Or,
+            "not" => CompareJoiner::Not,
+            _ => panic!("Invalid CompareJoiner string: {}", s),
+        }
+    }
 }
