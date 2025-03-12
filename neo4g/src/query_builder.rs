@@ -368,6 +368,7 @@ impl<T: CanRun> Neo4gBuilder<T> {
             println!("query ran");
             while let Ok(Some(row)) = result.next().await {
                 for (alias, entity_type, ret_obj) in self.return_refs.clone() {
+                    println!("attemping to get {} from database. {:?}, {:?}", alias, &entity_type, &ret_obj);
                     match entity_type {
                         EntityType::Node => {
                             if let Ok(node) = row.get::<Node>(&alias) {

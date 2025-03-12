@@ -4,7 +4,7 @@ use neo4g::traits::{Neo4gEntity, Neo4gProp};
 use neo4g::objects::{User, Group, UserProps, GroupProps};
 use neo4g::entity_wrapper::EntityWrapper;
 use neo4g::query_builder::Neo4gBuilder;
-use neo4rs::Graph;
+use neo4rs::{query, Graph, Node};
 use dotenv::dotenv;
 use std::env;
 use paste::paste;
@@ -28,15 +28,15 @@ pub async fn connect_neo4j() -> Graph { //return db object, run on startup, bind
 #[tokio::main]
 async fn main() {
     let graph = connect_neo4j().await;
-    let (query, where_str, params) = User::get_node_by(&[UserProps::Name("Test".to_string())]);
-    let (query, where_str, params) = Group::get_node_by(&[GroupProps::Name("TestG".to_string())]);
-    println!("{}", query);
+    let (query1, where_str, params) = User::get_node_by(&[UserProps::Name("Test".to_string())]);
+    let (query1, where_str, params) = Group::get_node_by(&[GroupProps::Name("TestG".to_string())]);
+    println!("{}", query1);
     let user = User::new(0, "Test3".to_string(), vec![(Group::new(32, "Nothing happens here".to_string(), "Nothing happens here".to_string()))]);
     println!("{}", user.get_entity_type());
     println!("{:?}", user.clone());
     let test1 = Neo4gBuilder::new()
         .merge()
-            .node(user.clone(), &[UserProps::Id(35),UserProps::Name("Test2345".to_string())])  
+            .node(user.clone(), &[UserProps::Id(45),UserProps::Name("Test2345d".to_string())])  
             .add_to_return()
         .end_statement()
         .set_returns(&[]);
@@ -55,5 +55,9 @@ async fn main() {
     // println!("{:?}", maybe_user2);
     let maybe_user3 = EntityWrapper::User(user);
     println!("{}", maybe_user3 == test2);
-
+    // let mut result = graph.execute(query("MATCH (n) RETURN n")).await.unwrap();
+    // while let Ok(Some(row)) = result.next().await {
+    //     let node = row.get::<Node>("n").unwrap();
+    //     println!("{:?}", node);
+    // }
 }
