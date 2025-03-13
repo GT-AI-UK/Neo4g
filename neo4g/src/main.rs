@@ -35,7 +35,7 @@ async fn main() {
             .set("user1", &[UserProps::Id(14).into()])
             .add_to_return()
         .end_statement()
-        .with(&["user1"]); // need to use with if setting any values and you want to return. Need to put in doc string.
+        .with(&["user1"]); // need to use with if setting any values and you want to return. Need to put in doc string. Better yet, conditionally insert based on query content if returns are set?!
         //.set_returns(&[]);
         println!("match?: {:?}", test1.clone());
     let test = test1.run_query(graph).await;
