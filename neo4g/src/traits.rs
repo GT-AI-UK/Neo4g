@@ -6,8 +6,8 @@ pub trait Neo4gEntity {
     type Props;
     fn get_entity_type(&self) -> String;
     fn get_label(&self) -> String;
-    fn match_by(&self, props: &[Self::Props]) -> (String, String, std::collections::HashMap<String, BoltType>);
-    fn merge_by(&self, props: &[Self::Props]) -> (String, std::collections::HashMap<String, BoltType>);
+    //fn match_by(&self, props: &[Self::Props]) -> (String, String, std::collections::HashMap<String, BoltType>);
+    fn entity_by(&self, props: &[Self::Props]) -> (String, std::collections::HashMap<String, BoltType>);
     fn create_from_self(&self) -> (String, std::collections::HashMap<String, BoltType>);
 }
 
@@ -20,9 +20,9 @@ pub trait Neo4gProp: std::any::Any {
 pub trait Neo4gEntityObjectSafe {
     fn get_entity_type(&self) -> String;
     fn get_label(&self) -> String;
-    fn match_by_obj(&self, props: &[Box<dyn Neo4gProp>])
-        -> (String, String, std::collections::HashMap<String, BoltType>);
-    fn merge_by_obj(&self, props: &[Box<dyn Neo4gProp>])
+    // fn match_by_obj(&self, props: &[Box<dyn Neo4gProp>])
+    //     -> (String, String, std::collections::HashMap<String, BoltType>);
+    fn entity_by_obj(&self, props: &[Box<dyn Neo4gProp>])
         -> (String, std::collections::HashMap<String, BoltType>);
     fn create_from_self(&self) -> (String, std::collections::HashMap<String, BoltType>);
 }

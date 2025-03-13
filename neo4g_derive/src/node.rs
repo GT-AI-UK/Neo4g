@@ -381,8 +381,8 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
 
         // Generate query functions using the generated Props enum.
         let get_node_entity_type_fn = generators::generate_get_node_entity_type();
-        let get_node_by_fn = generators::generate_get_node_by(&new_struct_name, &new_struct_name_str, &props_enum_name);
-        let merge_node_by_fn = generators::generate_merge_node_by(&new_struct_name, &new_struct_name_str, &props_enum_name);
+        //let get_node_by_fn = generators::generate_get_node_by(&new_struct_name, &new_struct_name_str, &props_enum_name);
+        let node_by_fn = generators::generate_node_by(&new_struct_name, &new_struct_name_str, &props_enum_name);
         let get_node_label_fn = generators::generate_get_node_label(&new_struct_name_str);
 
     // Assemble the final output.
@@ -423,12 +423,12 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
                 Self::get_node_label()
             }
             
-            fn match_by(&self, props: &[Self::Props]) -> (String, String, std::collections::HashMap<String, BoltType>) {
-                Self::get_node_by(props)
-            }
+            // fn match_by(&self, props: &[Self::Props]) -> (String, String, std::collections::HashMap<String, BoltType>) {
+            //     Self::get_node_by(props)
+            // }
             
-            fn merge_by(&self, props: &[Self::Props]) -> (String, std::collections::HashMap<String, BoltType>) {
-                Self::merge_node_by(props)
+            fn entity_by(&self, props: &[Self::Props]) -> (String, std::collections::HashMap<String, BoltType>) {
+                Self::node_by(props)
             }
 
             fn create_from_self(&self) -> (String, std::collections::HashMap<String, BoltType>) {
@@ -438,8 +438,8 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
         
         impl #new_struct_name {
             #get_node_entity_type_fn
-            #get_node_by_fn
-            #merge_node_by_fn
+            //#get_node_by_fn
+            #node_by_fn
             #create_node_from_self_fn
             #get_node_label_fn
         }

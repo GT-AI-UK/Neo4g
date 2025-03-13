@@ -28,37 +28,56 @@ pub async fn connect_neo4j() -> Graph { //return db object, run on startup, bind
 #[tokio::main]
 async fn main() {
     let graph = connect_neo4j().await;
-    let (query1, where_str, params) = User::get_node_by(&[UserProps::Name("Test".to_string())]);
-    let (query1, where_str, params) = Group::get_node_by(&[GroupProps::Name("TestG".to_string())]);
-    println!("{}", query1);
     let user = User::new(0, "Test3".to_string(), vec![(Group::new(32, "Nothing happens here".to_string(), "Nothing happens here".to_string()))]);
-    println!("{}", user.get_entity_type());
-    println!("{:?}", user.clone());
     let test1 = Neo4gBuilder::new()
         .r#match()
-            .node(user.clone(), &[UserProps::Id(45),UserProps::Name("Test2345d".to_string())])
-            .set("User1", &[UserProps::Id(12).into()])
+            .node(user.clone(), &[UserProps::Id(43),UserProps::Name("Test2345d".to_string())])
+            .set("user1", &[UserProps::Id(14).into()])
             .add_to_return()
-        .end_statement();
+        .end_statement()
+        .with(&["user1"]); // need to use with if setting any values and you want to return. Need to put in doc string.
         //.set_returns(&[]);
         println!("match?: {:?}", test1.clone());
-        let test = test1.run_query(graph).await;
+    let test = test1.run_query(graph).await;
     println!("{:?}", test);
-    let test_user_props = UserProps::Id(15);
-    println!("{:?}", test_user_props);
-    let test = EntityWrapper::Group(Group::new(32, "TestG2".to_string(), "asdf".to_string()));
-    println!("{:?}", test);
-
-    let test2 = EntityWrapper::Group(Group::new(32, "TestG2".to_string(), "asdf".to_string()));
-    // let maybe_user = User::test_unwrap(EntityWrapper::User(user.clone()));
-    // println!("{:?}", maybe_user);
-    // let maybe_user2 = User::test_unwrap(test2.clone());
-    // println!("{:?}", maybe_user2);
-    let maybe_user3 = EntityWrapper::User(user);
-    println!("{}", maybe_user3 == test2);
-    // let mut result = graph.execute(query("MATCH (n) RETURN n")).await.unwrap();
-    // while let Ok(Some(row)) = result.next().await {
-    //     let node = row.get::<Node>("n").unwrap();
-    //     println!("{:?}", node);
-    // }
 }
+
+
+
+// #[tokio::main]
+// async fn main() {
+//     // let graph = connect_neo4j().await;
+//     // let (query1, params) = User::node_by(&[UserProps::Name("Test".to_string())]);
+//     // let (query1, params) = Group::node_by(&[GroupProps::Name("TestG".to_string())]);
+//     // println!("{}", query1);
+//     // let user = User::new(0, "Test3".to_string(), vec![(Group::new(32, "Nothing happens here".to_string(), "Nothing happens here".to_string()))]);
+//     // println!("{}", user.get_entity_type());
+//     // println!("{:?}", user.clone());
+//     let test1 = Neo4gBuilder::new()
+//         .r#match()
+//             .node(user.clone(), &[UserProps::Id(45),UserProps::Name("Test2345d".to_string())])
+//             .set("User1", &[UserProps::Id(12).into()])
+//             .add_to_return()
+//         .end_statement();
+//         //.set_returns(&[]);
+//         println!("match?: {:?}", test1.clone());
+//         let test = test1.run_query(graph).await;
+//     // println!("{:?}", test);
+//     // let test_user_props = UserProps::Id(15);
+//     // println!("{:?}", test_user_props);
+//     // let test = EntityWrapper::Group(Group::new(32, "TestG2".to_string(), "asdf".to_string()));
+//     // println!("{:?}", test);
+
+//     // let test2 = EntityWrapper::Group(Group::new(32, "TestG2".to_string(), "asdf".to_string()));
+//     // // let maybe_user = User::test_unwrap(EntityWrapper::User(user.clone()));
+//     // // println!("{:?}", maybe_user);
+//     // // let maybe_user2 = User::test_unwrap(test2.clone());
+//     // // println!("{:?}", maybe_user2);
+//     // let maybe_user3 = EntityWrapper::User(user);
+//     // println!("{}", maybe_user3 == test2);
+//     // let mut result = graph.execute(query("MATCH (n) RETURN n")).await.unwrap();
+//     // while let Ok(Some(row)) = result.next().await {
+//     //     let node = row.get::<Node>("n").unwrap();
+//     //     println!("{:?}", node);
+//     // }
+// }

@@ -14,7 +14,7 @@
             ]
         }
     },
-    "workspaceMount": "source=${localWorkspaceFolder},target=/neo4g-macros,type=bind",
+    "workspaceMount": "source=${localWorkspaceFolder},target=/neo4g,type=bind",
     "workspaceFolder": "/neo4g-macros",
     "mounts": [
         {
