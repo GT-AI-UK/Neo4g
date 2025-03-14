@@ -30,13 +30,17 @@ async fn main() {
     let graph = connect_neo4j().await;
     let user = User::new(0, "Test3".to_string(), vec![(Group::new(32, "Nothing happens here".to_string(), "Nothing happens here".to_string()))]);
     let test1 = Neo4gBuilder::new()
-        .r#match()
-            .node(user.clone(), &[UserProps::Id(43),UserProps::Name("Test2345d".to_string())])
-            .set("user1", &[UserProps::Id(14).into()])
+        // .get()
+        //     .node(user.clone(), &[UserProps::Id(14),UserProps::Name("Test2345d".to_string())])
+        //     .set("user1", &[UserProps::Id(15).into()])
+        //     .add_to_return()
+        // .end_statement();
+        .merge()
+            .node(user.clone(), &[UserProps::Id(18),UserProps::Name("Test2345d".to_string())])
+            .on_match().set("user1", &[UserProps::Id(14).into()])
+            .on_create().set("user1", &[UserProps::Id(18).into()])
             .add_to_return()
-        .end_statement()
-        .with(&["user1"]); // need to use with if setting any values and you want to return. Need to put in doc string. Better yet, conditionally insert based on query content if returns are set?!
-        //.set_returns(&[]);
+            .end_statement();
         println!("match?: {:?}", test1.clone());
     let test = test1.run_query(graph).await;
     println!("{:?}", test);

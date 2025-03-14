@@ -73,7 +73,7 @@ impl Neo4gBuilder<Empty> {
         self.query.push_str("MERGE ");
         Neo4gMergeStatement::from(self)
     }
-    pub fn r#match(mut self) -> Neo4gMatchStatement<Empty> {
+    pub fn get(mut self) -> Neo4gMatchStatement<Empty> {
         self.clause = Clause::Match;
         self.query.push_str("MATCH ");
         Neo4gMatchStatement::from(self)
@@ -215,16 +215,14 @@ impl <Q: CanAddReturn> Neo4gMergeStatement<Q> {
     }
 }
 impl <Q: PossibleStatementEnd> Neo4gMergeStatement<Q> {
-    pub fn on_create<T: Neo4gEntity>(mut self) -> Self
-    where EntityWrapper: From<T>, T: Clone {
+    pub fn on_create(mut self) -> Self {
         self.current_on_str = OnString::Create;
         if self.on_create_str.is_empty() {
             self.on_create_str.push_str("\nON CREATE\n");
         }
         self
     }
-    pub fn on_match<T: Neo4gEntity>(mut self) -> Self
-    where EntityWrapper: From<T>, T: Clone {
+    pub fn on_match(mut self) -> Self {
         self.current_on_str = OnString::Match;
         if self.on_match_str.is_empty() {
             self.on_match_str.push_str("\nON MATCH\n");
@@ -236,13 +234,13 @@ impl <Q: PossibleStatementEnd> Neo4gMergeStatement<Q> {
         self.params.extend(params);
         match self.current_on_str {
             OnString::Create => {
-                if self.on_create_str.is_empty() {
+                if self.on_create_str == "\nON CREATE\n".to_string() {
                     self.on_create_str = "SET ".to_string();
                 }
                 self.on_create_str.push_str(&query)
             },
             OnString::Match => {
-                if self.on_match_str.is_empty() {
+                if self.on_match_str == "\nON MATCH\n".to_string() {
                     self.on_match_str = "SET ".to_string();
                 }
                 self.on_match_str.push_str(&query)
@@ -361,8 +359,19 @@ impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> { // is this needed at all
         self
     }
     pub fn end_statement(mut self) -> Neo4gBuilder<MatchedNode> {
-        self.query.push_str(&format!("{}", self.where_str));
-        self.query.push_str(&format!("{}", self.set_str));
+        if !self.where_str.is_empty() {
+            self.query.push_str(&format!("{}", self.where_str));
+        }
+        if !self.set_str.is_empty() {
+            self.query.push_str(&format!("{}", self.set_str));
+            if !self.return_refs.is_empty() {
+                let return_aliases: Vec<String> = self.return_refs.iter().map(|item| {
+                    item.0.clone()
+                }).collect();
+                self.query.push_str(&format!("WITH {}\n", return_aliases.join(", ")));
+            }
+        }
+        
         self.query = self.query.replace(":AdditionalLabels", "");
         Neo4gBuilder::from(self)
     }
