@@ -151,25 +151,19 @@ impl <Q: PossibleStatementEnd> Neo4gCreateStatement<Q> {
 
 //Merge statement methods
 impl<Q: CanNode> Neo4gMergeStatement<Q> {
-    // pub fn node<T: Neo4gEntity>(mut self, entity: T) -> Neo4gMergeStatement<CreatedNode>
-    // where EntityWrapper: From<T>, T: Clone {
-    //     self.node_number += 1;
-    //     let name = format!("neo4g_node{}", self.node_number);
-    //     self.previous_entity = Some((name.clone(), EntityType::Node, EntityWrapper::from(entity.clone())));
-    //     let (query_part, params) = entity.merge_from_self();
-    //     self.query.push_str(&query_part.replace("neo4g_node", &name.clone()));
-    //     self.params.extend(params);
-    //     self.transition::<CreatedNode>()
-    // }
     pub fn node<T: Neo4gEntity>(mut self, entity: T, props: &[T::Props]) -> Neo4gMergeStatement<CreatedNode> // could split this into .node and .props() using wrappers?
     where EntityWrapper: From<T>, T: Clone {
         self.node_number += 1;
         let label = entity.get_label();
         let name = format!("{}{}:AdditionalLabels", label.to_lowercase(), self.node_number);
         self.previous_entity = Some((name.clone(), EntityType::Node, EntityWrapper::from(entity.clone())));
-        let (query_part, params) = entity.entity_by(props);
-        self.query.push_str(&query_part.replace("neo4g_node", &name.clone()));
-        self.params.extend(params);
+        if props.is_empty() {
+            self.query.push_str(&format!("({})", name));
+        } else {
+            let (query_part, params) = entity.entity_by(props);
+            self.query.push_str(&query_part.replace("neo4g_node", &name));
+            self.params.extend(params);
+        }
         self.transition::<CreatedNode>()
     }
     pub fn node_ref(mut self, node_ref: &str) -> Neo4gMergeStatement<CreatedNode> {
@@ -178,17 +172,6 @@ impl<Q: CanNode> Neo4gMergeStatement<Q> {
     }
 }
 impl Neo4gMergeStatement<CreatedNode> {
-    // pub fn relation<T: Neo4gEntity>(mut self, entity: T) -> Neo4gMergeStatement<CreatedRelation>
-    // where EntityWrapper: From<T>, T: Clone {
-    //     self.relation_number += 1;
-    //     let label = entity.get_label();
-    //     let name = format!("{}{}:AdditionalLabels", label, self.node_number);
-    //     self.previous_entity = Some((name.clone(), EntityType::Relation, EntityWrapper::from(entity.clone())));
-    //     let (query_part, params) = entity.merge_from_self();
-    //     self.query.push_str(&query_part.replace("neo4g_relation", &name.clone()));
-    //     self.params.extend(params);
-    //     self.transition::<CreatedRelation>()
-    // }
     pub fn relation<T: Neo4gEntity>(mut self, entity: T, props: &[T::Props]) -> Neo4gMergeStatement<CreatedRelation>
     where EntityWrapper: From<T>, T: Clone {
         self.relation_number += 1;
@@ -263,29 +246,17 @@ impl <Q: PossibleStatementEnd> Neo4gMergeStatement<Q> {
 
 //Match statement methods
 impl<Q: CanNode> Neo4gMatchStatement<Q> {
-    // pub fn node<T: Neo4gEntity>(mut self, entity: T) -> Neo4gMatchStatement<MatchedNode>
-    // where EntityWrapper: From<T>, T: Clone {
-    //     self.node_number += 1;
-    //     let name = format!("neo4g_node{}", self.node_number);
-    //     self.previous_entity = Some((name.clone(), EntityType::Node, EntityWrapper::from(entity.clone())));
-    //     let (query_part, params) = entity.match_from_self();
-    //     self.query.push_str(&query_part.replace("neo4g_node", &name.clone()));
-    //     self.params.extend(params);
-    //     self.transition::<MatchedNode>()
-    // }
     pub fn node<T: Neo4gEntity>(mut self, entity: T, props: &[T::Props]) -> Neo4gMatchStatement<MatchedNode>
     where EntityWrapper: From<T>, T: Clone {
         self.node_number += 1;
         let label = entity.get_label();
         let name = format!("{}{}:AdditionalLabels", label.to_lowercase(), self.node_number);
         self.previous_entity = Some((name.clone(), EntityType::Node, EntityWrapper::from(entity.clone())));
-        if !props.is_empty() {
+        if props.is_empty() {
+            self.query.push_str(&format!("({})", name));
+        } else {
             let (query_part, params) = entity.entity_by(props);
-            // if self.where_str.is_empty() {
-            //     self.where_str.push_str("WHERE ")
-            // }
-            // self.where_str.push_str(&where_str);
-            self.query.push_str(&query_part.replace("neo4g_node", &name.clone()));
+            self.query.push_str(&query_part.replace("neo4g_node", &name));
             self.params.extend(params);
         }
         self.transition::<MatchedNode>()
@@ -308,16 +279,12 @@ impl Neo4gMatchStatement<MatchedNode> {
         self.transition::<CreatedRelation>()
     }
     pub fn relation<T: Neo4gEntity>(mut self, entity: T, props: &[T::Props]) -> Neo4gMatchStatement<MatchedRelation>
-    where EntityWrapper: From<T>, T: Clone { // do I need this - will it generate an inner where?
+    where EntityWrapper: From<T>, T: Clone {
         self.relation_number += 1;
         let label = entity.get_label();
         let name = format!("{}{}", label.to_lowercase(), self.node_number);
         self.previous_entity = Some((name.clone(), EntityType::Relation, EntityWrapper::from(entity.clone())));
         let (query_part, params) = entity.entity_by(props);
-        // if self.where_str.is_empty() {
-        //     self.where_str.push_str("WHERE ")
-        // }
-        // self.where_str.push_str(&where_str);
         self.query.push_str(&query_part.replace("neo4g_relation", &name.clone()));
         self.params.extend(params);
         self.transition::<MatchedRelation>()
@@ -339,18 +306,13 @@ impl <Q: CanAddReturn> Neo4gMatchStatement<Q> {
         }
         self
     }
-    // should I have an add_where() for nodes/rels in here? Or is it more clear and convenient to have where as props here?
 }
-impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> { // is this needed at all?
-    pub fn where_<T: Neo4gEntity>(mut self, alias: &str, props: &[PropsWrapper]) -> Self // does this need to take  &[()]?
-    where EntityWrapper: From<T>, T: Clone { // should this also take a compare_operator? (prop should be singular?)
+impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> {
+    pub fn filter(mut self, filter: Where<Condition>) -> Self {
         if self.where_str.is_empty() {
             self.where_str.push_str("\nWHERE ")
         }
-        //get params structured correctly and join into where_str - similar to set impl in PropsWrapper
-        // need to use Enums at the bottom of this file for CompareOperators and CompareJoiners - may need another function to .add_where?
-        // need to find a way to nest conditions for complex queries too.
-        // remember that the return from match_by currently has ANDOR joining the conditions!
+        self.where_str.push_str(&format!("{}\n", &filter.build()));
         self
     }
     pub fn set(mut self, alias: &str, props: &[PropsWrapper]) -> Self {
@@ -383,7 +345,7 @@ impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> { // is this needed at all
 
 //Statement combiners
 impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
-    pub fn set_returns(mut self, returns: &[(String, EntityType, EntityWrapper)]) -> Self { //Neo4gBuilder<ReturnSet> { //should be optional - functionality should be included in run_query as well?
+    pub fn set_returns(mut self, returns: &[(String, EntityType, EntityWrapper)]) -> Self {
         if returns.is_empty() && self.return_refs.is_empty() {
             println!("Nothing will be returned from this query...");
         }
@@ -395,7 +357,7 @@ impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
             let aliases: Vec<String> = self.return_refs.iter().map(|(alias, _, _)| alias.clone()).collect();
             self.query.push_str(&aliases.join(", "));
         }
-        self //.transition::<ReturnSet>()
+        self
     }
     /// inner_builder should be created with Neo4gBuilder::new_inner() in all cases I can think of.
     pub fn call(mut self, aliases: &[&str], inner_bulder: Neo4gBuilder<Empty>) -> Neo4gBuilder<Called> {
@@ -425,8 +387,6 @@ impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
                         EntityType::Node => {
                             if let Ok(node) = row.get::<Node>(&alias) {
                                 println!("got node for: {}", &alias);
-                                // let labels = node.labels();
-                                // println!("got labels: {:?}", labels.clone());
                                 let wrapped_entity = EntityWrapper::from_node(node.clone());
                                 return_vec.push(wrapped_entity);
                             } else {
@@ -472,7 +432,6 @@ pub trait CanNode {}
 pub trait PossibleStatementEnd {}
 pub trait CanWith {}
 pub trait PossibleQueryEnd {}
-//pub trait CanRun {}
 pub trait CanAddReturn {}
 pub trait CanDelete {}
 
@@ -509,8 +468,6 @@ pub struct Withed;
 impl CanMatch for Empty {}
 impl CanCreate for Empty {}
 impl CanDelete for MatchedNode {}
-// impl CanRun for ReturnSet {}
-// impl CanRun for DeletedEntity {}
 impl CanMatch for Withed {}
 impl CanCreate for Withed {}
 impl CanDelete for Withed {}
@@ -542,66 +499,6 @@ impl CanAddReturn for MatchedNode {}
 impl CanAddReturn for CreatedRelation {}
 impl CanAddReturn for MatchedRelation {}
 
-
-#[derive(Debug, Clone)]
-pub struct Where<State> {
-    string: String,
-    _state: PhantomData<State>,
-}
-
-pub trait CanCondition {}
-pub trait CanJoin {}
-pub trait CanBuild {}
-
-#[derive(Debug, Clone)]
-pub struct Condition;
-
-#[derive(Debug, Clone)]
-pub struct Joined;
-
-impl CanCondition for Empty {}
-impl CanJoin for Condition {}
-impl CanBuild for Condition {}
-impl CanCondition for Joined {}
-
-impl<S> Where<S> {
-    fn transition<NewState>(self) -> Where<NewState> {
-        let Where {string, ..} = self;
-        Where {string, _state: std::marker::PhantomData,}
-    }
-}
-
-impl Where<Empty> {
-    fn new() -> Self {
-        Where {
-            string: String::new(),
-            _state: PhantomData,
-        }
-    }
-}
-
-impl<Q: CanCondition> Where<Q> {
-    fn condition(mut self, alias: &str, prop: PropsWrapper, operator: CompareOperator) -> Where<Condition> {
-        let (name, value) = prop.to_condition();
-        self.string.push_str(&format!("{}.{} {} {}", alias, name, operator.to_string(), value.to_string()));
-        self.transition::<Condition>()
-    }
-    fn nest(mut self, inner_built: String) -> Where<Condition> {
-        self.string.push_str(&format!("({})", inner_built));
-        self.transition::<Condition>()
-    }
-    fn build(self) -> String {
-        self.string
-    }
-}
-
-impl<Q: CanJoin> Where<Q> {
-    fn join(mut self, joiner: CompareJoiner) -> Where<Joined> {
-        self.string.push_str(&format!(" {} ", joiner.to_string()));
-        self.transition::<Joined>()
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct Neo4gMatchStatement<State> {
     query: String,
@@ -612,7 +509,7 @@ pub struct Neo4gMatchStatement<State> {
     set_str: String,
     return_refs: Vec<(String, EntityType, EntityWrapper)>,
     previous_entity: Option<(String, EntityType, EntityWrapper)>,
-    clause: Clause, // use clause to determine what .node and .relation call. permissions for where will be interesting. 
+    clause: Clause,
     _state: PhantomData<State>,
 }
 
@@ -627,7 +524,7 @@ pub struct Neo4gMergeStatement<State> {
     current_on_str: OnString,
     return_refs: Vec<(String, EntityType, EntityWrapper)>,
     previous_entity: Option<(String, EntityType, EntityWrapper)>,
-    clause: Clause, // use clause to determine what .node and .relation call. permissions for where will be interesting. 
+    clause: Clause,
     _state: PhantomData<State>,
 }
 
@@ -639,7 +536,7 @@ pub struct Neo4gCreateStatement<State> {
     relation_number: u32,
     return_refs: Vec<(String, EntityType, EntityWrapper)>,
     previous_entity: Option<(String, EntityType, EntityWrapper)>,
-    clause: Clause, // use clause to determine what .node and .relation call. permissions for where will be interesting. 
+    clause: Clause,
     _state: PhantomData<State>,
 }
 
@@ -872,7 +769,6 @@ pub enum CompareOperator {
 
 impl fmt::Display for CompareOperator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Always output with the first letter capitalized
         let s = match self {
             CompareOperator::Eq => "=",
             CompareOperator::Gt => ">",
@@ -888,7 +784,6 @@ impl fmt::Display for CompareOperator {
 
 impl From<&str> for CompareOperator {
     fn from(s: &str) -> Self {
-        // Convert the input to lowercase to allow for case-insensitive matching
         match s.to_lowercase().as_str() {
             "eq" => CompareOperator::Eq,
             "gt" => CompareOperator::Gt,
@@ -928,5 +823,79 @@ impl From<&str> for CompareJoiner {
             "not" => CompareJoiner::Not,
             _ => panic!("Invalid CompareJoiner string: {}", s),
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Where<State> {
+    string: String,
+    _state: PhantomData<State>,
+}
+
+pub trait CanCondition {}
+pub trait CanJoin {}
+pub trait CanBuild {}
+
+#[derive(Debug, Clone)]
+pub struct Condition;
+
+#[derive(Debug, Clone)]
+pub struct Joined;
+
+impl CanCondition for Empty {}
+impl CanJoin for Condition {}
+impl CanBuild for Condition {}
+impl CanCondition for Joined {}
+
+impl<S> Where<S> {
+    fn transition<NewState>(self) -> Where<NewState> {
+        let Where {string, ..} = self;
+        Where {string, _state: std::marker::PhantomData,}
+    }
+}
+
+impl Where<Empty> {
+    pub fn new() -> Self {
+        Where {
+            string: String::new(),
+            _state: PhantomData,
+        }
+    }
+}
+
+impl<Q: CanCondition> Where<Q> {
+    pub fn condition(mut self, alias: &str, prop: PropsWrapper, operator: CompareOperator) -> Where<Condition> {
+        let (name, value) = prop.to_query_param();
+        self.string.push_str(&format!("{}.{} {} {}", alias, name, operator.to_string(), bolt_inner_value(&value)));
+        self.transition::<Condition>()
+    }
+    pub fn nest(mut self, inner_builder: Where<Condition>) -> Where<Condition> {
+        self.string.push_str(&format!("({})", inner_builder.build()));
+        self.transition::<Condition>()
+    }
+}
+
+impl<Q: CanJoin> Where<Q> {
+    pub fn join(mut self, joiner: CompareJoiner) -> Where<Joined> {
+        self.string.push_str(&format!(" {} ", joiner.to_string()));
+        self.transition::<Joined>()
+    }
+}
+
+impl Where<Condition> {
+    pub fn build(self) -> String {
+        self.string
+    }
+}
+
+fn bolt_inner_value(bolt: &BoltType) -> String {
+    match bolt {
+        BoltType::String(s) => s.value.clone(), // assuming BoltString is a String
+        BoltType::Boolean(b) => b.value.to_string(),
+        BoltType::Integer(i) => i.value.to_string(), // assuming BoltInteger { value: i32 }
+        BoltType::Float(f) => f.value.to_string(),
+        //BoltType::LocalDateTime(d) => d ????
+        // Add match arms for all variants you care about...
+        _ => format!("{:?}", bolt),
     }
 }

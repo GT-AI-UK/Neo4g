@@ -3,7 +3,7 @@ use neo4g_derive::Neo4gNode;
 use neo4g::traits::{Neo4gEntity, Neo4gProp};
 use neo4g::objects::{User, Group, UserProps, GroupProps};
 use neo4g::entity_wrapper::EntityWrapper;
-use neo4g::query_builder::Neo4gBuilder;
+use neo4g::query_builder::{CompareJoiner, CompareOperator, Neo4gBuilder, Where};
 use neo4rs::{query, Graph, Node};
 use dotenv::dotenv;
 use std::env;
@@ -31,22 +31,33 @@ async fn main() {
     let user = User::new(55, "Test32".to_string(), vec![(Group::new(32, "Nothing happens here".to_string(), "Nothing happens here".to_string()))]);
     let test1 = Neo4gBuilder::new()
         .get()
-            .node(user.clone(), &[UserProps::Id(14),UserProps::Name("Test12".to_string())])
-            .set("user1", &[UserProps::Id(15).into()])
+            .node(user.clone(), &[])
+            .filter(
+                Where::new()
+                .nest(
+                    Where::new()
+                    .condition("user1", UserProps::Id(17).into(), CompareOperator::Gt)
+                    .join(CompareJoiner::And)
+                    .condition("user1", UserProps::Id(33).into(), CompareOperator::Lt)
+                )
+                .join(CompareJoiner::Or)
+                .condition("user1", UserProps::Id(35).into(), CompareOperator::Eq)
+            )
             .add_to_return()
-        .end_statement();
-        // .merge()
+        .end_statement()
+        .run_query(graph).await;
+        
+        //println!("match?: {:?}", test1.clone());
+   //let test = test1.run_query(graph).await;
+    println!("{:?}", test1);
+}
+
+// .merge()
         //     .node(user.clone(), &[UserProps::Id(55),UserProps::Name("Test32".to_string())])
         //     .on_match().set("user1", &[UserProps::Id(14).into()])
         //     .on_create().set("user1", &[UserProps::Name("Test12".to_string()).into()])
         //     .add_to_return()
         //     .end_statement();
-        println!("match?: {:?}", test1.clone());
-    let test = test1.run_query(graph).await;
-    println!("{:?}", test);
-}
-
-
 
 // #[tokio::main]
 // async fn main() {
