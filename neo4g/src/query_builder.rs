@@ -83,15 +83,19 @@ impl Neo4gBuilder<Empty> {
         self.query.push_str("OPTIONAL MATCH ");
         Neo4gMatchStatement::from(self)
     }
-    pub fn with(mut self, aliases: &[&str]) -> Self {
-        self.query.push_str(&format!("WITH {}\n", aliases.join(", ")));
-        self
-    }
     //where to put unwind?
+}
+
+impl<Q: CanWith> Neo4gBuilder<Q> {
+    pub fn with(mut self, aliases: &[&str]) -> Neo4gBuilder<Withed> {
+        self.query.push_str(&format!("WITH {}\n", aliases.join(", ")));
+        self.transition::<Withed>()
+    }
 }
 
 //Create statement methods
 impl<Q: CanNode> Neo4gCreateStatement<Q> {
+    /// This is a docstring
     pub fn node<T: Neo4gEntity>(mut self, entity: T) -> Neo4gCreateStatement<CreatedNode>
     where EntityWrapper: From<T>, T: Clone {
         self.node_number += 1;
@@ -235,13 +239,13 @@ impl <Q: PossibleStatementEnd> Neo4gMergeStatement<Q> {
         match self.current_on_str {
             OnString::Create => {
                 if self.on_create_str == "\nON CREATE\n".to_string() {
-                    self.on_create_str = "SET ".to_string();
+                    self.on_create_str.push_str("SET ");
                 }
                 self.on_create_str.push_str(&query)
             },
             OnString::Match => {
                 if self.on_match_str == "\nON MATCH\n".to_string() {
-                    self.on_match_str = "SET ".to_string();
+                    self.on_match_str.push_str("SET ");
                 }
                 self.on_match_str.push_str(&query)
             },
@@ -338,7 +342,7 @@ impl <Q: CanAddReturn> Neo4gMatchStatement<Q> {
     // should I have an add_where() for nodes/rels in here? Or is it more clear and convenient to have where as props here?
 }
 impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> { // is this needed at all?
-    pub fn r#where<T: Neo4gEntity>(mut self, alias: &str, props: &[PropsWrapper]) -> Self // does this need to take  &[()]?
+    pub fn where_<T: Neo4gEntity>(mut self, alias: &str, props: &[PropsWrapper]) -> Self // does this need to take  &[()]?
     where EntityWrapper: From<T>, T: Clone { // should this also take a compare_operator? (prop should be singular?)
         if self.where_str.is_empty() {
             self.where_str.push_str("\nWHERE ")
@@ -378,7 +382,7 @@ impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> { // is this needed at all
 }
 
 //Statement combiners
-impl <Q: CanAddReturn> Neo4gBuilder<Q> {
+impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
     pub fn set_returns(mut self, returns: &[(String, EntityType, EntityWrapper)]) -> Self { //Neo4gBuilder<ReturnSet> { //should be optional - functionality should be included in run_query as well?
         if returns.is_empty() && self.return_refs.is_empty() {
             println!("Nothing will be returned from this query...");
@@ -393,22 +397,16 @@ impl <Q: CanAddReturn> Neo4gBuilder<Q> {
         }
         self //.transition::<ReturnSet>()
     }
-    pub fn call(mut self, inner_bulder: Neo4gBuilder<Empty>) -> Self {
+    /// inner_builder should be created with Neo4gBuilder::new_inner() in all cases I can think of.
+    pub fn call(mut self, aliases: &[&str], inner_bulder: Neo4gBuilder<Empty>) -> Neo4gBuilder<Called> {
         self.node_number = inner_bulder.node_number;
         self.relation_number = inner_bulder.relation_number;
         let (query, params) = inner_bulder.build();
-        self.query.push_str(format!("CALL {{\n {} \n}}\n", &query).as_str());
+        self.query.push_str(format!("CALL ({}) {{\n {} \n}}\n", &aliases.join(", "), &query).as_str());
         self.params.extend(params);
-        self
+        self.transition::<Called>()
     }
-    pub fn with(mut self, aliases: &[&str]) -> Self {
-        self.query.push_str(&format!("WITH {}\n", aliases.join(", ")));
-        self
-    }
-//}
 
-//Run query
-//impl<T: CanRun> Neo4gBuilder<T> {
     pub async fn run_query(mut self, graph: Graph) -> anyhow::Result<Vec<EntityWrapper>> {
         if !self.return_refs.is_empty() {
             self.query.push_str("RETURN ");
@@ -472,7 +470,9 @@ pub trait CanMatch {}
 pub trait CanCreate {}
 pub trait CanNode {}
 pub trait PossibleStatementEnd {}
-pub trait CanRun {}
+pub trait CanWith {}
+pub trait PossibleQueryEnd {}
+//pub trait CanRun {}
 pub trait CanAddReturn {}
 pub trait CanDelete {}
 
@@ -503,15 +503,34 @@ pub struct Called;
 #[derive(Debug, Clone)]
 pub struct DeletedEntity;
 
+#[derive(Debug, Clone)]
+pub struct Withed;
+
 impl CanMatch for Empty {}
 impl CanCreate for Empty {}
 impl CanDelete for MatchedNode {}
-impl CanRun for ReturnSet {}
-impl CanRun for DeletedEntity {}
+// impl CanRun for ReturnSet {}
+// impl CanRun for DeletedEntity {}
+impl CanMatch for Withed {}
+impl CanCreate for Withed {}
+impl CanDelete for Withed {}
+impl CanAddReturn for Withed {}
+
+impl CanWith for MatchedNode {}
+impl CanWith for CreatedNode {}
+impl CanWith for ReturnSet {}
+impl CanWith for Called {}
+impl CanWith for Empty {}
 
 impl PossibleStatementEnd for MatchedNode {}
 impl PossibleStatementEnd for CreatedNode {}
 impl PossibleStatementEnd for ReturnSet {}
+
+impl PossibleQueryEnd for MatchedNode {}
+impl PossibleQueryEnd for CreatedNode {}
+impl PossibleQueryEnd for Withed {}
+impl PossibleQueryEnd for Called {}
+
 impl CanMatch for MatchedNode {}
 impl CanCreate for MatchedNode {}
 impl CanNode for CreatedRelation {}
@@ -523,6 +542,65 @@ impl CanAddReturn for MatchedNode {}
 impl CanAddReturn for CreatedRelation {}
 impl CanAddReturn for MatchedRelation {}
 
+
+#[derive(Debug, Clone)]
+pub struct Where<State> {
+    string: String,
+    _state: PhantomData<State>,
+}
+
+pub trait CanCondition {}
+pub trait CanJoin {}
+pub trait CanBuild {}
+
+#[derive(Debug, Clone)]
+pub struct Condition;
+
+#[derive(Debug, Clone)]
+pub struct Joined;
+
+impl CanCondition for Empty {}
+impl CanJoin for Condition {}
+impl CanBuild for Condition {}
+impl CanCondition for Joined {}
+
+impl<S> Where<S> {
+    fn transition<NewState>(self) -> Where<NewState> {
+        let Where {string, ..} = self;
+        Where {string, _state: std::marker::PhantomData,}
+    }
+}
+
+impl Where<Empty> {
+    fn new() -> Self {
+        Where {
+            string: String::new(),
+            _state: PhantomData,
+        }
+    }
+}
+
+impl<Q: CanCondition> Where<Q> {
+    fn condition(mut self, alias: &str, prop: PropsWrapper, operator: CompareOperator) -> Where<Condition> {
+        let (name, value) = prop.to_condition();
+        self.string.push_str(&format!("{}.{} {} {}", alias, name, operator.to_string(), value.to_string()));
+        self.transition::<Condition>()
+    }
+    fn nest(mut self, inner_built: String) -> Where<Condition> {
+        self.string.push_str(&format!("({})", inner_built));
+        self.transition::<Condition>()
+    }
+    fn build(self) -> String {
+        self.string
+    }
+}
+
+impl<Q: CanJoin> Where<Q> {
+    fn join(mut self, joiner: CompareJoiner) -> Where<Joined> {
+        self.string.push_str(&format!(" {} ", joiner.to_string()));
+        self.transition::<Joined>()
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct Neo4gMatchStatement<State> {
@@ -789,18 +867,20 @@ pub enum CompareOperator {
     Lt,
     Le,
     Ne,
+    In,
 }
 
 impl fmt::Display for CompareOperator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Always output with the first letter capitalized
         let s = match self {
-            CompareOperator::Eq => "Eq",
-            CompareOperator::Gt => "Gt",
-            CompareOperator::Ge => "Ge",
-            CompareOperator::Lt => "Lt",
-            CompareOperator::Le => "Le",
-            CompareOperator::Ne => "Ne",
+            CompareOperator::Eq => "=",
+            CompareOperator::Gt => ">",
+            CompareOperator::Ge => ">=",
+            CompareOperator::Lt => "<",
+            CompareOperator::Le => "<=",
+            CompareOperator::Ne => "<>",
+            CompareOperator::In => "IN",
         };
         write!(f, "{}", s)
     }
@@ -816,6 +896,7 @@ impl From<&str> for CompareOperator {
             "lt" => CompareOperator::Lt,
             "le" => CompareOperator::Le,
             "ne" => CompareOperator::Ne,
+            "in" => CompareOperator::In,
             _ => panic!("Invalid CompareOperator string: {}", s),
         }
     }

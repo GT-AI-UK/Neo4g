@@ -30,8 +30,8 @@ use neo4g_derive::{Neo4gNode, not_query_param};
 use crate::traits::Neo4gEntity;
 
 //macros for neo_use? or a generic use* for a re-export of all the shit (probably better)
-
-#[derive(Neo4gNode)] //take a param for default lables as well? create another prop for additional lables in structs?
+//take a param for default lables as well? create another prop for additional lables in structs?
+#[derive(Neo4gNode)] 
 pub struct UserTemplate {
     id: i32,
     name: String,

@@ -28,19 +28,19 @@ pub async fn connect_neo4j() -> Graph { //return db object, run on startup, bind
 #[tokio::main]
 async fn main() {
     let graph = connect_neo4j().await;
-    let user = User::new(0, "Test3".to_string(), vec![(Group::new(32, "Nothing happens here".to_string(), "Nothing happens here".to_string()))]);
+    let user = User::new(55, "Test32".to_string(), vec![(Group::new(32, "Nothing happens here".to_string(), "Nothing happens here".to_string()))]);
     let test1 = Neo4gBuilder::new()
-        // .get()
-        //     .node(user.clone(), &[UserProps::Id(14),UserProps::Name("Test2345d".to_string())])
-        //     .set("user1", &[UserProps::Id(15).into()])
-        //     .add_to_return()
-        // .end_statement();
-        .merge()
-            .node(user.clone(), &[UserProps::Id(18),UserProps::Name("Test2345d".to_string())])
-            .on_match().set("user1", &[UserProps::Id(14).into()])
-            .on_create().set("user1", &[UserProps::Id(18).into()])
+        .get()
+            .node(user.clone(), &[UserProps::Id(14),UserProps::Name("Test12".to_string())])
+            .set("user1", &[UserProps::Id(15).into()])
             .add_to_return()
-            .end_statement();
+        .end_statement();
+        // .merge()
+        //     .node(user.clone(), &[UserProps::Id(55),UserProps::Name("Test32".to_string())])
+        //     .on_match().set("user1", &[UserProps::Id(14).into()])
+        //     .on_create().set("user1", &[UserProps::Name("Test12".to_string()).into()])
+        //     .add_to_return()
+        //     .end_statement();
         println!("match?: {:?}", test1.clone());
     let test = test1.run_query(graph).await;
     println!("{:?}", test);
