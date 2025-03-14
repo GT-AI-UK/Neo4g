@@ -27,6 +27,7 @@ pub struct Neo4gBuilder<State> {
     node_number: u32,
     relation_number: u32,
     return_refs: Vec<(String, EntityType, EntityWrapper)>,
+    order_by_str: String,
     previous_entity: Option<(String, EntityType, EntityWrapper)>,
     clause: Clause, // use clause to determine what .node and .relation call. permissions for where will be interesting. 
     _state: PhantomData<State>,
@@ -41,6 +42,7 @@ impl Neo4gBuilder<Empty> {
             node_number: 0,
             relation_number: 0,
             return_refs: Vec::new(),
+            order_by_str: String::new(),
             previous_entity: None,
             clause: Clause::None,
             _state: PhantomData,
@@ -53,6 +55,7 @@ impl Neo4gBuilder<Empty> {
             node_number,
             relation_number,
             return_refs: Vec::new(),
+            order_by_str: String::new(),
             previous_entity: None,
             clause: Clause::None,
             _state: PhantomData,
@@ -87,6 +90,10 @@ impl Neo4gBuilder<Empty> {
 }
 
 impl<Q: CanWith> Neo4gBuilder<Q> {
+    pub fn unwind(mut self, array: Vec<String>, as_alias: &str) -> Self {
+        self.query.push_str(&format!("[{}] AS {}\n", array.join(", "), as_alias));
+        self
+    }
     pub fn with(mut self, aliases: &[&str]) -> Neo4gBuilder<Withed> {
         self.query.push_str(&format!("WITH {}\n", aliases.join(", ")));
         self.transition::<Withed>()
@@ -172,6 +179,17 @@ impl<Q: CanNode> Neo4gMergeStatement<Q> {
     }
 }
 impl Neo4gMergeStatement<CreatedNode> {
+    pub fn relations<T: Neo4gEntity>(mut self, min_hops: u32, entity: T, props: &[T::Props]) -> Neo4gMergeStatement<CreatedRelation>
+    where EntityWrapper: From<T>, T: Clone {
+        self.relation_number += 1;
+        let label = entity.get_label();
+        let name = format!("{}{}", label.to_lowercase(), self.node_number);
+        self.previous_entity = Some((name.clone(), EntityType::Relation, EntityWrapper::from(entity.clone())));
+        let (query_part, params) = entity.entity_by(props);
+        self.query.push_str(&query_part.replace("neo4g_relation", &name.clone()).replace("min_hops", &format!("{}", min_hops)));
+        self.params.extend(params);
+        self.transition::<CreatedRelation>()
+    }
     pub fn relation<T: Neo4gEntity>(mut self, entity: T, props: &[T::Props]) -> Neo4gMergeStatement<CreatedRelation>
     where EntityWrapper: From<T>, T: Clone {
         self.relation_number += 1;
@@ -181,6 +199,21 @@ impl Neo4gMergeStatement<CreatedNode> {
         let (query_part, params) = entity.entity_by(props);
         self.query.push_str(&query_part.replace("neo4g_relation", &name.clone()).replace("*min_hops..", ""));
         self.params.extend(params);
+        self.transition::<CreatedRelation>()
+    }
+    pub fn relation_flipped<T: Neo4gEntity>(mut self, entity: T) -> Neo4gMergeStatement<CreatedRelation>
+    where EntityWrapper: From<T>, T: Clone {
+        self.relation_number += 1;
+        let label = entity.get_label();
+        let name = format!("{}{}", label.to_lowercase(), self.node_number);
+        self.previous_entity = Some((name.clone(), EntityType::Relation, EntityWrapper::from(entity.clone())));
+        let (query_part, params) = entity.create_from_self();
+        self.query.push_str(&query_part.replace("-[", "<-[").replace("neo4g_relation", &name).replace("]->", "]-"));
+        self.params.extend(params);
+        self.transition::<CreatedRelation>()
+    }
+    pub fn relation_undirected(mut self) -> Neo4gMergeStatement<CreatedRelation> {
+        self.query.push_str("--");
         self.transition::<CreatedRelation>()
     }
     pub fn relation_ref(mut self, relation_ref: &str) -> Neo4gMergeStatement<CreatedRelation> {
@@ -289,6 +322,21 @@ impl Neo4gMatchStatement<MatchedNode> {
         self.params.extend(params);
         self.transition::<MatchedRelation>()
     }
+    pub fn relation_flipped<T: Neo4gEntity>(mut self, entity: T) -> Neo4gMatchStatement<CreatedRelation>
+    where EntityWrapper: From<T>, T: Clone {
+        self.relation_number += 1;
+        let label = entity.get_label();
+        let name = format!("{}{}", label.to_lowercase(), self.node_number);
+        self.previous_entity = Some((name.clone(), EntityType::Relation, EntityWrapper::from(entity.clone())));
+        let (query_part, params) = entity.create_from_self();
+        self.query.push_str(&query_part.replace("-[", "<-[").replace("neo4g_relation", &name).replace("]->", "]-"));
+        self.params.extend(params);
+        self.transition::<CreatedRelation>()
+    }
+    pub fn relation_undirected(mut self) -> Neo4gMatchStatement<CreatedRelation> {
+        self.query.push_str("--");
+        self.transition::<CreatedRelation>()
+    }
     pub fn relation_ref(mut self, relation_ref: &str) -> Neo4gMatchStatement<MatchedRelation> {
         self.query.push_str(&format!("-[{}]->", relation_ref));
         self.transition::<MatchedRelation>()
@@ -359,6 +407,7 @@ impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
         }
         self
     }
+
     /// inner_builder should be created with Neo4gBuilder::new_inner() in all cases I can think of.
     pub fn call(mut self, aliases: &[&str], inner_bulder: Neo4gBuilder<Empty>) -> Neo4gBuilder<Called> {
         self.node_number = inner_bulder.node_number;
@@ -369,12 +418,32 @@ impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
         self.transition::<Called>()
     }
 
+    pub fn skip(mut self, skip: u32) -> Self {
+        self.query.push_str(&format!("SKIP {}\n", skip));
+        self
+    }
+
+    pub fn limit(mut self, limit: u32) -> Self {
+        self.query.push_str(&format!("LIMIT {}\n", limit));
+        self
+    }
+
+    pub fn order_by(mut self, alias: &str, prop: PropsWrapper, order: Order) -> Self {
+        if self.order_by_str.is_empty() {
+            self.order_by_str = "\nORDER BY ".to_string();
+        }
+        let (name, _) = prop.to_query_param();
+        self.order_by_str.push_str(&format!("{}.{} {}", alias, &name, order.to_string()));
+        self
+    }
+
     pub async fn run_query(mut self, graph: Graph) -> anyhow::Result<Vec<EntityWrapper>> {
         if !self.return_refs.is_empty() {
             self.query.push_str("RETURN ");
             let aliases: Vec<String> = self.return_refs.iter().map(|(alias, _, _)| alias.clone()).collect();
             self.query.push_str(&aliases.join(", "));
         }
+        self.query.push_str(&self.order_by_str);
         println!("query: {}", self.query.clone());
         let query = Query::new(self.query).params(self.params);
         let mut return_vec: Vec<EntityWrapper> = Vec::new();
@@ -549,6 +618,7 @@ impl<S> Neo4gBuilder<S> {
             node_number,
             relation_number,
             return_refs,
+            order_by_str,
             previous_entity,
             clause,
             ..
@@ -559,6 +629,7 @@ impl<S> Neo4gBuilder<S> {
             node_number,
             relation_number,
             return_refs,
+            order_by_str,
             previous_entity,
             clause,
             _state: std::marker::PhantomData,
@@ -712,6 +783,7 @@ impl <S> From<Neo4gMatchStatement<S>> for Neo4gBuilder<MatchedNode> {
             node_number: value.node_number,
             relation_number: value.relation_number,
             return_refs: value.return_refs,
+            order_by_str: String::new(),
             previous_entity: value.previous_entity,
             clause: value.clause,
             _state: std::marker::PhantomData,
@@ -727,6 +799,7 @@ impl <S> From<Neo4gMergeStatement<S>> for Neo4gBuilder<CreatedNode> {
             node_number: value.node_number,
             relation_number: value.relation_number,
             return_refs: value.return_refs,
+            order_by_str: String::new(),
             previous_entity: value.previous_entity,
             clause: value.clause,
             _state: std::marker::PhantomData,
@@ -742,9 +815,39 @@ impl <S> From<Neo4gCreateStatement<S>> for Neo4gBuilder<CreatedNode> {
             node_number: value.node_number,
             relation_number: value.relation_number,
             return_refs: value.return_refs,
+            order_by_str: String::new(),
             previous_entity: value.previous_entity,
             clause: value.clause,
             _state: std::marker::PhantomData,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum Order {
+    Asc,
+    Desc,
+    None,
+}
+
+impl fmt::Display for Order {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            Order::Asc => "",
+            Order::Desc  => "DESC",
+            Order::None => "",
+        };
+        write!(f, "{}", s)
+    }
+}
+
+impl From<&str> for Order {
+    fn from(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "asc" => Order::Asc,
+            "desc"  => Order::Desc,
+            "" => Order::None,
+            _ => panic!("Invalid CompareJoiner string: {}", s),
         }
     }
 }
