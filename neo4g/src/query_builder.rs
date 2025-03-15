@@ -1,5 +1,4 @@
 use crate::entity_wrapper::{EntityWrapper, PropsWrapper};
-use crate::objects::{User, Group};
 use crate::traits::Neo4gEntity;
 use neo4rs::{BoltNull, BoltType, Graph, Node, Relation, Query};
 use std::marker::PhantomData;
@@ -48,7 +47,7 @@ impl Neo4gBuilder<Empty> {
             _state: PhantomData,
         }
     }
-    pub fn build(self) -> (String, HashMap<String, BoltType>) { // add returns to query string here and in run_query, or add in the return method (above)?
+    pub fn build(self) -> (String, HashMap<String, BoltType>) {
         (self.query, self.params)
     }
 
@@ -145,7 +144,7 @@ impl <Q: PossibleStatementEnd> Neo4gCreateStatement<Q> {
 
 //Merge statement methods
 impl<Q: CanNode> Neo4gMergeStatement<Q> {
-    pub fn node<T: Neo4gEntity>(mut self, entity: T, props: &[T::Props]) -> Neo4gMergeStatement<CreatedNode> // could split this into .node and .props() using wrappers?
+    pub fn node<T: Neo4gEntity>(mut self, entity: T, props: &[T::Props]) -> Neo4gMergeStatement<CreatedNode>
     where EntityWrapper: From<T>, T: Clone {
         self.node_number += 1;
         let label = entity.get_label();
@@ -897,9 +896,9 @@ pub enum CompareJoiner {
 impl fmt::Display for CompareJoiner {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
-            CompareJoiner::And => "And",
-            CompareJoiner::Or  => "Or",
-            CompareJoiner::Not => "Not",
+            CompareJoiner::And => "AND",
+            CompareJoiner::Or  => "OR",
+            CompareJoiner::Not => "NOT",
         };
         write!(f, "{}", s)
     }
@@ -980,9 +979,9 @@ impl Where<Condition> {
 
 fn bolt_inner_value(bolt: &BoltType) -> String {
     match bolt {
-        BoltType::String(s) => s.value.clone(), // assuming BoltString is a String
+        BoltType::String(s) => s.value.clone(),
         BoltType::Boolean(b) => b.value.to_string(),
-        BoltType::Integer(i) => i.value.to_string(), // assuming BoltInteger { value: i32 }
+        BoltType::Integer(i) => i.value.to_string(),
         BoltType::Float(f) => f.value.to_string(),
         //BoltType::LocalDateTime(d) => d ????
         // Add match arms for all variants you care about...
