@@ -1,10 +1,18 @@
 use crate::entity_wrapper::{EntityWrapper, PropsWrapper};
+use crate::objects;
 use crate::traits::Neo4gEntity;
 use neo4rs::{BoltNull, BoltType, Graph, Node, Relation, Query};
+use std::fmt::format;
 use std::marker::PhantomData;
-use std::fmt;
+use std::{default, fmt};
 
 use std::collections::HashMap;
+
+#[derive(Debug, Clone)]
+pub struct QueryParam {
+    pub prop: String,
+    pub value: BoltType,
+}
 
 #[derive(Debug, Clone)]
 pub struct Neo4gBuilder<State> {
@@ -346,7 +354,8 @@ impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> {
         if self.where_str.is_empty() {
             self.where_str.push_str("\nWHERE ")
         }
-        self.where_str.push_str(&format!("{}\n", &filter.build()));
+        let (query_part, (prop, value)) = filter.build();
+        self.where_str.push_str(&format!("{}\n", &query_part));
         self
     }
     pub fn set(mut self, alias: &str, props: &[PropsWrapper]) -> Self {
@@ -918,6 +927,7 @@ impl From<&str> for CompareJoiner {
 #[derive(Debug, Clone)]
 pub struct Where<State> {
     string: String,
+    params: HashMap<String, BoltType>,
     _state: PhantomData<State>,
 }
 
@@ -938,8 +948,8 @@ impl CanCondition for Joined {}
 
 impl<S> Where<S> {
     fn transition<NewState>(self) -> Where<NewState> {
-        let Where {string, ..} = self;
-        Where {string, _state: std::marker::PhantomData,}
+        let Where {string, params, ..} = self;
+        Where {string, params, _state: std::marker::PhantomData,}
     }
 }
 
@@ -947,17 +957,32 @@ impl Where<Empty> {
     pub fn new() -> Self {
         Where {
             string: String::new(),
+            params: HashMap::new(),
             _state: PhantomData,
         }
     }
 }
 
+!!!! IMPORTANT!!!! Conditions must return params as well since they use props! ffs!!!
 impl<Q: CanCondition> Where<Q> {
     pub fn condition(mut self, alias: &str, prop: PropsWrapper, operator: CompareOperator) -> Where<Condition> {
         let (name, value) = prop.to_query_param();
         self.string.push_str(&format!("{}.{} {} {}", alias, name, operator.to_string(), bolt_inner_value(&value)));
         self.transition::<Condition>()
     }
+    pub fn coalesce(mut self, alias: &str, prop: PropsWrapper) -> Where<Condition> {
+        let (name, value) = prop.to_query_param();
+        self.string.push_str(&format!("{}.{} = coalesce(${}, {}.{}", alias, name, name, alias, name));
+        self.transition::<Condition>()
+    }
+    // should functions be done like this? I could wrap each function in an enum. Might be simpler/lower effort to template out with a macro and a FunctionWrapper?
+    // seems reasonable, but as they are all so different, the implementations to get them into query, queryparams structure will be complex...
+    // pub fn condition_with_function(mut self, alias: &str, prop: PropsWrapper, operator: CompareOperator, function: Function) -> Where<Condition> {
+    //     let (name, value) = prop.to_query_param();
+    //     let (func_query_part, (func_prop, func_val)) = function.to_query_part();
+    //     self.string.push_str(&format!("{}.{} {} {}", alias, name, operator.to_string(), func_query_part));
+    //     self.transition::<Condition>()
+    // }
     pub fn nest(mut self, inner_builder: Where<Condition>) -> Where<Condition> {
         self.string.push_str(&format!("({})", inner_builder.build()));
         self.transition::<Condition>()
@@ -988,3 +1013,158 @@ fn bolt_inner_value(bolt: &BoltType) -> String {
         _ => format!("{:?}", bolt),
     }
 }
+
+// REALLY NEED TO THINK ABOUT HOW TO CALL FUNCTIONS!!!
+// // pub struct Avg {
+// //     alias: Option<String>,
+// //     props: Option<Vec<PropsWrapper>>,
+// // }
+
+// // impl Avg {
+// //     pub fn new(alias: &str, props: &[PropsWrapper]) -> Self {
+// //         Self {
+// //             alias: Some(alias.into()),
+// //             props: Some(props.into()),
+// //         }
+// //     }
+// //     fn to_query_part(self) -> (String, (String, BoltType)) {
+// //         ("Example".to_string(), HashMap::new())
+// //     }
+// // }
+
+// // pub struct Count {
+// //     alias: Option<String>,
+// //     props: Option<Vec<PropsWrapper>>,
+// // }
+
+// // impl Count {
+// //     pub fn new(alias: &str, props: &[PropsWrapper]) -> Self {
+// //         Self {
+// //             alias: Some(alias.into()),
+// //             props: Some(props.into()),
+// //         }
+// //     }
+// //     fn to_query_part(self) -> (String, (String, BoltType)) {
+// //         ("Example".to_string(), HashMap::new())
+// //     }
+// // }
+
+// // pub struct Max {
+// //     alias: Option<String>,
+// //     props: Option<Vec<PropsWrapper>>,
+// // }
+
+// // impl Max {
+// //     pub fn new(alias: &str, props: &[PropsWrapper]) -> Self {
+// //         Self {
+// //             alias: Some(alias.into()),
+// //             props: Some(props.into()),
+// //         }
+// //     }
+// //     fn to_query_part(self) -> (String, (String, BoltType)) {
+// //         ("Example".to_string(), HashMap::new())
+// //     }
+// // }
+
+// // pub struct Min {
+// //     alias: Option<String>,
+// //     props: Option<Vec<PropsWrapper>>,
+// // }
+
+// // impl Min {
+// //     pub fn new(alias: &str, props: &[PropsWrapper]) -> Self {
+// //         Self {
+// //             alias: Some(alias.into()),
+// //             props: Some(props.into()),
+// //         }
+// //     }
+// //     fn to_query_part(self) -> (String, (String, BoltType)) {
+// //         ("Example".to_string(), HashMap::new())
+// //     }
+// // }
+
+// // pub struct Sum {
+// //     alias: Option<String>,
+// //     props: Option<Vec<PropsWrapper>>,
+// // }
+
+// // impl Sum {
+// //     pub fn new(alias: &str, props: &[PropsWrapper]) -> Self {
+// //         Self {
+// //             alias: Some(alias.into()),
+// //             props: Some(props.into()),
+// //         }
+// //     }
+// //     fn to_query_part(self) -> (String, (String, BoltType)) {
+// //         ("Example".to_string(), HashMap::new())
+// //     }
+// // }
+
+// pub enum Function {
+//     Coalesce(PropsWrapper),
+//     // Avg(Avg),
+//     // Count(Count),
+//     // Max(Max),
+//     // Min(Min),
+//     // Sum(Sum),
+// }
+
+
+// // impl From<Avg> for Function {
+// //     fn from(value: Avg) -> Self {
+// //         Self::Avg(value)
+// //     }
+// // }
+
+// // impl From<Count> for Function {
+// //     fn from(value: Count) -> Self {
+// //         Self::Count(value)
+// //     }
+// // }
+
+// // impl From<Max> for Function {
+// //     fn from(value: Max) -> Self {
+// //         Self::Max(value)
+// //     }
+// // }
+
+// // impl From<Min> for Function {
+// //     fn from(value: Min) -> Self {
+// //         Self::Min(value)
+// //     }
+// // }
+
+// // impl From<Sum> for Function {
+// //     fn from(value: Sum) -> Self {
+// //         Self::Sum(value)
+// //     }
+// // }
+
+// impl Function {
+//     ///Returns a query part and a params HashMap. Params is not supported within Where predicates.
+//     pub fn to_query_part(self) -> (String, (String, BoltType)) {
+//         match self {
+//             Function::Coalesce(prop) => {
+//                 let (name, _) = prop.to_query_param();
+//                 let param_name = format!("coalesce_{}", name);
+//                 let return_string = format!("coalesce(${}, {}.{})", &param_name, name);
+//                 (return_string, (param_name, BoltType::Null(BoltNull)))
+//             },
+//             // Function::Avg(obj) => {
+//             //     obj.to_query_part()
+//             // },
+//             // Function::Count(obj) => {
+//             //     obj.to_query_part()
+//             // },
+//             // Function::Max(obj) => {
+//             //     obj.to_query_part()
+//             // },
+//             // Function::Min(obj) => {
+//             //     obj.to_query_part()
+//             // },
+//             // Function::Sum(obj) => {
+//             //     obj.to_query_part()
+//             // },
+//         }
+//     }
+// }
