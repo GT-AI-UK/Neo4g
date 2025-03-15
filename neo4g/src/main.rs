@@ -1,13 +1,8 @@
-use neo4g_derive::Neo4gNode;
-//use neo4g_derive::Neo4gEntityWrapper;
-use neo4g::traits::{Neo4gEntity, Neo4gProp};
 use neo4g::objects::{User, Group, UserProps, GroupProps};
-use neo4g::entity_wrapper::EntityWrapper;
 use neo4g::query_builder::{CompareJoiner, CompareOperator, Neo4gBuilder, Where};
-use neo4rs::{query, Graph, Node};
+use neo4rs::Graph;
 use dotenv::dotenv;
 use std::env;
-use paste::paste;
 
 pub async fn connect_neo4j() -> Graph { //return db object, run on startup, bind to state var
     let mut host = String::new();
