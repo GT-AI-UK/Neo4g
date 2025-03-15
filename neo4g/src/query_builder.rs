@@ -975,6 +975,8 @@ impl<Q: CanCondition> Where<Q> {
         self.string.push_str(&format!("{}.{} = coalesce(${}, {}.{}", alias, name, name, alias, name));
         self.transition::<Condition>()
     }
+    // DO YOU EVEN NEED COALESCE?!
+    // just provide the params you need by starting the query, then branching it based on what optional values you have? - if querying by ID or Username, just have .node inside and if/else?
     // should functions be done like this? I could wrap each function in an enum. Might be simpler/lower effort to template out with a macro and a FunctionWrapper?
     // seems reasonable, but as they are all so different, the implementations to get them into query, queryparams structure will be complex...
     // pub fn condition_with_function(mut self, alias: &str, prop: PropsWrapper, operator: CompareOperator, function: Function) -> Where<Condition> {
