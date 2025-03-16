@@ -61,15 +61,15 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
         }
         // Use the variant name as the label we search for.
         let var_name_str = var_name.to_string();
-        let check = quote! { ///////////////////////////////////// THIS NEEDS TO ONLY CALL LABELS FOR NODES... How can I get it to do this???
+        let check = quote! {
             if labels.contains(&#var_name_str) {
                 println!("labels contains {}", #var_name_str);
                 return #enum_name::#var_name(#var_name::from(node));
             }
         };
         from_node_checks.push(check);
-        let rcheck = quote! { ///////////////////////////////////// THIS NEEDS TO ONLY CALL LABELS FOR NODES... How can I get it to do this???
-            if &labels.to_string() == &#var_name_str {
+        let rcheck = quote! {
+            if &labels.to_string().to_pascal_case() == &#var_name_str {
                 println!("labels is {}", #var_name_str);
                 return #enum_name::#var_name(#var_name::from(relation));
             }

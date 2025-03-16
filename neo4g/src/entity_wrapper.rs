@@ -1,7 +1,8 @@
 use neo4g_macro_rules::generate_entity_wrappers;
 use paste::paste;
-use crate::objects::{User, Group, UserProps, GroupProps};
+use crate::objects::{User, Group, UserProps, GroupProps, MemberOf, MemberOfProps};
 use neo4g_derive::{Neo4gEntityWrapper, Neo4gPropsWrapper};
+use heck::ToPascalCase;
 use neo4rs::{
     Node,
     Relation,
@@ -36,5 +37,4 @@ use crate::traits::Neo4gEntity;
         pub nothing: bool,
     }
 
-generate_entity_wrappers!(Nothing, User, Group); // copy from_node fn into relation and vice versa to resolve (not perfect, but good enough!)
-// generate props wrapper: PropsWrapper {UserProps, GroupProps, etc.} impl functions to unwrap s in entity wrapper
+generate_entity_wrappers!(Nothing, User, Group, MemberOf); // copy from_node fn into relation and vice versa to resolve (not perfect, but good enough!)

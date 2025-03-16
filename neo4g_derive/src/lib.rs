@@ -11,7 +11,7 @@ pub fn neo4g_node_derive(input: TokenStream) -> TokenStream {
     node::generate_neo4g_node(input)
 }
 
-#[proc_macro_derive(Neo4gRelationship)]
+#[proc_macro_derive(Neo4gRelation)]
 pub fn neo4g_relationship_derive(input: TokenStream) -> TokenStream {
     relation::generate_neo4g_relation(input)
 }

@@ -1,10 +1,13 @@
-use neo4g::objects::{User, Group, UserProps, GroupProps};
-use neo4g::query_builder::{CompareJoiner, CompareOperator, Neo4gBuilder, Where};
+use neo4g::objects::{Group, GroupProps, MemberOf, MemberOfProps, User, UserProps};
+use neo4g::query_builder::{self, CompareJoiner, CompareOperator, Neo4gBuilder, Where};
 use neo4rs::Graph;
 use dotenv::dotenv;
 use std::env;
+use heck::ToShoutySnakeCase;
 
 pub async fn connect_neo4j() -> Graph { //return db object, run on startup, bind to state var
+    let test = "CamalCase".to_shouty_snake_case();
+    println!("{}",test);
     let mut host = String::new();
     let mut port = String::new();
     let mut db_user = String::new();
@@ -20,31 +23,80 @@ pub async fn connect_neo4j() -> Graph { //return db object, run on startup, bind
     graph
 }
 
+async fn authenticate_user(graph: Graph, identifier: UserProps, password: UserProps) -> bool {
+    let mut permissions:Vec<String> = Vec::new();
+    let mut pw_string = String::new();
+    match identifier {
+        UserProps::Id(_) => {},
+        UserProps::Name(_) => {},
+        _ => {
+            println!("unacceptable identifier provided, failed.");
+            return false;
+        }
+    }
+    if let UserProps::Password(pw) = password {
+        pw_string = pw;
+    } else {
+        println!("unacceptable password prop provided, failed.");
+        return false;
+    }
+    let result = Neo4gBuilder::new()
+        .get().node(User::default(), &[identifier]).add_to_return()
+            .relations(0, MemberOf::default(), &[])
+            .node(Group::default(), &[])
+            .relation(MemberOf::default(), &[]).add_to_return()
+            .node(Group::default(), &[]).add_to_return()
+            .filter(Where::new()
+                .condition("user1", UserProps::Deleted(false).into(), CompareOperator::Eq)
+                .join(CompareJoiner::And)
+                .condition("member_of2", MemberOfProps::Deleted(false).into(), CompareOperator::Eq)
+                .join(CompareJoiner::And)
+                .condition("group3", GroupProps::Deleted(false).into(), CompareOperator::Eq)
+            )
+            .end_statement()
+        .run_query(graph).await;
+    if let Ok(entities) = result {
+        println!("{:?}", entities);
+    }
+    true
+}
+
 #[tokio::main]
 async fn main() {
     let graph = connect_neo4j().await;
-    let user = User::new(55, "Test32".to_string(), vec![(Group::new(32, "Nothing happens here".to_string(), "Nothing happens here".to_string()))]);
-    let test1 = Neo4gBuilder::new()
-        .get()
-            .node(user.clone(), &[])
-            .filter(
-                Where::new()
-                .nest(
-                    Where::new()
-                    .condition("user1", UserProps::Id(17).into(), CompareOperator::Gt)
-                    .join(CompareJoiner::And)
-                    .condition("user1", UserProps::Id(33).into(), CompareOperator::Lt)
-                )
-                .join(CompareJoiner::Or)
-                .condition("user1", UserProps::Id(35).into(), CompareOperator::Eq)
-            )
-            .add_to_return()
-        .end_statement()
-        .run_query(graph).await;
+    let user = User::new(55,
+        "Test32".to_string(),
+        "password".to_string(),
+        "forname".to_string(),
+        "surname".to_string(),
+        false,
+        vec![(Group::new(32, "Nothing happens here".to_string(), false))]
+    );
+    let test = authenticate_user(graph, UserProps::Name("admin".to_string()), UserProps::Password("asdf".to_string())).await;
+
+
+
+    // let test1 = Neo4gBuilder::new()
+    //     .get()
+    //         .node(user.clone(), &[])
+    //         .filter(
+    //             Where::new()
+    //             .nest(
+    //                 Where::new()
+    //                 .condition("user1", UserProps::Id(17).into(), CompareOperator::Gt)
+    //                 .join(CompareJoiner::And)
+    //                 .condition("user1", UserProps::Id(33).into(), CompareOperator::Lt)
+    //             )
+    //             .join(CompareJoiner::Or)
+    //             .condition("user1", UserProps::Id(35).into(), CompareOperator::Eq)
+    //         )
+    //         .add_to_return()
+    //     .end_statement()
+    //     .run_query(graph).await;
         
         //println!("match?: {:?}", test1.clone());
    //let test = test1.run_query(graph).await;
-    println!("{:?}", test1);
+    //println!("{:?}", test1);
 }
 
 // .merge()

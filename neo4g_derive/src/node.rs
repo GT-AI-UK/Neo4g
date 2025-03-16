@@ -197,6 +197,8 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
     let constructor_params: Vec<_> = all_fields_full.iter().map(|field| {
         let field_ident = field.ident.as_ref().unwrap();
         let field_ty = &field.ty;
+        let field_type_str = field_ty.to_token_stream().to_string();
+        //could/SHOULD propbably convert String props to take &str args in constructors
         quote! {
             #field_ident: #field_ty
         }
@@ -220,6 +222,20 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
             let variant = syn::Ident::new(&utils::capitalize(&field_ident.to_string()), field_ident.span());
             quote! {
                 #field_ident: #props_enum_name::#variant(#field_ident)
+            }
+        }
+    }).collect();
+
+    let default_body: Vec<_> = all_fields_full.iter().map(|field| {
+        let field_ident = field.ident.as_ref().unwrap();
+        if should_ignore_field(field) {
+            quote! {
+                #field_ident: Default::default()
+            }
+        } else {
+            let variant = syn::Ident::new(&utils::capitalize(&field_ident.to_string()), field_ident.span());
+            quote! {
+                #field_ident: #props_enum_name::#variant(Default::default())
             }
         }
     }).collect();
@@ -283,6 +299,16 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
             pub fn new( #(#constructor_params),* ) -> Self {
                 Self {
                     #(#constructor_body),*
+                }
+            }
+        }
+    };
+
+    let generated_default = quote! {
+        impl Default for #new_struct_name {
+            fn default() -> Self {
+                Self {
+                    #(#default_body),*
                 }
             }
         }
@@ -446,6 +472,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
 
         // Constructor for the generated struct.
         #generated_constructor
+        #generated_default
 
         // New() method for the template struct that forwards to the generated struct's new().
         #template_new_method

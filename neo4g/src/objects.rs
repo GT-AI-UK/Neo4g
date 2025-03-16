@@ -26,8 +26,9 @@ use neo4rs::{
     BoltDateTimeZoneId,
 };
 use crate::entity_wrapper::EntityWrapper;
-use neo4g_derive::{Neo4gNode, not_query_param};
+use neo4g_derive::{Neo4gNode, Neo4gRelation, not_query_param};
 use crate::traits::Neo4gEntity;
+use heck::ToShoutySnakeCase;
 
 //macros for neo_use? or a generic use* for a re-export of all the shit (probably better)
 //take a param for default lables as well? create another prop for additional lables in structs?
@@ -35,15 +36,24 @@ use crate::traits::Neo4gEntity;
 pub struct UserTemplate {
     id: i32,
     name: String,
+    password: String,
+    forename: String,
+    surname: String,
+    deleted: bool,
     #[not_query_param]
-    groups: Vec<Group>,
+    groups: Vec<Group>, 
 }
 
 #[derive(Neo4gNode)]
 pub struct GroupTemplate {
     id: i32,
     name: String,
-    something: String,
+    deleted: bool,
+}
+
+#[derive(Neo4gRelation)]
+pub struct MemberOfTemplate {
+    deleted: bool,
 }
 
 // impl User {
