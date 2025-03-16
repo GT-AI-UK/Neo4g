@@ -35,18 +35,21 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
     let props_enum_name = syn::Ident::new(&format!("{}Props", base_name), struct_name.span());
 
     // Generate enum variants that hold the actual field types.
-    let props_enum_variants: Vec<_> = all_fields_full.iter().map(|field| {
+    let props_enum_variants: Vec<_> = all_fields_full.iter()
+    .filter_map(|field| {
         if !should_ignore_field(field) {
             let field_ident = field.ident.as_ref().unwrap();
             let field_type = &field.ty;
             let variant = syn::Ident::new(&utils::capitalize(&field_ident.to_string()), struct_name.span());
-            quote! { #variant(#field_type) }
+            Some(quote! { #variant(#field_type) })
         } else {
-            quote! {}
+            None
         }
-    }).collect();
+    })
+    .collect();
 
-    let create_node_params: Vec<_> = all_fields_full.iter().map(|field| {
+
+    let create_node_params: Vec<_> = all_fields_full.iter().filter_map(|field| {
         if !should_ignore_field(field) {
             let field_ident = field.ident.as_ref().unwrap();
             let field_name = field_ident.to_string();
@@ -54,26 +57,26 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
             let field_name_lit = syn::LitStr::new(&field_name, field_ident.span());
             // We assume the accessor method has the same name as the field.
             let access_method_ident = syn::Ident::new(&field_name, field_ident.span());
-            quote! {
+            Some(quote! {
                 (#field_name_lit.to_string(), BoltType::from(self.#access_method_ident().clone()))
-            }
+            })
         } else {
-            quote! {}
+            None
         }
     }).collect();
     
-    let create_query_params: Vec<_> = all_fields_full.iter().map(|field| {
+    let create_query_params: Vec<_> = all_fields_full.iter().filter_map(|field| {
         if !should_ignore_field(field) {
             let field_ident = field.ident.as_ref().unwrap();
 
             let field_name = field_ident.to_string();
             let field_name_lit = syn::LitStr::new(&field_name, field_ident.span());
             
-            quote! {
+            Some(quote! {
                 format!("{}: ${}", #field_name_lit, #field_name_lit)
-            }
+            })
         } else {
-            quote! {}
+            None
         }
     }).collect();
     
@@ -89,27 +92,27 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
     };
 
     // Generate match arms for converting a variant’s inner value to a query parameter.
-    let to_query_param_match_arms: Vec<_> = all_fields_full.iter().map(|(field)| {
+    let to_query_param_match_arms: Vec<_> = all_fields_full.iter().filter_map(|(field)| {
         let field_ident = field.ident.as_ref().unwrap();
         let variant = syn::Ident::new(&utils::capitalize(&field_ident.to_string()), field_ident.span());
         let key_lit = syn::LitStr::new(&field_ident.to_string(), field_ident.span());
         
         if should_ignore_field(field) {
             // For ignored fields, provide a match arm that essentially does nothing.
-            quote! {}
+            None
         } else {
             // For normal fields, return the key and the value.
-            quote! {
+            Some(quote! {
                 #props_enum_name::#variant(val) => (#key_lit, val.clone().into())
-            }
+            })
         }
     }).collect();
 
     // Generate accessor methods for the Props enum.
     // For non-optional fields, return &T; for Option<T>, return Option<&T>.
-    let props_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
+    let props_accessor_methods: Vec<_> = all_fields_full.iter().filter_map(|field| {
         if should_ignore_field(field) {
-            quote! {}
+            None
         } else {
             let field_ident = field.ident.as_ref().unwrap();
             let field_type = &field.ty;
@@ -143,23 +146,23 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
             };
 
             if let Some(inner_type) = maybe_inner_type {
-                quote! {
+                Some(quote! {
                     pub fn #method_ident(&self) -> Option<&#inner_type> {
                         match self {
                             Self::#variant(ref opt) => opt.as_ref(),
                             _ => panic!("Called {} accessor on wrong variant", stringify!(#method_ident)),
                         }
                     }
-                }
+                })
             } else {
-                quote! {
+                Some(quote! {
                     pub fn #method_ident(&self) -> &#field_type {
                         match self {
                             Self::#variant(ref val) => val,
                             _ => panic!("Called {} accessor on wrong variant", stringify!(#method_ident)),
                         }
                     }
-                }
+                })
             }
         }
     }).collect();

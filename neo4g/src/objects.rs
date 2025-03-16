@@ -41,7 +41,9 @@ pub struct UserTemplate {
     surname: String,
     deleted: bool,
     #[not_query_param]
-    groups: Vec<Group>, 
+    groups: Vec<Group>,
+    #[not_query_param]
+    example: String,
 }
 
 #[derive(Neo4gNode)]

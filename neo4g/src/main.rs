@@ -1,3 +1,4 @@
+use neo4g::entity_wrapper::EntityWrapper;
 use neo4g::objects::{Group, GroupProps, MemberOf, MemberOfProps, User, UserProps};
 use neo4g::query_builder::{self, CompareJoiner, CompareOperator, Neo4gBuilder, Where};
 use neo4rs::Graph;
@@ -56,7 +57,25 @@ async fn authenticate_user(graph: Graph, identifier: UserProps, password: UserPr
             .end_statement()
         .run_query(graph).await;
     if let Ok(entities) = result {
-        println!("{:?}", entities);
+        println!("{:?}", entities.clone());
+        let (mut users, mut member_ofs, mut groups) = (Vec::new(), Vec::new(), Vec::new());
+        for entity in entities {
+            match entity {
+                EntityWrapper::User(user) => users = vec![user],
+                EntityWrapper::MemberOf(member_of) => member_ofs.push(member_of),
+                EntityWrapper::Group(group) => groups.push(group),
+                _ => {}
+            }
+        }
+        let mut user: User;
+        if users.len() == 1 {
+            user = users[0].clone();
+        } else {
+            return false;
+        }
+        user.groups = groups;
+        println!("user: {:?}", user);
+        println!("rels: {:?}", member_ofs);
     }
     true
 }
@@ -70,7 +89,8 @@ async fn main() {
         "forname".to_string(),
         "surname".to_string(),
         false,
-        vec![(Group::new(32, "Nothing happens here".to_string(), false))]
+        vec![(Group::new(32, "Nothing happens here".to_string(), false))],
+        "asdf".to_string(),
     );
     let test = authenticate_user(graph, UserProps::Name("admin".to_string()), UserProps::Password("asdf".to_string())).await;
 
