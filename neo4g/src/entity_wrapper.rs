@@ -31,6 +31,7 @@ use neo4rs::{
 };
 use neo4g_derive::Neo4gNode;
 use crate::traits::Neo4gEntity;
+use serde::{Serialize, Deserialize};
 
     #[derive(Neo4gNode, Clone, Debug)]
     pub struct NothingTemplate {

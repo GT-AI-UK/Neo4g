@@ -24,7 +24,9 @@ pub async fn connect_neo4j() -> Graph { //return db object, run on startup, bind
     graph
 }
 
-async fn authenticate_user(graph: Graph, identifier: UserProps, password: UserProps) -> bool {
+async fn authenticate_user() -> impl IntoResponse { //graph: Graph, identifier: UserProps, password: UserProps
+    let graph = connect_neo4j().await;
+    let (identifier, password) = (UserProps::Name("admin".to_string()), UserProps::Password("asdf".to_string()));
     let mut permissions:Vec<String> = Vec::new();
     let mut pw_string = String::new();
     match identifier {
@@ -32,14 +34,14 @@ async fn authenticate_user(graph: Graph, identifier: UserProps, password: UserPr
         UserProps::Name(_) => {},
         _ => {
             println!("unacceptable identifier provided, failed.");
-            return false;
+            return Json(User::default());
         }
     }
     if let UserProps::Password(pw) = password {
         pw_string = pw;
     } else {
         println!("unacceptable password prop provided, failed.");
-        return false;
+        return Json(User::default());
     }
     let result = Neo4gBuilder::new()
         .get().node(User::default(), &[identifier]).add_to_return()
@@ -71,28 +73,49 @@ async fn authenticate_user(graph: Graph, identifier: UserProps, password: UserPr
         if users.len() == 1 {
             user = users[0].clone();
         } else {
-            return false;
+            return Json(User::default());
         }
         user.groups = groups;
         println!("user: {:?}", user);
         println!("rels: {:?}", member_ofs);
+        return Json(user);
     }
-    true
+    Json(User::default())
 }
+
+use axum::{
+    error_handling::HandleErrorLayer,
+    extract::{Path, Query, State},
+    http::StatusCode,
+    response::IntoResponse,
+    routing::{get, patch},
+    Json, Router,
+};
 
 #[tokio::main]
 async fn main() {
-    let graph = connect_neo4j().await;
-    let user = User::new(55,
-        "Test32".to_string(),
-        "password".to_string(),
-        "forname".to_string(),
-        "surname".to_string(),
-        false,
-        vec![(Group::new(32, "Nothing happens here".to_string(), false))],
-        "asdf".to_string(),
-    );
-    let test = authenticate_user(graph, UserProps::Name("admin".to_string()), UserProps::Password("asdf".to_string())).await;
+    // Build the application with a route.
+    let app = Router::new()
+        .route("/hello", get(authenticate_user));
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:8080")
+        .await
+        .unwrap();
+    axum::serve(listener, app).await.unwrap();
+}
+// #[tokio::main]
+// async fn main() {
+//     let graph = connect_neo4j().await;
+//     let user = User::new(55,
+//         "Test32".to_string(),
+//         "password".to_string(),
+//         "forname".to_string(),
+//         "surname".to_string(),
+//         false,
+//         vec![(Group::new(32, "Nothing happens here".to_string(), false))],
+//         "asdf".to_string(),
+//     );
+    //let test = authenticate_user(graph, UserProps::Name("admin".to_string()), UserProps::Password("asdf".to_string())).await;
 
 
 
@@ -117,7 +140,7 @@ async fn main() {
         //println!("match?: {:?}", test1.clone());
    //let test = test1.run_query(graph).await;
     //println!("{:?}", test1);
-}
+//}
 
 // .merge()
         //     .node(user.clone(), &[UserProps::Id(55),UserProps::Name("Test32".to_string())])

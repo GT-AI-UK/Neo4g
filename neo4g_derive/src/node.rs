@@ -30,6 +30,10 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
     fn should_ignore_field(field: &syn::Field) -> bool {
         field.attrs.iter().any(|attr| attr.path().is_ident("not_query_param"))
     }
+
+    fn should_skip_serde(field: &syn::Field) -> bool {
+        field.attrs.iter().any(|attr| attr.path().is_ident("serde_skip"))
+    }
     
     // Generated Props enum (e.g. UserProps).
     let props_enum_name = syn::Ident::new(&format!("{}Props", base_name), struct_name.span());
@@ -185,7 +189,18 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
     let new_struct_fields: Vec<_> = all_fields_full.iter().map(|field| {
         let field_ident = field.ident.as_ref().unwrap();
         let field_ty = &field.ty;
-        if should_ignore_field(field) {
+    
+        if should_ignore_field(field) && should_skip_serde(field) {
+            quote! {
+                #[serde(skip)]
+                pub #field_ident: #field_ty
+            }
+        } else if should_skip_serde(field) {
+            quote! {
+                #[serde(skip)]
+                pub #field_ident: #props_enum_name
+            }
+        } else if should_ignore_field(field) {
             quote! {
                 pub #field_ident: #field_ty
             }
@@ -417,7 +432,8 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
     // Assemble the final output.
     let expanded = quote! {
         // Generated Props enum.
-        #[derive(Debug, Clone)]
+        #[derive(Serialize, Deserialize, Debug, Clone)]
+        #[serde(untagged)]
         pub enum #props_enum_name {
             #(#props_enum_variants),*
         }
@@ -435,7 +451,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
         }
 
         // Generated new struct (e.g., `User` from `UserTemplate`) whose fields are wrapped in the Props enum.
-        #[derive(Debug, Clone)]
+        #[derive(Serialize, Deserialize, Debug, Clone)]
         pub struct #new_struct_name {
             #(#new_struct_fields),*
         }
