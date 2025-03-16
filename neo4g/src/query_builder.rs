@@ -354,8 +354,9 @@ impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> {
         if self.where_str.is_empty() {
             self.where_str.push_str("\nWHERE ")
         }
-        let (query_part, (prop, value)) = filter.build();
+        let (query_part, where_params) = filter.build();
         self.where_str.push_str(&format!("{}\n", &query_part));
+        self.params.extend(where_params);
         self
     }
     pub fn set(mut self, alias: &str, props: &[PropsWrapper]) -> Self {
@@ -928,6 +929,7 @@ impl From<&str> for CompareJoiner {
 pub struct Where<State> {
     string: String,
     params: HashMap<String, BoltType>,
+    condition_number: u32,
     _state: PhantomData<State>,
 }
 
@@ -948,8 +950,8 @@ impl CanCondition for Joined {}
 
 impl<S> Where<S> {
     fn transition<NewState>(self) -> Where<NewState> {
-        let Where {string, params, ..} = self;
-        Where {string, params, _state: std::marker::PhantomData,}
+        let Where {string, params, condition_number, ..} = self;
+        Where {string, params, condition_number, _state: std::marker::PhantomData,}
     }
 }
 
@@ -958,21 +960,26 @@ impl Where<Empty> {
         Where {
             string: String::new(),
             params: HashMap::new(),
+            condition_number: 0,
             _state: PhantomData,
         }
     }
 }
 
-!!!! IMPORTANT!!!! Conditions must return params as well since they use props! ffs!!!
 impl<Q: CanCondition> Where<Q> {
     pub fn condition(mut self, alias: &str, prop: PropsWrapper, operator: CompareOperator) -> Where<Condition> {
+        self.condition_number += 1;
         let (name, value) = prop.to_query_param();
-        self.string.push_str(&format!("{}.{} {} {}", alias, name, operator.to_string(), bolt_inner_value(&value)));
+        let param_name = format!("where_{}{}", name, self.condition_number);
+        self.string.push_str(&format!("{}.{} {} {}", alias, name, operator.to_string(), &param_name));
+        self.params.insert(param_name, value);
         self.transition::<Condition>()
     }
     pub fn coalesce(mut self, alias: &str, prop: PropsWrapper) -> Where<Condition> {
         let (name, value) = prop.to_query_param();
-        self.string.push_str(&format!("{}.{} = coalesce(${}, {}.{}", alias, name, name, alias, name));
+        let param_name = format!("where_{}{}", name, self.condition_number);
+        self.string.push_str(&format!("{}.{} = coalesce(${}, {}.{}", alias, name, param_name, alias, name));
+        self.params.insert(param_name, value);
         self.transition::<Condition>()
     }
     // DO YOU EVEN NEED COALESCE?!
@@ -986,7 +993,9 @@ impl<Q: CanCondition> Where<Q> {
     //     self.transition::<Condition>()
     // }
     pub fn nest(mut self, inner_builder: Where<Condition>) -> Where<Condition> {
-        self.string.push_str(&format!("({})", inner_builder.build()));
+        let (query, params) = inner_builder.build();
+        self.string.push_str(&format!("({})", query));
+        self.params.extend(params);
         self.transition::<Condition>()
     }
 }
@@ -999,8 +1008,8 @@ impl<Q: CanJoin> Where<Q> {
 }
 
 impl Where<Condition> {
-    pub fn build(self) -> String {
-        self.string
+    pub fn build(self) -> (String, HashMap<String, BoltType>) {
+        (self.string, self.params)
     }
 }
 
