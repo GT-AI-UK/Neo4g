@@ -1,5 +1,5 @@
 use neo4g::entity_wrapper::EntityWrapper;
-use neo4g::objects::{Group, GroupProps, MemberOf, MemberOfProps, User, UserProps};
+use neo4g::objects::{Group, GroupProps, MemberOf, MemberOfProps, User, UserProps, UserTemplate};
 use neo4g::query_builder::{self, CompareJoiner, CompareOperator, Neo4gBuilder, Where};
 use neo4rs::Graph;
 use dotenv::dotenv;
@@ -34,14 +34,14 @@ async fn authenticate_user() -> impl IntoResponse { //graph: Graph, identifier: 
         UserProps::Name(_) => {},
         _ => {
             println!("unacceptable identifier provided, failed.");
-            return Json(User::default());
+            return Json(UserTemplate::from(User::default()));
         }
     }
     if let UserProps::Password(pw) = password {
         pw_string = pw;
     } else {
         println!("unacceptable password prop provided, failed.");
-        return Json(User::default());
+        return Json(UserTemplate::from(User::default()));
     }
     let result = Neo4gBuilder::new()
         .get().node(User::default(), &[identifier]).add_to_return()
@@ -73,14 +73,14 @@ async fn authenticate_user() -> impl IntoResponse { //graph: Graph, identifier: 
         if users.len() == 1 {
             user = users[0].clone();
         } else {
-            return Json(User::default());
+            return Json(UserTemplate::from(User::default()));
         }
         user.groups = groups;
         println!("user: {:?}", user);
         println!("rels: {:?}", member_ofs);
-        return Json(user);
+        return Json(UserTemplate::from(user));
     }
-    Json(User::default())
+    Json(UserTemplate::from(User::default()))
 }
 
 use axum::{

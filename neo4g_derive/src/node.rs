@@ -2,7 +2,8 @@ use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{parse_macro_input, DeriveInput, Data, Fields};
 //use neo4g_traits::*;
-use crate::{generators, utils};
+use crate::{generators};
+use heck::ToPascalCase;
 
 pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
     // Parse the input tokens into a syntax tree.
@@ -30,10 +31,6 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
     fn should_ignore_field(field: &syn::Field) -> bool {
         field.attrs.iter().any(|attr| attr.path().is_ident("not_query_param"))
     }
-
-    fn should_skip_serde(field: &syn::Field) -> bool {
-        field.attrs.iter().any(|attr| attr.path().is_ident("serde_skip"))
-    }
     
     // Generated Props enum (e.g. UserProps).
     let props_enum_name = syn::Ident::new(&format!("{}Props", base_name), struct_name.span());
@@ -44,7 +41,7 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
         if !should_ignore_field(field) {
             let field_ident = field.ident.as_ref().unwrap();
             let field_type = &field.ty;
-            let variant = syn::Ident::new(&utils::capitalize(&field_ident.to_string()), struct_name.span());
+            let variant = syn::Ident::new(&field_ident.to_string().to_pascal_case(), struct_name.span());
             Some(quote! { #variant(#field_type) })
         } else {
             None
@@ -98,7 +95,7 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
     // Generate match arms for converting a variant’s inner value to a query parameter.
     let to_query_param_match_arms: Vec<_> = all_fields_full.iter().filter_map(|(field)| {
         let field_ident = field.ident.as_ref().unwrap();
-        let variant = syn::Ident::new(&utils::capitalize(&field_ident.to_string()), field_ident.span());
+        let variant = syn::Ident::new(&field_ident.to_string().to_pascal_case(), field_ident.span());
         let key_lit = syn::LitStr::new(&field_ident.to_string(), field_ident.span());
         
         if should_ignore_field(field) {
@@ -121,7 +118,7 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
             let field_ident = field.ident.as_ref().unwrap();
             let field_type = &field.ty;
             let method_ident = syn::Ident::new(&field_ident.to_string(), struct_name.span());
-            let variant = syn::Ident::new(&utils::capitalize(&field_ident.to_string()), struct_name.span());
+            let variant = syn::Ident::new(&field_ident.to_string().to_pascal_case(), struct_name.span());
 
             // Check if the field type is Option<T>.
             let maybe_inner_type = if let syn::Type::Path(type_path) = field_type {
@@ -190,17 +187,7 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
         let field_ident = field.ident.as_ref().unwrap();
         let field_ty = &field.ty;
     
-        if should_ignore_field(field) && should_skip_serde(field) {
-            quote! {
-                #[serde(skip)]
-                pub #field_ident: #field_ty
-            }
-        } else if should_skip_serde(field) {
-            quote! {
-                #[serde(skip)]
-                pub #field_ident: #props_enum_name
-            }
-        } else if should_ignore_field(field) {
+        if should_ignore_field(field) {
             quote! {
                 pub #field_ident: #field_ty
             }
@@ -237,7 +224,7 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
                 #field_ident: #field_ident
             }
         } else {
-            let variant = syn::Ident::new(&utils::capitalize(&field_ident.to_string()), field_ident.span());
+            let variant = syn::Ident::new(&field_ident.to_string().to_pascal_case(), field_ident.span());
             quote! {
                 #field_ident: #props_enum_name::#variant(#field_ident)
             }
@@ -251,7 +238,7 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
                 #field_ident: Default::default()
             }
         } else {
-            let variant = syn::Ident::new(&utils::capitalize(&field_ident.to_string()), field_ident.span());
+            let variant = syn::Ident::new(&field_ident.to_string().to_pascal_case(), field_ident.span());
             quote! {
                 #field_ident: #props_enum_name::#variant(Default::default())
             }
@@ -360,7 +347,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
                 }
             } else {
                 // For fields that go into queries, wrap them in the Props enum.
-                let variant = syn::Ident::new(&utils::capitalize(&field_ident.to_string()), field_ident.span());
+                let variant = syn::Ident::new(&field_ident.to_string().to_pascal_case(), field_ident.span());
                 let key = syn::LitStr::new(&field_ident.to_string(), field_ident.span());
                 let field_type_str = field_type.to_token_stream().to_string();
         
@@ -408,6 +395,53 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
                 fn from(node: Node) -> Self {
                     Self {
                         #(#field_inits),*
+                    }
+                }
+            }
+        };
+
+        let to_template_fields: Vec<_> = all_fields_full.iter().map(|field| {
+            let field_ident = field.ident.as_ref().unwrap();
+            if should_ignore_field(field) {
+                quote! {
+                    #field_ident: new.#field_ident.clone()
+                }       
+            } else {
+                quote! {
+                    #field_ident: new.#field_ident().clone()
+                } 
+            }
+        }).collect();
+
+        let to_template_impl = quote! {
+            impl From<#new_struct_name> for #struct_name {
+                fn from(new: #new_struct_name) -> Self {
+                    Self {
+                        #(#to_template_fields),*
+                    }
+                }
+            }
+        };
+
+        let from_template_fields: Vec<_> = all_fields_full.iter().map(|field| {
+            let field_ident = field.ident.as_ref().unwrap();
+            let variant = syn::Ident::new(&field_ident.to_string().to_pascal_case(), field_ident.span());
+            if should_ignore_field(field) {
+                quote! {
+                    #field_ident: template.#field_ident.clone()
+                }       
+            } else {
+                quote! {
+                    #field_ident: #props_enum_name::#variant(template.#field_ident.clone())
+                } 
+            }
+        }).collect();
+
+        let from_template_impl = quote! {
+            impl From<#struct_name> for #new_struct_name {
+                fn from(template: #struct_name) -> Self {
+                    Self {
+                        #(#from_template_fields),*
                     }
                 }
             }
@@ -498,7 +532,8 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
 
         #from_impl
         #silly_from_impl // could have a different trait to handle the from impl maybe? can functions take two traits?
-
+        #to_template_impl
+        #from_template_impl
         // Accessor methods for the generated struct.
         #struct_impl
     };
