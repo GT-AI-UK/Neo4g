@@ -44,7 +44,9 @@ async fn authenticate_user() -> impl IntoResponse { //graph: Graph, identifier: 
         return Json(UserTemplate::from(User::default()));
     }
     let result = Neo4gBuilder::new()
-        .get().node(User::default(), &[identifier]).add_to_return()
+        .get().node(User::default(), &[identifier]).add_to_return() // Instead of taking entity, take &mut entity? In this way, alias could be stored in the struct?
+            // forward definitions would be required, which may be problematic...
+            // alternatively, could use an internal field of query builder to track each struct provided to each method, but referencing them is complicated?
             .relations(0, MemberOf::default(), &[])
             .node(Group::default(), &[])
             .relation(MemberOf::default(), &[]).add_to_return()
