@@ -31,10 +31,7 @@ pub fn generate_neo4g_relation(input: TokenStream) -> TokenStream {
     fn should_ignore_field(field: &syn::Field) -> bool {
         field.attrs.iter().any(|attr| attr.path().is_ident("not_query_param"))
     }
-    
-    fn should_skip_serde(field: &syn::Field) -> bool {
-        field.attrs.iter().any(|attr| attr.path().is_ident("serde_skip"))
-    }
+
     // Generated Props enum (e.g. UserProps).
     let props_enum_name = syn::Ident::new(&format!("{}Props", base_name), struct_name.span());
 
@@ -187,17 +184,7 @@ pub fn generate_neo4g_relation(input: TokenStream) -> TokenStream {
         let field_ident = field.ident.as_ref().unwrap();
         let field_ty = &field.ty;
     
-        if should_ignore_field(field) && should_skip_serde(field) {
-            quote! {
-                #[serde(skip)]
-                pub #field_ident: #field_ty
-            }
-        } else if should_skip_serde(field) {
-            quote! {
-                #[serde(skip)]
-                pub #field_ident: #props_enum_name
-            }
-        } else if should_ignore_field(field) {
+        if should_ignore_field(field) {
             quote! {
                 pub #field_ident: #field_ty
             }
