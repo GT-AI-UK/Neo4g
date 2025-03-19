@@ -168,19 +168,19 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
         }
     }).collect();
 
-    let props_impl = quote! {
-        impl #new_struct_name {
-            /// Converts a Props variant to a key and its stringified value.
-            pub fn to_query_param(&self) -> (&'static str, BoltType) {
-                match self {
-                    #(#to_query_param_match_arms),*
-                }
-            }
+    // let props_impl = quote! {
+    //     impl #props_enum_name {
+    //         /// Converts a Props variant to a key and its stringified value.
+    //         pub fn to_query_param(&self) -> (&'static str, BoltType) {
+    //             match self {
+    //                 #(#to_query_param_match_arms),*
+    //             }
+    //         }
     
-            // Accessor methods for the Props enum.
-            #(#props_accessor_methods)*
-        }
-    };
+    //         // Accessor methods for the Props enum.
+    //         #(#props_accessor_methods)*
+    //     }
+    // };
 
     // Generate fields for the new struct: same field names, but type is the Props enum.
     let new_struct_fields: Vec<_> = all_fields_full.iter().map(|field| {
@@ -483,15 +483,15 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
             #(#props_enum_variants),*
         }
 
-        impl #props_enum_name {
-            /// Converts a Props variant to a key and its stringified value.
-            pub fn to_query_param(&self) -> (&'static str, BoltType) {
+        impl QueryParam for #props_enum_name {
+            fn to_query_param(&self) -> (&'static str, BoltType) {
                 match self {
                     #(#to_query_param_match_arms),*
                 }
             }
+        }
 
-            // Accessor methods for the Props enum.
+        impl #props_enum_name {
             #(#props_accessor_methods)*
         }
 

@@ -30,7 +30,7 @@ use neo4rs::{
     BoltDateTimeZoneId,
 };
 use neo4g_derive::Neo4gNode;
-use crate::traits::Neo4gEntity;
+use crate::traits::{Neo4gEntity, QueryParam};
 use serde::{Serialize, Deserialize};
 
     #[derive(Neo4gNode, Clone, Debug)]

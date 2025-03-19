@@ -30,6 +30,7 @@ use neo4g_derive::{Neo4gNode, Neo4gRelation, not_query_param};
 use crate::traits::Neo4gEntity;
 use heck::ToShoutySnakeCase;
 use serde::{Serialize, Deserialize};
+use crate::traits::QueryParam;
 
 #[derive(Neo4gNode, Serialize, Deserialize, Debug, Clone)]
 pub struct GroupTemplate {

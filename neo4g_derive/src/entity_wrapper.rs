@@ -79,7 +79,7 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
         };
         eq_checks.push(eq_check);
         let call_get_alias_arm = quote! {
-            #enum_name::#var_name(inner) => inner.get_alias()
+            #enum_name::#var_name(inner) => inner.get_alias(),
         };
         call_get_alias_arms.push(call_get_alias_arm);
     }
@@ -97,8 +97,8 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
     let get_alias_fn = quote! {
         pub fn get_alias(&self) -> String {
             match self {
-                #(#call_get_alias_arms),*
-                EntityWrapper::Nothing(_) => String::new(),
+                #(#call_get_alias_arms)*
+                _ => String::new()
             }
         }
     };
@@ -126,10 +126,10 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
         #(#accessors)*
 
         impl #enum_name {
-            //#get_alias_fn
             #inner_fn
             #from_node_fn
             #from_relation_fn
+            #get_alias_fn
         }
         
         impl PartialEq for #enum_name {

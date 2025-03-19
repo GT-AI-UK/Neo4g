@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use neo4rs::BoltType;
 
 pub trait Neo4gEntity {
-    type Props;
+    type Props: QueryParam;
     fn get_entity_type(&self) -> String;
     fn get_label(&self) -> String;
     fn set_alias(&mut self, alias: &str) -> ();
@@ -12,6 +12,9 @@ pub trait Neo4gEntity {
     fn create_from_self(&self) -> (String, std::collections::HashMap<String, BoltType>);
 }
 
+pub trait QueryParam {
+    fn to_query_param(&self) -> (&'static str, BoltType);
+}
 // pub trait Neo4gProp: std::any::Any {
 //     fn as_any(&self) -> &dyn std::any::Any;
 //     fn key(&self) -> &'static str;
