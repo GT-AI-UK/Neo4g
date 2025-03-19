@@ -228,6 +228,8 @@ pub fn generate_neo4g_relation(input: TokenStream) -> TokenStream {
         }
     }).collect();
 
+    let template_constructor_body: Vec<_> = all_fields_full.iter().map(|field| {field.ident.as_ref().unwrap()}).collect();
+
     let default_body: Vec<_> = all_fields_full.iter().map(|field| {
         let field_ident = field.ident.as_ref().unwrap();
         if should_ignore_field(field) {
@@ -300,6 +302,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
         impl #new_struct_name {
             pub fn new( #(#constructor_params),* ) -> Self {
                 Self {
+                    alias: String::new(),
                     #(#constructor_body),*
                 }
             }
@@ -310,6 +313,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
         impl Default for #new_struct_name {
             fn default() -> Self {
                 Self {
+                    alias: String::new(),
                     #(#default_body),*
                 }
             }
@@ -319,8 +323,10 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
     // Generate the new() method for the template struct that forwards to the generated struct's new().
     let template_new_method = quote! {
         impl #struct_name {
-            pub fn new( #(#constructor_params),* ) -> #new_struct_name {
-                #new_struct_name::new( #(#constructor_args),* )
+            pub fn new( #(#constructor_params),* ) -> Self {
+                Self {
+                    #(#template_constructor_body),*
+                }
             }
         }
     };
@@ -391,6 +397,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
             impl From<Relation> for #new_struct_name {
                 fn from(relation: Relation) -> Self {
                     Self {
+                        alias: String::new(),
                         #(#field_inits),*
                     }
                 }
@@ -438,6 +445,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
             impl From<#struct_name> for #new_struct_name {
                 fn from(template: #struct_name) -> Self {
                     Self {
+                        alias: String::new(),
                         #(#from_template_fields),*
                     }
                 }
@@ -448,6 +456,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
             impl From<Node> for #new_struct_name {
                 fn from(relation: Node) -> Self {
                     Self {
+                        alias: String::new(),
                         #(#field_inits),*
                     }
                 }
@@ -459,6 +468,8 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
         //let get_relation_by_fn = generators::generate_get_relation_by(&new_struct_name, &new_struct_name_str, &props_enum_name);
         let relation_by_fn = generators::generate_relation_by(&new_struct_name, &new_struct_name_str, &props_enum_name);
         let get_relation_label_fn = generators::generate_get_relation_label(&new_struct_name_str);
+        let set_alias_fn = generators::generate_set_alias();
+        let get_alias_fn = generators::generate_get_alias();
 
     // Assemble the final output.
     let expanded = quote! {
@@ -485,6 +496,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
         #[derive(Serialize, Deserialize, Debug, Clone)]
         
         pub struct #new_struct_name {
+            alias: String,
             #(#new_struct_fields),*
         }
 
@@ -504,6 +516,14 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
             //     Self::get_relation_by(props)
             // }
             
+            fn set_alias(&mut self, alias: &str) {
+                self.set_entity_alias(alias);
+            }
+
+            fn get_alias(&self) -> String {
+                self.get_entity_alias()
+            }
+
             fn entity_by(&self, props: &[Self::Props]) -> (String, std::collections::HashMap<String, BoltType>) {
                 Self::relation_by(props)
             }
@@ -519,6 +539,8 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
             #relation_by_fn
             #create_relation_from_self_fn
             #get_relation_label_fn
+            #set_alias_fn
+            #get_alias_fn
         }
 
         // Constructor for the generated struct.

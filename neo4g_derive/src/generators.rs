@@ -92,6 +92,22 @@ pub fn generate_get_relation_entity_type() -> proc_macro2::TokenStream {
     }
 }
 
+pub fn generate_set_alias() -> proc_macro2::TokenStream {
+    quote! {
+        pub fn set_entity_alias(&mut self, alias: &str) {
+            self.alias = alias.to_string();
+        }
+    }
+}
+
+pub fn generate_get_alias() -> proc_macro2::TokenStream {
+    quote! {
+        pub fn get_entity_alias(&self) -> String {
+            self.alias.clone()
+        }
+    }
+}
+
 pub fn generate_get_relation_label(struct_name_str: &str) -> proc_macro2::TokenStream {
     quote! {
         pub fn get_relation_label() -> String {

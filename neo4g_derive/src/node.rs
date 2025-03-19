@@ -303,6 +303,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
         impl #new_struct_name {
             pub fn new( #(#constructor_params),* ) -> Self {
                 Self {
+                    alias: String::new(),
                     #(#constructor_body),*
                 }
             }
@@ -313,17 +314,22 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
         impl Default for #new_struct_name {
             fn default() -> Self {
                 Self {
+                    alias: String::new(),
                     #(#default_body),*
                 }
             }
         }
     };
 
+    let template_constructor_body: Vec<_> = all_fields_full.iter().map(|field| {field.ident.as_ref().unwrap()}).collect();
+
     // Generate the new() method for the template struct that forwards to the generated struct's new().
     let template_new_method = quote! {
         impl #struct_name {
-            pub fn new( #(#constructor_params),* ) -> #new_struct_name {
-                #new_struct_name::new( #(#constructor_args),* )
+            pub fn new( #(#constructor_params),* ) -> Self {
+                Self {
+                    #(#template_constructor_body),*
+                }
             }
         }
     };
@@ -394,6 +400,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
             impl From<Node> for #new_struct_name {
                 fn from(node: Node) -> Self {
                     Self {
+                        alias: String::new(),
                         #(#field_inits),*
                     }
                 }
@@ -441,6 +448,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
             impl From<#struct_name> for #new_struct_name {
                 fn from(template: #struct_name) -> Self {
                     Self {
+                        alias: String::new(),
                         #(#from_template_fields),*
                     }
                 }
@@ -451,6 +459,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
             impl From<Relation> for #new_struct_name {
                 fn from(node: Relation) -> Self {
                     Self {
+                        alias: String::new(),
                         #(#field_inits),*
                     }
                 }
@@ -462,6 +471,8 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
         //let get_node_by_fn = generators::generate_get_node_by(&new_struct_name, &new_struct_name_str, &props_enum_name);
         let node_by_fn = generators::generate_node_by(&new_struct_name, &new_struct_name_str, &props_enum_name);
         let get_node_label_fn = generators::generate_get_node_label(&new_struct_name_str);
+        let set_alias_fn = generators::generate_set_alias();
+        let get_alias_fn = generators::generate_get_alias();
 
     // Assemble the final output.
     let expanded = quote! {
@@ -487,6 +498,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
         // Generated new struct (e.g., `User` from `UserTemplate`) whose fields are wrapped in the Props enum.
         #[derive(Serialize, Deserialize, Debug, Clone)]
         pub struct #new_struct_name {
+            pub alias: String,
             #(#new_struct_fields),*
         }
 
@@ -510,6 +522,14 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
                 Self::node_by(props)
             }
 
+            fn set_alias(&mut self, alias: &str) {
+                self.set_entity_alias(alias);
+            }
+
+            fn get_alias(&self) -> String {
+                self.get_entity_alias()
+            }
+
             fn create_from_self(&self) -> (String, std::collections::HashMap<String, BoltType>) {
                 self.create_node_from_self()
             }
@@ -521,6 +541,8 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
             #node_by_fn
             #create_node_from_self_fn
             #get_node_label_fn
+            #set_alias_fn
+            #get_alias_fn
         }
 
         // Constructor for the generated struct.

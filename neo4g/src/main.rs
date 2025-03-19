@@ -43,20 +43,25 @@ async fn authenticate_user() -> impl IntoResponse { //graph: Graph, identifier: 
         println!("unacceptable password prop provided, failed.");
         return Json(UserTemplate::from(User::default()));
     }
+    let mut user = User::default();
+    let mut list_intermediary_members = MemberOf::default(); //lists of rels can't be used without unwinding
+    let mut intermediary_groups = Group::default();
+    let mut member_ofs = MemberOf::default();
+    let mut groups = Group::default();
     let result = Neo4gBuilder::new()
-        .get().node(User::default(), &[identifier]).add_to_return() // Instead of taking entity, take &mut entity? In this way, alias could be stored in the struct?
+        .get().node(&mut user, &[identifier]).add_to_return() // Instead of taking entity, take &mut entity? In this way, alias could be stored in the struct?
             // forward definitions would be required, which may be problematic...
             // alternatively, could use an internal field of query builder to track each struct provided to each method, but referencing them is complicated?
-            .relations(0, MemberOf::default(), &[])
-            .node(Group::default(), &[])
-            .relation(MemberOf::default(), &[]).add_to_return()
-            .node(Group::default(), &[]).add_to_return()
+            .relations(0, &mut list_intermediary_members, &[])
+            .node(&mut intermediary_groups, &[])
+            .relation(&mut member_ofs, &[]).add_to_return()
+            .node(&mut groups, &[]).add_to_return()
             .filter(Where::new()
-                .condition("user1", UserProps::Deleted(false).into(), CompareOperator::Eq)
+                .condition(&user, UserProps::Deleted(false).into(), CompareOperator::Eq)
                 .join(CompareJoiner::And)
-                .condition("member_of2", MemberOfProps::Deleted(false).into(), CompareOperator::Eq)
+                .condition(&member_ofs, MemberOfProps::Deleted(false).into(), CompareOperator::Eq)
                 .join(CompareJoiner::And)
-                .condition("group3", GroupProps::Deleted(false).into(), CompareOperator::Eq)
+                .condition(&groups, GroupProps::Deleted(false).into(), CompareOperator::Eq)
             )
             .end_statement()
         .run_query(graph).await;
