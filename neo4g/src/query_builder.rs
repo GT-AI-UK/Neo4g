@@ -9,17 +9,12 @@ use std::{default, fmt};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
-pub struct QueryParam {
-    pub prop: String,
-    pub value: BoltType,
-}
-
-#[derive(Debug, Clone)]
 pub struct Neo4gBuilder<State> {
     query: String,
     params: HashMap<String, BoltType>,
     node_number: u32,
     relation_number: u32,
+    unwind_number: u32,
     return_refs: Vec<(String, EntityType, EntityWrapper)>,
     order_by_str: String,
     previous_entity: Option<(String, EntityType, EntityWrapper)>,
@@ -35,6 +30,7 @@ impl Neo4gBuilder<Empty> {
             params: HashMap::new(),
             node_number: 0,
             relation_number: 0,
+            unwind_number: 0,
             return_refs: Vec::new(),
             order_by_str: String::new(),
             previous_entity: None,
@@ -42,12 +38,13 @@ impl Neo4gBuilder<Empty> {
             _state: PhantomData,
         }
     }
-    pub fn new_inner(node_number:u32, relation_number: u32) -> Self {
+    pub fn new_inner(node_number:u32, relation_number: u32, unwind_number: u32) -> Self {
         Self {
             query: String::new(),
             params: HashMap::new(),
             node_number,
             relation_number,
+            unwind_number,
             return_refs: Vec::new(),
             order_by_str: String::new(),
             previous_entity: None,
@@ -84,11 +81,17 @@ impl Neo4gBuilder<Empty> {
 }
 
 impl<Q: CanWith> Neo4gBuilder<Q> {
-    pub fn unwind(mut self, array: Vec<String>, as_alias: &str) -> Self {
-        self.query.push_str(&format!("[{}] AS {}\n", array.join(", "), as_alias));
+    pub fn unwind(mut self, unwinder: Unwinder) -> Self {
+        let (query, params) = unwinder.unwind();
+        self.query.push_str(&format!("{}\n", query));
+        self.params.extend(params);
         self
     }
-    pub fn with(mut self, aliases: &[&str]) -> Neo4gBuilder<Withed> {
+    pub fn with(mut self, entities_to_alias: &[&EntityWrapper]) -> Neo4gBuilder<Withed> {
+        let aliases: Vec<String> = entities_to_alias.iter().map(|entity| {
+            //entity.get_alias()
+            String::new()
+        }).collect();
         self.query.push_str(&format!("WITH {}\n", aliases.join(", ")));
         self.transition::<Withed>()
     }
@@ -584,6 +587,7 @@ pub struct Neo4gMatchStatement<State> {
     params: HashMap<String, BoltType>,
     node_number: u32,
     relation_number: u32,
+    unwind_number: u32,
     where_str: String,
     set_str: String,
     return_refs: Vec<(String, EntityType, EntityWrapper)>,
@@ -598,6 +602,7 @@ pub struct Neo4gMergeStatement<State> {
     params: HashMap<String, BoltType>,
     node_number: u32,
     relation_number: u32,
+    unwind_number: u32,
     on_create_str: String,
     on_match_str: String,
     current_on_str: OnString,
@@ -613,6 +618,7 @@ pub struct Neo4gCreateStatement<State> {
     params: HashMap<String, BoltType>,
     node_number: u32,
     relation_number: u32,
+    unwind_number: u32,
     return_refs: Vec<(String, EntityType, EntityWrapper)>,
     previous_entity: Option<(String, EntityType, EntityWrapper)>,
     clause: Clause,
@@ -627,6 +633,7 @@ impl<S> Neo4gBuilder<S> {
             params,
             node_number,
             relation_number,
+            unwind_number,
             return_refs,
             order_by_str,
             previous_entity,
@@ -638,6 +645,7 @@ impl<S> Neo4gBuilder<S> {
             params,
             node_number,
             relation_number,
+            unwind_number,
             return_refs,
             order_by_str,
             previous_entity,
@@ -655,6 +663,7 @@ impl<S> Neo4gMatchStatement<S> {
             params,
             node_number,
             relation_number,
+            unwind_number,
             where_str,
             set_str,
             return_refs,
@@ -667,6 +676,7 @@ impl<S> Neo4gMatchStatement<S> {
             params,
             node_number,
             relation_number,
+            unwind_number,
             where_str,
             set_str,
             return_refs,
@@ -685,6 +695,7 @@ impl<S> Neo4gMergeStatement<S> {
             params,
             node_number,
             relation_number,
+            unwind_number,
             on_create_str,
             on_match_str,
             current_on_str,
@@ -698,6 +709,7 @@ impl<S> Neo4gMergeStatement<S> {
             params,
             node_number,
             relation_number,
+            unwind_number,
             on_create_str,
             on_match_str,
             current_on_str,
@@ -717,6 +729,7 @@ impl<S> Neo4gCreateStatement<S> {
             params,
             node_number,
             relation_number,
+            unwind_number,
             return_refs,
             previous_entity,
             clause,
@@ -727,6 +740,7 @@ impl<S> Neo4gCreateStatement<S> {
             params,
             node_number,
             relation_number,
+            unwind_number,
             return_refs,
             previous_entity,
             clause,
@@ -742,6 +756,7 @@ impl <S> From<Neo4gBuilder<S>> for Neo4gCreateStatement<Empty> {
             params: value.params,
             node_number: value.node_number,
             relation_number: value.relation_number,
+            unwind_number: value.unwind_number,
             return_refs: value.return_refs,
             previous_entity: value.previous_entity,
             clause: value.clause,
@@ -757,6 +772,7 @@ impl <S> From<Neo4gBuilder<S>> for Neo4gMergeStatement<Empty> {
             params: value.params,
             node_number: value.node_number,
             relation_number: value.relation_number,
+            unwind_number: value.unwind_number,
             on_create_str: "".to_string(),
             on_match_str: "".to_string(),
             current_on_str: OnString::None,
@@ -775,6 +791,7 @@ impl <S> From<Neo4gBuilder<S>> for Neo4gMatchStatement<Empty> {
             params: value.params,
             node_number: value.node_number,
             relation_number: value.relation_number,
+            unwind_number: value.unwind_number,
             where_str: String::new(),
             set_str: String::new(),
             return_refs: value.return_refs,
@@ -792,6 +809,7 @@ impl <S> From<Neo4gMatchStatement<S>> for Neo4gBuilder<MatchedNode> {
             params: value.params,
             node_number: value.node_number,
             relation_number: value.relation_number,
+            unwind_number: value.unwind_number,
             return_refs: value.return_refs,
             order_by_str: String::new(),
             previous_entity: value.previous_entity,
@@ -808,6 +826,7 @@ impl <S> From<Neo4gMergeStatement<S>> for Neo4gBuilder<CreatedNode> {
             params: value.params,
             node_number: value.node_number,
             relation_number: value.relation_number,
+            unwind_number: value.unwind_number,
             return_refs: value.return_refs,
             order_by_str: String::new(),
             previous_entity: value.previous_entity,
@@ -824,6 +843,7 @@ impl <S> From<Neo4gCreateStatement<S>> for Neo4gBuilder<CreatedNode> {
             params: value.params,
             node_number: value.node_number,
             relation_number: value.relation_number,
+            unwind_number: value.unwind_number,
             return_refs: value.return_refs,
             order_by_str: String::new(),
             previous_entity: value.previous_entity,
@@ -1040,6 +1060,66 @@ fn bolt_inner_value(bolt: &BoltType) -> String {
         _ => format!("{:?}", bolt),
     }
 }
+
+
+#[derive(Debug, Clone)]
+pub struct Unwinder {
+    alias: String,
+    list: Vec<PropsWrapper>
+}
+
+impl Unwinder {
+    pub fn new(list: Vec<PropsWrapper>) -> Self {
+        Self {
+            alias: String::new(),
+            list,
+        }
+    }
+    pub fn unwind(self) -> (String, HashMap<String, BoltType>) {
+        let bolt_vec: Vec<BoltType> = self.list.iter().map(|props_wrapper| {
+            let (_, bolt) = props_wrapper.to_query_param();
+            bolt
+        }).collect();
+        let mut params = HashMap::new();
+        params.insert("neo4g_unwind".to_string(), bolt_vec.into());
+        let query = format!("UNWIND neo4g_unwind as {}", self.alias);
+        (query, params)
+    }
+}
+
+impl Default for Unwinder {
+    fn default() -> Self {
+        Self::new(vec![])
+    }
+}
+
+impl Neo4gEntity for Unwinder {
+    type Props = UnwinderProps;
+    fn create_from_self(&self) -> (String, std::collections::HashMap<String, BoltType>) {
+        (String::new(), HashMap::new())
+    }
+    fn get_entity_type(&self) -> String {
+        String::from("unwinder")
+    }
+    fn get_label(&self) -> String {
+        String::new()
+    }
+    fn entity_by(&self, _: &[Self::Props]) -> (String, HashMap<String, BoltType>) {
+        (String::new(), HashMap::new())
+    }
+    fn set_alias(&mut self, alias: &str) {
+        self.alias = alias.to_string();
+    }
+    fn get_alias(&self) -> String {
+        self.alias.clone()
+    }
+}
+
+pub enum UnwinderProps {
+    RequiredToSatisfyTrait,
+    OtherwiseNotUsed,
+}
+
 
 // REALLY NEED TO THINK ABOUT HOW TO CALL FUNCTIONS!!!
 // // pub struct Avg {

@@ -24,6 +24,7 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
     let mut from_node_checks = Vec::new();
     let mut from_relation_checks = Vec::new();
     let mut eq_checks = Vec::new();
+    let mut call_get_alias_arms = Vec::new();
 
     for variant in data_enum.variants.iter() {
         let var_name = &variant.ident;
@@ -63,14 +64,12 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
         let var_name_str = var_name.to_string();
         let check = quote! {
             if labels.contains(&#var_name_str) {
-                println!("labels contains {}", #var_name_str);
                 return #enum_name::#var_name(#var_name::from(node));
             }
         };
         from_node_checks.push(check);
         let rcheck = quote! {
             if &labels.to_string().to_pascal_case() == &#var_name_str {
-                println!("labels is {}", #var_name_str);
                 return #enum_name::#var_name(#var_name::from(relation));
             }
         };
@@ -79,6 +78,10 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
             (#enum_name::#var_name(_), #enum_name::#var_name(_)) => true,
         };
         eq_checks.push(eq_check);
+        let call_get_alias_arm = quote! {
+            #enum_name::#var_name(inner) => inner.get_alias()
+        };
+        call_get_alias_arms.push(call_get_alias_arm);
     }
 
     // You can keep your existing inner_test function if needed.
@@ -88,6 +91,15 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
                 #(#_match_arms)*
             };
             println!("{:?}", _entity);
+        }
+    };
+
+    let get_alias_fn = quote! {
+        pub fn get_alias(&self) -> String {
+            match self {
+                #(#call_get_alias_arms),*
+                EntityWrapper::Nothing(_) => String::new(),
+            }
         }
     };
 
@@ -114,6 +126,7 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
         #(#accessors)*
 
         impl #enum_name {
+            //#get_alias_fn
             #inner_fn
             #from_node_fn
             #from_relation_fn
