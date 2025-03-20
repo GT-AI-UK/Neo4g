@@ -20,5 +20,13 @@ macro_rules! generate_entity_wrappers {
                 )*
             }
         }
+        paste! {
+            #[derive(Debug, Clone)]
+            pub enum Label {
+                $(
+                    $struct_name,
+                )*
+            }
+        }
     }
 }

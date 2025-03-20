@@ -16,6 +16,7 @@ pub struct Neo4gBuilder<State> {
     node_number: u32,
     relation_number: u32,
     unwind_number: u32,
+    set_number: u32,
     return_refs: Vec<(String, EntityType, EntityWrapper)>,
     order_by_str: String,
     previous_entity: Option<(String, EntityType, EntityWrapper)>,
@@ -32,6 +33,7 @@ impl Neo4gBuilder<Empty> {
             node_number: 0,
             relation_number: 0,
             unwind_number: 0,
+            set_number: 0,
             return_refs: Vec::new(),
             order_by_str: String::new(),
             previous_entity: None,
@@ -39,13 +41,14 @@ impl Neo4gBuilder<Empty> {
             _state: PhantomData,
         }
     }
-    pub fn new_inner(node_number:u32, relation_number: u32, unwind_number: u32) -> Self {
+    pub fn new_inner(node_number:u32, relation_number: u32, unwind_number: u32, set_number: u32) -> Self {
         Self {
             query: String::new(),
             params: HashMap::new(),
             node_number,
             relation_number,
             unwind_number,
+            set_number,
             return_refs: Vec::new(),
             order_by_str: String::new(),
             previous_entity: None,
@@ -261,8 +264,9 @@ impl <Q: PossibleStatementEnd> Neo4gMergeStatement<Q> {
         }
         self
     }
-    pub fn set(mut self, alias: &str, props: &[PropsWrapper]) -> Self { //!! ALIAS is a string!
-        let (query, params) = PropsWrapper::set_by(alias, props);
+    pub fn set<T: Neo4gEntity>(mut self, entity_to_alias: T, props: &[PropsWrapper]) -> Self {
+        let alias = entity_to_alias.get_alias();
+        let (query, params) = PropsWrapper::set_by(&alias, self.set_number, props);
         self.params.extend(params);
         match self.current_on_str {
             OnString::Create => {
@@ -385,9 +389,9 @@ impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> {
         self.params.extend(where_params);
         self
     }
-    pub fn set<T: Neo4gEntity>(mut self, entity_to_alias: T, props: &[PropsWrapper]) -> Self { ///!!! already solved!
+    pub fn set<T: Neo4gEntity>(mut self, entity_to_alias: T, props: &[PropsWrapper]) -> Self {
         let alias = entity_to_alias.get_alias();
-        let (query, params) = PropsWrapper::set_by(&alias, props); ///!!! Does this use let new_params = prepend_params_key(&entity.get_alias(), params);
+        let (query, params) = PropsWrapper::set_by(&alias, self.set_number, props);
         self.params.extend(params);
         if self.set_str.is_empty() {
             self.set_str = "\nSET ".to_string();
@@ -601,6 +605,7 @@ pub struct Neo4gMatchStatement<State> {
     node_number: u32,
     relation_number: u32,
     unwind_number: u32,
+    set_number: u32,
     where_str: String,
     set_str: String,
     return_refs: Vec<(String, EntityType, EntityWrapper)>,
@@ -616,6 +621,7 @@ pub struct Neo4gMergeStatement<State> {
     node_number: u32,
     relation_number: u32,
     unwind_number: u32,
+    set_number: u32,
     on_create_str: String,
     on_match_str: String,
     current_on_str: OnString,
@@ -632,6 +638,7 @@ pub struct Neo4gCreateStatement<State> {
     node_number: u32,
     relation_number: u32,
     unwind_number: u32,
+    set_number: u32,
     return_refs: Vec<(String, EntityType, EntityWrapper)>,
     previous_entity: Option<(String, EntityType, EntityWrapper)>,
     clause: Clause,
@@ -647,6 +654,7 @@ impl<S> Neo4gBuilder<S> {
             node_number,
             relation_number,
             unwind_number,
+            set_number,
             return_refs,
             order_by_str,
             previous_entity,
@@ -659,6 +667,7 @@ impl<S> Neo4gBuilder<S> {
             node_number,
             relation_number,
             unwind_number,
+            set_number,
             return_refs,
             order_by_str,
             previous_entity,
@@ -677,6 +686,7 @@ impl<S> Neo4gMatchStatement<S> {
             node_number,
             relation_number,
             unwind_number,
+            set_number,
             where_str,
             set_str,
             return_refs,
@@ -690,6 +700,7 @@ impl<S> Neo4gMatchStatement<S> {
             node_number,
             relation_number,
             unwind_number,
+            set_number,
             where_str,
             set_str,
             return_refs,
@@ -709,6 +720,7 @@ impl<S> Neo4gMergeStatement<S> {
             node_number,
             relation_number,
             unwind_number,
+            set_number,
             on_create_str,
             on_match_str,
             current_on_str,
@@ -723,6 +735,7 @@ impl<S> Neo4gMergeStatement<S> {
             node_number,
             relation_number,
             unwind_number,
+            set_number,
             on_create_str,
             on_match_str,
             current_on_str,
@@ -743,6 +756,7 @@ impl<S> Neo4gCreateStatement<S> {
             node_number,
             relation_number,
             unwind_number,
+            set_number,
             return_refs,
             previous_entity,
             clause,
@@ -754,6 +768,7 @@ impl<S> Neo4gCreateStatement<S> {
             node_number,
             relation_number,
             unwind_number,
+            set_number,
             return_refs,
             previous_entity,
             clause,
@@ -770,6 +785,7 @@ impl <S> From<Neo4gBuilder<S>> for Neo4gCreateStatement<Empty> {
             node_number: value.node_number,
             relation_number: value.relation_number,
             unwind_number: value.unwind_number,
+            set_number: value.set_number,
             return_refs: value.return_refs,
             previous_entity: value.previous_entity,
             clause: value.clause,
@@ -786,6 +802,7 @@ impl <S> From<Neo4gBuilder<S>> for Neo4gMergeStatement<Empty> {
             node_number: value.node_number,
             relation_number: value.relation_number,
             unwind_number: value.unwind_number,
+            set_number: value.set_number,
             on_create_str: "".to_string(),
             on_match_str: "".to_string(),
             current_on_str: OnString::None,
@@ -805,6 +822,7 @@ impl <S> From<Neo4gBuilder<S>> for Neo4gMatchStatement<Empty> {
             node_number: value.node_number,
             relation_number: value.relation_number,
             unwind_number: value.unwind_number,
+            set_number: value.set_number,
             where_str: String::new(),
             set_str: String::new(),
             return_refs: value.return_refs,
@@ -823,6 +841,7 @@ impl <S> From<Neo4gMatchStatement<S>> for Neo4gBuilder<MatchedNode> {
             node_number: value.node_number,
             relation_number: value.relation_number,
             unwind_number: value.unwind_number,
+            set_number: value.set_number,
             return_refs: value.return_refs,
             order_by_str: String::new(),
             previous_entity: value.previous_entity,
@@ -840,6 +859,7 @@ impl <S> From<Neo4gMergeStatement<S>> for Neo4gBuilder<CreatedNode> {
             node_number: value.node_number,
             relation_number: value.relation_number,
             unwind_number: value.unwind_number,
+            set_number: value.set_number,
             return_refs: value.return_refs,
             order_by_str: String::new(),
             previous_entity: value.previous_entity,
@@ -857,6 +877,7 @@ impl <S> From<Neo4gCreateStatement<S>> for Neo4gBuilder<CreatedNode> {
             node_number: value.node_number,
             relation_number: value.relation_number,
             unwind_number: value.unwind_number,
+            set_number: value.set_number,
             return_refs: value.return_refs,
             order_by_str: String::new(),
             previous_entity: value.previous_entity,
