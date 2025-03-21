@@ -8,7 +8,7 @@ pub trait Neo4gEntity {
     fn get_label(&self) -> String;
     fn set_alias(&mut self, alias: &str) -> ();
     fn get_alias(&self) -> String;
-    fn entity_by(&self, props: &[Self::Props]) -> (String, std::collections::HashMap<String, BoltType>);
+    fn entity_by(&self, alias: &str, props: &[Self::Props]) -> (String, std::collections::HashMap<String, BoltType>);
     fn create_from_self(&self) -> (String, std::collections::HashMap<String, BoltType>);
 }
 

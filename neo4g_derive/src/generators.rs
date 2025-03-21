@@ -63,16 +63,16 @@ pub fn generate_create_node_from_self(struct_name: &Ident, struct_name_str: &str
 
 pub fn generate_node_by(struct_name: &Ident, struct_name_str: &str, props_enum_name: &Ident) -> proc_macro2::TokenStream {
     quote! {
-        pub fn node_by(props: &[#props_enum_name]) -> (String, std::collections::HashMap<String, BoltType>) {
-            let mut query = format!("(neo4g_node:{} {{", #struct_name_str);
+        pub fn node_by(alias: &str, props: &[#props_enum_name]) -> (String, std::collections::HashMap<String, BoltType>) {
+            let mut query = format!("({}:{} {{", alias, #struct_name_str);
             let mut params = std::collections::HashMap::new();
 
             let props_str: Vec<String> = props
                 .iter()
                 .map(|prop| {
                     let (key, value) = prop.to_query_param();
-                    params.insert(key.to_string(), value);
-                    format!("{}: ${}", key, key)
+                    params.insert(format!("{}_{}", alias, key.to_string()), value);
+                    format!("{}_{}: ${}_{}", alias, key, alias, key)
                 })
                 .collect();
 
@@ -140,8 +140,8 @@ pub fn generate_get_relation_label(struct_name_str: &str) -> proc_macro2::TokenS
 
 pub fn generate_relation_by(struct_name: &Ident, struct_name_str: &str, props_enum_name: &Ident) -> proc_macro2::TokenStream {
     quote! {
-        pub fn relation_by(props: &[#props_enum_name]) -> (String, std::collections::HashMap<String, BoltType>) {
-            let mut query = format!("-[neo4g_rel:{}", #struct_name_str.to_shouty_snake_case());
+        pub fn relation_by(alias: &str, props: &[#props_enum_name]) -> (String, std::collections::HashMap<String, BoltType>) {
+            let mut query = format!("-[{}:{}", alias, #struct_name_str.to_shouty_snake_case());
             let mut params = std::collections::HashMap::new();
             if !props.is_empty() {
                 query.push_str(" {");
@@ -150,8 +150,8 @@ pub fn generate_relation_by(struct_name: &Ident, struct_name_str: &str, props_en
                     .iter()
                     .map(|prop| {
                         let (key, value) = prop.to_query_param();
-                        params.insert(key.to_string(), value);
-                        format!("{}: ${}", key, key)
+                        params.insert(format!("{}_{}", alias, key.to_string()), value);
+                        format!("{}_{}: ${}_{}", alias, key, alias, key)
                     })
                     .collect();
 

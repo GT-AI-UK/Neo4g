@@ -49,6 +49,25 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
     })
     .collect();
 
+    let self_to_props_vec_iter: Vec<_> = all_fields_full.iter().filter_map(|field| {
+        if !should_ignore_field(field) {
+            let field_ident = field.ident.as_ref().unwrap();
+            let field_name = field_ident.to_string();
+            Some(quote! {
+                props_vec.push(self.#field_ident.clone());
+            })
+        } else {
+            None
+        }
+    }).collect();
+
+    let self_to_props_fn = quote! {
+        pub fn self_to_props(&self) -> Vec<#props_enum_name> {
+            let mut props_vec: Vec<#props_enum_name> = Vec::new();
+            #(#self_to_props_vec_iter)*
+            props_vec
+        }
+    };
 
     let create_node_params: Vec<_> = all_fields_full.iter().filter_map(|field| {
         if !should_ignore_field(field) {
@@ -66,29 +85,31 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
         }
     }).collect();
     
-    let create_query_params: Vec<_> = all_fields_full.iter().filter_map(|field| {
-        if !should_ignore_field(field) {
-            let field_ident = field.ident.as_ref().unwrap();
+    // let create_query_params: Vec<_> = all_fields_full.iter().filter_map(|field| {
+    //     if !should_ignore_field(field) {
+    //         let field_ident = field.ident.as_ref().unwrap();
 
-            let field_name = field_ident.to_string();
-            let field_name_lit = syn::LitStr::new(&field_name, field_ident.span());
+    //         let field_name = field_ident.to_string();
+    //         let field_name_lit = syn::LitStr::new(&field_name, field_ident.span());
             
-            Some(quote! {
-                format!("{}: ${}", #field_name_lit, #field_name_lit)
-            })
-        } else {
-            None
-        }
-    }).collect();
+    //         Some(quote! {
+    //             format!("{}: ${}", #field_name_lit, #field_name_lit)
+    //         })
+    //     } else {
+    //         None
+    //     }
+    // }).collect();
     
     let create_node_from_self_fn = quote! {
         pub fn create_node_from_self(&self) -> (String, std::collections::HashMap<String, BoltType>) {
-            let keys: Vec<String> = vec![ #(#create_query_params),* ];
-            let query = format!("(neo4g_node:{} {{{}}})\n", #new_struct_name_str, keys.join(", "));
-            let params_map: std::collections::HashMap<String, BoltType> = std::collections::HashMap::from([
-                #(#create_node_params),*
-            ]);
-            (query, params_map)
+            Neo4gEntity::entity_by(self, &Neo4gEntity::get_label(self), &self.self_to_props())
+            // let props = self_to_props(&self);
+            // let keys: Vec<String> = vec![ #(#create_query_params),* ];
+            // let query = format!("(neo4g_node:{} {{{}}})\n", #new_struct_name_str, keys.join(", "));
+            // let params_map: std::collections::HashMap<String, BoltType> = std::collections::HashMap::from([
+            //     #(#create_node_params),*
+            // ]);
+            // (query, params_map)
         }
     };
 
@@ -587,8 +608,8 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
             //     Self::get_node_by(props)
             // }
             
-            fn entity_by(&self, props: &[Self::Props]) -> (String, std::collections::HashMap<String, BoltType>) {
-                Self::node_by(props)
+            fn entity_by(&self, alias: &str, props: &[Self::Props]) -> (String, std::collections::HashMap<String, BoltType>) {
+                Self::node_by(alias, props)
             }
 
             fn set_alias(&mut self, alias: &str) {
@@ -612,6 +633,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
             #get_node_label_fn
             #set_alias_fn
             #get_alias_fn
+            #self_to_props_fn
         }
 
         // Constructor for the generated struct.
