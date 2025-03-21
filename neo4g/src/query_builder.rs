@@ -100,6 +100,28 @@ impl<Q: CanWith> Neo4gBuilder<Q> {
     //pub fn with_parameterised_array(mut self, param: ParamString) need a way to alias automatically?
 }
 
+impl<Q: CanWhere> Neo4gBuilder<Q> {
+    pub fn filter_with(mut self, filter: Where<Condition>) -> Self { // needs to be specific to with... I'd rather not have lots of filters on it...
+        if self.where_str.is_empty() {
+            self.where_str.push_str("\nWHERE ")
+        }
+        let (query_part, where_params) = filter.build();
+        self.where_str.push_str(&format!("{}\n", &query_part));
+        self.params.extend(where_params);
+        self
+    }
+    pub fn set<T: Neo4gEntity>(mut self, entity_to_alias: T, props: &[PropsWrapper]) -> Self {
+        let alias = entity_to_alias.get_alias();
+        let (query, params) = PropsWrapper::set_by(&alias, self.set_number, props);
+        self.params.extend(params);
+        if self.set_str.is_empty() {
+            self.set_str = "\nSET ".to_string();
+        }
+        self.set_str.push_str(&query);
+        self
+    }
+}
+
 //Create statement methods
 impl<Q: CanNode> Neo4gCreateStatement<Q> {
     /// This is a docstring
@@ -530,6 +552,7 @@ pub trait CanWith {}
 pub trait PossibleQueryEnd {}
 pub trait CanAddReturn {}
 pub trait CanDelete {}
+pub trait CanWhere {}
 
 #[derive(Debug, Clone)]
 pub struct Empty;
@@ -568,6 +591,7 @@ impl CanMatch for Withed {}
 impl CanCreate for Withed {}
 impl CanDelete for Withed {}
 impl CanAddReturn for Withed {}
+impl CanWhere for Withed {}
 
 impl CanWith for MatchedNode {}
 impl CanWith for CreatedNode {}
