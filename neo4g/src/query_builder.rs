@@ -110,16 +110,6 @@ impl<Q: CanWhere> Neo4gBuilder<Q> {
         self.params.extend(where_params);
         self
     }
-    pub fn set<T: Neo4gEntity>(mut self, entity_to_alias: T, props: &[PropsWrapper]) -> Self {
-        let alias = entity_to_alias.get_alias();
-        let (query, params) = PropsWrapper::set_by(&alias, self.set_number, props);
-        self.params.extend(params);
-        if self.set_str.is_empty() {
-            self.set_str = "\nSET ".to_string();
-        }
-        self.set_str.push_str(&query);
-        self
-    }
 }
 
 //Create statement methods
