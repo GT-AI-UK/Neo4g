@@ -13,7 +13,7 @@ pub fn generate_props_wrapper(input: TokenStream) -> TokenStream {
         _ => {
             return syn::Error::new_spanned(
                 enum_name,
-                "propsWrapper can only be derived for enums"
+                "Neo4gPropsWrapper can only be derived for enums"
             )
             .to_compile_error()
             .into();

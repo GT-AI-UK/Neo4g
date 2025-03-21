@@ -1,11 +1,8 @@
 use crate::entity_wrapper::{EntityWrapper, PropsWrapper};
-use crate::objects;
 use crate::traits::{Neo4gEntity, QueryParam};
 use neo4rs::{BoltNull, BoltType, Graph, Node, Relation, Query};
-use std::fmt::format;
-use std::hash::Hash;
 use std::marker::PhantomData;
-use std::{default, fmt};
+use std::fmt;
 
 use std::collections::HashMap;
 

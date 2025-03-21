@@ -1,8 +1,10 @@
 use neo4g_macro_rules::generate_entity_wrappers;
 use paste::paste;
 use crate::objects::{User, Group, UserProps, GroupProps, MemberOf, MemberOfProps};
-use neo4g_derive::{Neo4gEntityWrapper, Neo4gPropsWrapper};
+use neo4g_derive::{Neo4gEntityWrapper, Neo4gPropsWrapper, Neo4gLabels, Neo4gNode};
 use heck::ToPascalCase;
+use crate::traits::{Neo4gEntity, QueryParam};
+use serde::{Serialize, Deserialize};
 use neo4rs::{
     Node,
     Relation,
@@ -29,13 +31,10 @@ use neo4rs::{
     BoltLocalDateTime,
     BoltDateTimeZoneId,
 };
-use neo4g_derive::Neo4gNode;
-use crate::traits::{Neo4gEntity, QueryParam};
-use serde::{Serialize, Deserialize};
 
     #[derive(Neo4gNode, Clone, Debug)]
     pub struct NothingTemplate {
         pub nothing: bool,
     }
 
-generate_entity_wrappers!(Nothing, User, Group, MemberOf); // copy from_node fn into relation and vice versa to resolve (not perfect, but good enough!)
+generate_entity_wrappers!(Nothing, User, Group, MemberOf);

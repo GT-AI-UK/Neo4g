@@ -12,7 +12,7 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
         _ => {
             return syn::Error::new_spanned(
                 enum_name,
-                "EntityWrapper can only be derived for enums"
+                "Neo4gEntityWrapper can only be derived for enums"
             )
             .to_compile_error()
             .into();

@@ -1,5 +1,5 @@
 use paste::paste;
-use neo4g_derive::{Neo4gEntityWrapper, Neo4gPropsWrapper};
+use neo4g_derive::{Neo4gEntityWrapper, Neo4gPropsWrapper, Neo4gLabels};
 
 #[macro_export]
 macro_rules! generate_entity_wrappers {
@@ -21,8 +21,10 @@ macro_rules! generate_entity_wrappers {
             }
         }
         paste! {
-            #[derive(Debug, Clone)]
+            #[derive(Debug, Clone, Neo4gLabels)]
             pub enum Label {
+                Any,
+                SysObj,
                 $(
                     $struct_name,
                 )*

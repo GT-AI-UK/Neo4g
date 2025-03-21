@@ -1,4 +1,4 @@
-use neo4g::entity_wrapper::EntityWrapper;
+use neo4g::entity_wrapper::{EntityWrapper, Label};
 use neo4g::objects::{Group, GroupProps, MemberOf, MemberOfProps, User, UserProps, UserTemplate};
 use neo4g::query_builder::{self, CompareJoiner, CompareOperator, Neo4gBuilder, Where};
 use neo4rs::Graph;
@@ -102,6 +102,8 @@ use axum::{
 #[tokio::main]
 async fn main() {
     // Build the application with a route.
+    let test = Label::Any;
+    println!("{}", test);
     let app = Router::new()
         .route("/hello", get(authenticate_user));
 
