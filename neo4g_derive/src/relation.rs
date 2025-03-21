@@ -81,7 +81,7 @@ pub fn generate_neo4g_relation(input: TokenStream) -> TokenStream {
     let create_relation_from_self_fn = quote! {
         pub fn create_relation_from_self(&self) -> (String, std::collections::HashMap<String, BoltType>) {
             let keys: Vec<String> = vec![ #(#create_query_params),* ];
-            let query = format!("-[neo4g_relation:{} {{{}}}]->", #new_struct_name_str, keys.join(", "));
+            let query = format!("-[neo4g_rel:{} {{{}}}]->", #new_struct_name_str, keys.join(", "));
             let params_map: std::collections::HashMap<String, BoltType> = std::collections::HashMap::from([
                 #(#create_relation_params),*
             ]);

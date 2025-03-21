@@ -1,5 +1,5 @@
 use neo4g::entity_wrapper::{EntityWrapper, Label};
-use neo4g::objects::{Group, GroupProps, MemberOf, MemberOfProps, User, UserProps, UserTemplate};
+use neo4g::objects::{Group, GroupProps, MemberOf, MemberOfProps, User, UserProps, UserTemplate, Page, PageProps, PageTemplate, Component, ComponentProps, ComponentTemplate, ComponentType, HasComponent, HasComponentTemplate, HasComponentProps};
 use neo4g::query_builder::{self, CompareJoiner, CompareOperator, Neo4gBuilder, Where};
 use neo4rs::Graph;
 use dotenv::dotenv;
@@ -24,132 +24,131 @@ pub async fn connect_neo4j() -> Graph { //return db object, run on startup, bind
     graph
 }
 
-async fn authenticate_user() -> impl IntoResponse { //graph: Graph, identifier: UserProps, password: UserProps
-    let graph = connect_neo4j().await;
-    let (identifier, password) = (UserProps::Name("admin".to_string()), UserProps::Password("asdf".to_string()));
-    let mut permissions:Vec<String> = Vec::new();
-    let mut pw_string = String::new();
-    match identifier {
-        UserProps::Id(_) => {},
-        UserProps::Name(_) => {},
-        _ => {
-            println!("unacceptable identifier provided, failed.");
-            return Json(UserTemplate::from(User::default()));
-        }
-    }
-    if let UserProps::Password(pw) = password {
-        pw_string = pw;
-    } else {
-        println!("unacceptable password prop provided, failed.");
-        return Json(UserTemplate::from(User::default()));
-    }
-    let mut user = User::default();
-    let mut list_intermediary_members = MemberOf::default(); //lists of rels can't be used without unwinding
-    let mut intermediary_groups = Group::default();
-    let mut member_ofs = MemberOf::default();
-    let mut groups = Group::default();
-    let result = Neo4gBuilder::new()
-        .get().node(&mut user, &[identifier]).add_to_return() // Instead of taking entity, take &mut entity? In this way, alias could be stored in the struct?
-            // forward definitions would be required, which may be problematic...
-            // alternatively, could use an internal field of query builder to track each struct provided to each method, but referencing them is complicated?
-            .relations(0, &mut list_intermediary_members, &[])
-            .node(&mut intermediary_groups, &[])
-            .relation(&mut member_ofs, &[]).add_to_return()
-            .node(&mut groups, &[]).add_to_return()
-            .filter(Where::new()
-                .condition(&user, UserProps::Deleted(false).into(), CompareOperator::Eq)
-                .join(CompareJoiner::And)
-                .condition(&member_ofs, MemberOfProps::Deleted(false).into(), CompareOperator::Eq)
-                .join(CompareJoiner::And)
-                .condition(&groups, GroupProps::Deleted(false).into(), CompareOperator::Eq)
-            )
-            .end_statement()
-        .run_query(graph).await;
-    if let Ok(entities) = result {
-        println!("{:?}", entities.clone());
-        let (mut users, mut member_ofs, mut groups) = (Vec::new(), Vec::new(), Vec::new());
-        for entity in entities {
-            match entity {
-                EntityWrapper::User(user) => users = vec![user],
-                EntityWrapper::MemberOf(member_of) => member_ofs.push(member_of),
-                EntityWrapper::Group(group) => groups.push(group),
-                _ => {}
-            }
-        }
-        let mut user: User;
-        if users.len() == 1 {
-            user = users[0].clone();
-        } else {
-            return Json(UserTemplate::from(User::default()));
-        }
-        user.groups = groups;
-        println!("user: {:?}", user);
-        println!("rels: {:?}", member_ofs);
-        return Json(UserTemplate::from(user));
-    }
-    Json(UserTemplate::from(User::default()))
-}
-
-use axum::{
-    error_handling::HandleErrorLayer,
-    extract::{Path, Query, State},
-    http::StatusCode,
-    response::IntoResponse,
-    routing::{get, patch},
-    Json, Router,
-};
-
 #[tokio::main]
 async fn main() {
-    // Build the application with a route.
-    let test = Label::Any;
-    println!("{}", test);
-    let app = Router::new()
-        .route("/hello", get(authenticate_user));
-
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:8080")
-        .await
-        .unwrap();
-    axum::serve(listener, app).await.unwrap();
+    let graph = connect_neo4j().await;
+    let mut component1 = Component::new("cid1", "path1", ComponentType::Type1);
+    let mut component2 = Component::new("cid2", "path2", ComponentType::Type2);
+    let mut hcrel1 = HasComponent::default();
+    let mut hcrel2 = HasComponent::default();
+    let mut page1 = Page::new("pid1", "ppath1", vec![component1.clone(), component2.clone()]);
+    let test_creates = Neo4gBuilder::new()
+        .create() // create doesn't work because create_from_self doesn't use to_query_param for props because props aren't provided - only the entity is.
+         // potential solutions are to:
+        // 1. write a macro that generates an entity_to_props function so that to_query_param can be called easily
+        // 2. update the create_from_self function so that it contains all the functionality of to_query_param
+        // option1 seems preferable because that way to_query_param governs that pattern?
+            .node(&mut page1).add_to_return()
+            // .relation(&mut hcrel1).add_to_return()
+            // .node(&mut component1).add_to_return()
+        //     .end_statement()
+        // .with(&[&page1.clone().into(), &component1.clone().into()])
+        // .create()
+        //     .node_ref(&page1)
+        //     .relation(&mut hcrel2)
+        //     .node(&mut component2)
+            .end_statement();
+        //.with(&[&page1.clone().into(), &component1.clone().into(), &component2.clone().into()]);
+    println!("{:?}", test_creates.clone());
+    let mut result = test_creates.run_query(graph).await;
+    println!("{:?}", result);
+        
+    //let test1 = Neo4gBuilder::new()
+        
+//         println!("match?: {:?}", test1.clone());
+//    let test = test1.run_query(graph).await;
+//     println!("{:?}", test1);
 }
+
+// async fn authenticate_user() -> impl IntoResponse { //graph: Graph, identifier: UserProps, password: UserProps
+//     let graph = connect_neo4j().await;
+//     let (identifier, password) = (UserProps::Name("admin".to_string()), UserProps::Password("asdf".to_string()));
+//     let mut permissions:Vec<String> = Vec::new();
+//     let mut pw_string = String::new();
+//     match identifier {
+//         UserProps::Id(_) => {},
+//         UserProps::Name(_) => {},
+//         _ => {
+//             println!("unacceptable identifier provided, failed.");
+//             return Json(UserTemplate::from(User::default()));
+//         }
+//     }
+//     if let UserProps::Password(pw) = password {
+//         pw_string = pw;
+//     } else {
+//         println!("unacceptable password prop provided, failed.");
+//         return Json(UserTemplate::from(User::default()));
+//     }
+//     let mut user = User::default();
+//     let mut list_intermediary_members = MemberOf::default(); //lists of rels can't be used without unwinding
+//     let mut intermediary_groups = Group::default();
+//     let mut member_ofs = MemberOf::default();
+//     let mut groups = Group::default();
+//     let result = Neo4gBuilder::new()
+//         .get().node(&mut user, &[identifier]).add_to_return() // Instead of taking entity, take &mut entity? In this way, alias could be stored in the struct?
+//             // forward definitions would be required, which may be problematic...
+//             // alternatively, could use an internal field of query builder to track each struct provided to each method, but referencing them is complicated?
+//             .relations(0, &mut list_intermediary_members, &[])
+//             .node(&mut intermediary_groups, &[])
+//             .relation(&mut member_ofs, &[]).add_to_return()
+//             .node(&mut groups, &[]).add_to_return()
+//             .filter(Where::new()
+//                 .condition(&user, UserProps::Deleted(false).into(), CompareOperator::Eq)
+//                 .join(CompareJoiner::And)
+//                 .condition(&member_ofs, MemberOfProps::Deleted(false).into(), CompareOperator::Eq)
+//                 .join(CompareJoiner::And)
+//                 .condition(&groups, GroupProps::Deleted(false).into(), CompareOperator::Eq)
+//             )
+//             .end_statement()
+//         .run_query(graph).await;
+//     if let Ok(entities) = result {
+//         println!("{:?}", entities.clone());
+//         let (mut users, mut member_ofs, mut groups) = (Vec::new(), Vec::new(), Vec::new());
+//         for entity in entities {
+//             match entity {
+//                 EntityWrapper::User(user) => users = vec![user],
+//                 EntityWrapper::MemberOf(member_of) => member_ofs.push(member_of),
+//                 EntityWrapper::Group(group) => groups.push(group),
+//                 _ => {}
+//             }
+//         }
+//         let mut user: User;
+//         if users.len() == 1 {
+//             user = users[0].clone();
+//         } else {
+//             return Json(UserTemplate::from(User::default()));
+//         }
+//         user.groups = groups;
+//         println!("user: {:?}", user);
+//         println!("rels: {:?}", member_ofs);
+//         return Json(UserTemplate::from(user));
+//     }
+//     Json(UserTemplate::from(User::default()))
+// }
+
+// use axum::{
+//     error_handling::HandleErrorLayer,
+//     extract::{Path, Query, State},
+//     http::StatusCode,
+//     response::IntoResponse,
+//     routing::{get, patch},
+//     Json, Router,
+// };
+
 // #[tokio::main]
 // async fn main() {
-//     let graph = connect_neo4j().await;
-//     let user = User::new(55,
-//         "Test32".to_string(),
-//         "password".to_string(),
-//         "forname".to_string(),
-//         "surname".to_string(),
-//         false,
-//         vec![(Group::new(32, "Nothing happens here".to_string(), false))],
-//         "asdf".to_string(),
-//     );
-    //let test = authenticate_user(graph, UserProps::Name("admin".to_string()), UserProps::Password("asdf".to_string())).await;
+//     // Build the application with a route.
+//     let test = Label::Any;
+//     println!("{}", test);
+//     let app = Router::new()
+//         .route("/hello", get(authenticate_user));
 
+//         let listener = tokio::net::TcpListener::bind("127.0.0.1:8080")
+//         .await
+//         .unwrap();
+//     axum::serve(listener, app).await.unwrap();
+// }
 
-
-    // let test1 = Neo4gBuilder::new()
-    //     .get()
-    //         .node(user.clone(), &[])
-    //         .filter(
-    //             Where::new()
-    //             .nest(
-    //                 Where::new()
-    //                 .condition("user1", UserProps::Id(17).into(), CompareOperator::Gt)
-    //                 .join(CompareJoiner::And)
-    //                 .condition("user1", UserProps::Id(33).into(), CompareOperator::Lt)
-    //             )
-    //             .join(CompareJoiner::Or)
-    //             .condition("user1", UserProps::Id(35).into(), CompareOperator::Eq)
-    //         )
-    //         .add_to_return()
-    //     .end_statement()
-    //     .run_query(graph).await;
-        
-        //println!("match?: {:?}", test1.clone());
-   //let test = test1.run_query(graph).await;
-    //println!("{:?}", test1);
-//}
 
 // .merge()
         //     .node(user.clone(), &[UserProps::Id(55),UserProps::Name("Test32".to_string())])

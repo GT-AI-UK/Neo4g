@@ -34,7 +34,7 @@ use crate::traits::QueryParam;
 
 #[derive(Neo4gNode, Serialize, Deserialize, Debug, Clone)]
 pub struct GroupTemplate {
-    id: i32,
+    id: String,
     name: String,
     deleted: bool,
 }
@@ -44,11 +44,18 @@ pub struct MemberOfTemplate {
     deleted: bool,
 }
 
+#[derive(Neo4gRelation, Serialize, Deserialize, Debug, Clone)]
+pub struct HasComponentTemplate {
+    deleted: bool,
+}
+
+
+
 //macros for neo_use? or a generic use* for a re-export of all the shit (probably better)
 //take a param for default lables as well? create another prop for additional lables in structs?
 #[derive(Neo4gNode, Serialize, Deserialize, Debug, Clone)] //
 pub struct UserTemplate {
-    id: i32,
+    id: String,
     name: String,
     #[serde(skip)]
     password: String,
@@ -59,6 +66,51 @@ pub struct UserTemplate {
     groups: Vec<Group>,
     #[serde(skip)]
     example: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum ComponentType {
+    Type1,
+    Type2,
+}
+
+impl std::fmt::Display for ComponentType {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        core::fmt::Formatter::write_str(f,
+            match self {
+                Self::Type1 => "Type1",
+                Self::Type2 => "Type2",
+                _ => "",
+            }
+        )
+    }
+}
+
+impl From<ComponentType> for BoltType {
+    fn from(value: ComponentType) -> Self {
+        BoltType::String(format!("{}", value).into())
+    }
+}
+
+impl Default for ComponentType {
+    fn default() -> Self {
+        Self::Type1
+    }
+}
+
+#[derive(Neo4gNode, Serialize, Deserialize, Debug, Clone)]
+pub struct ComponentTemplate {
+    id: String,
+    path: String,
+    component_type: ComponentType,
+}
+
+#[derive(Neo4gNode, Serialize, Deserialize, Debug, Clone)]
+pub struct PageTemplate {
+    id: String,
+    path: String,
+    #[not_query_param]
+    components: Vec<Component>,
 }
 
 // impl User {

@@ -84,7 +84,7 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
     let create_node_from_self_fn = quote! {
         pub fn create_node_from_self(&self) -> (String, std::collections::HashMap<String, BoltType>) {
             let keys: Vec<String> = vec![ #(#create_query_params),* ];
-            let query = format!("CREATE (neo4g_node:{} {{{}}})\n", #new_struct_name_str, keys.join(", "));
+            let query = format!("(neo4g_node:{} {{{}}})\n", #new_struct_name_str, keys.join(", "));
             let params_map: std::collections::HashMap<String, BoltType> = std::collections::HashMap::from([
                 #(#create_node_params),*
             ]);
@@ -202,34 +202,87 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
     let constructor_params: Vec<_> = all_fields_full.iter().map(|field| {
         let field_ident = field.ident.as_ref().unwrap();
         let field_ty = &field.ty;
-        let field_type_str = field_ty.to_token_stream().to_string();
-        //could/SHOULD propbably convert String props to take &str args in constructors
+    
+        // Check if the field type is a String.
+        let is_string = if let syn::Type::Path(type_path) = field_ty {
+            type_path.path.segments.last().map(|seg| seg.ident == "String").unwrap_or(false)
+        } else {
+            false
+        };
+    
+        // Choose &str for constructor if the field type is String.
+        let arg_type = if is_string {
+            quote! { &str }
+        } else {
+            quote! { #field_ty }
+        };
+    
         quote! {
-            #field_ident: #field_ty
+            #field_ident: #arg_type
         }
     }).collect();
     
-    // 3. Generate a list of field identifiers for forwarding.
-    let constructor_args: Vec<_> = all_fields_full.iter().map(|field| {
-        let field_ident = field.ident.as_ref().unwrap();
-        quote! { #field_ident }
-    }).collect();
+    // let constructor_params: Vec<_> = all_fields_full.iter().map(|field| {
+    //     let field_ident = field.ident.as_ref().unwrap();
+    //     let field_ty = &field.ty;
+    //     let field_type_str = field_ty.to_token_stream().to_string();
+    //     //could/SHOULD propbably convert String props to take &str args in constructors
+    //     quote! {
+    //         #field_ident: #field_ty
+    //     }
+    // }).collect();
+    
+    // // 3. Generate a list of field identifiers for forwarding.
+    // let constructor_args: Vec<_> = all_fields_full.iter().map(|field| {
+    //     let field_ident = field.ident.as_ref().unwrap();
+    //     quote! { #field_ident }
+    // }).collect();
     
     // 4. Generate the constructor body. For non-ignored fields, we wrap the value in the
     // corresponding Props enum variant; for ignored fields, we simply pass the value through.
     let constructor_body: Vec<_> = all_fields_full.iter().map(|field| {
         let field_ident = field.ident.as_ref().unwrap();
+        let field_ty = &field.ty;
+        
         if should_ignore_field(field) {
             quote! {
                 #field_ident: #field_ident
             }
         } else {
             let variant = syn::Ident::new(&field_ident.to_string().to_pascal_case(), field_ident.span());
+            
+            // Check if the field type is a String.
+            let is_string = if let syn::Type::Path(type_path) = field_ty {
+                type_path.path.segments.last().map(|seg| seg.ident == "String").unwrap_or(false)
+            } else {
+                false
+            };
+            
+            // Use `.to_string()` if it's a String, otherwise use the parameter as-is.
+            let value = if is_string {
+                quote! { #field_ident.to_string() }
+            } else {
+                quote! { #field_ident }
+            };
+            
             quote! {
-                #field_ident: #props_enum_name::#variant(#field_ident)
+                #field_ident: #props_enum_name::#variant(#value)
             }
         }
     }).collect();
+    // let constructor_body: Vec<_> = all_fields_full.iter().map(|field| {
+    //     let field_ident = field.ident.as_ref().unwrap();
+    //     if should_ignore_field(field) {
+    //         quote! {
+    //             #field_ident: #field_ident
+    //         }
+    //     } else {
+    //         let variant = syn::Ident::new(&field_ident.to_string().to_pascal_case(), field_ident.span());
+    //         quote! {
+    //             #field_ident: #props_enum_name::#variant(#field_ident)
+    //         }
+    //     }
+    // }).collect();
 
     let default_body: Vec<_> = all_fields_full.iter().map(|field| {
         let field_ident = field.ident.as_ref().unwrap();
@@ -321,7 +374,23 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
         }
     };
 
-    let template_constructor_body: Vec<_> = all_fields_full.iter().map(|field| {field.ident.as_ref().unwrap()}).collect();
+    //let template_constructor_body: Vec<_> = all_fields_full.iter().map(|field| {field.ident.as_ref().unwrap()}).collect();
+    let template_constructor_body: Vec<_> = all_fields_full.iter().map(|field| {
+        let field_ident = field.ident.as_ref().unwrap();
+        let field_ty = &field.ty;
+        // Determine if the field's type is a String.
+        let is_string = if let syn::Type::Path(type_path) = field_ty {
+            type_path.path.segments.last().map(|seg| seg.ident == "String").unwrap_or(false)
+        } else {
+            false
+        };
+    
+        if is_string {
+            quote! { #field_ident: #field_ident.to_string() }
+        } else {
+            quote! { #field_ident: #field_ident }
+        }
+    }).collect();
 
     // Generate the new() method for the template struct that forwards to the generated struct's new().
     let template_new_method = quote! {

@@ -56,8 +56,9 @@ impl Neo4gBuilder<Empty> {
     pub fn build(self) -> (String, HashMap<String, BoltType>) {
         (self.query, self.params)
     }
+}
 
-    // Query statements
+impl<Q: CanCreate> Neo4gBuilder<Q> {
     pub fn create(mut self) -> Neo4gCreateStatement<Empty> {
         self.clause = Clause::Create;
         self.query.push_str("CREATE ");
@@ -68,6 +69,9 @@ impl Neo4gBuilder<Empty> {
         self.query.push_str("MERGE ");
         Neo4gMergeStatement::from(self)
     }
+}
+
+impl<Q: CanMatch> Neo4gBuilder<Q> {
     pub fn get(mut self) -> Neo4gMatchStatement<Empty> {
         self.clause = Clause::Match;
         self.query.push_str("MATCH ");
@@ -78,7 +82,6 @@ impl Neo4gBuilder<Empty> {
         self.query.push_str("OPTIONAL MATCH ");
         Neo4gMatchStatement::from(self)
     }
-    //where to put unwind?
 }
 
 impl<Q: CanWith> Neo4gBuilder<Q> {
@@ -100,17 +103,17 @@ impl<Q: CanWith> Neo4gBuilder<Q> {
     //pub fn with_parameterised_array(mut self, param: ParamString) need a way to alias automatically?
 }
 
-impl<Q: CanWhere> Neo4gBuilder<Q> {
-    pub fn filter_with(mut self, filter: Where<Condition>) -> Self { // needs to be specific to with... I'd rather not have lots of filters on it...
-        if self.where_str.is_empty() {
-            self.where_str.push_str("\nWHERE ")
-        }
-        let (query_part, where_params) = filter.build();
-        self.where_str.push_str(&format!("{}\n", &query_part));
-        self.params.extend(where_params);
-        self
-    }
-}
+// impl<Q: CanWhere> Neo4gBuilder<Q> {
+//     pub fn filter_with(mut self, filter: Where<Condition>) -> Self { // needs to be specific to with... I'd rather not have lots of filters on it...
+//         if self.where_str.is_empty() {
+//             self.where_str.push_str("\nWHERE ")
+//         }
+//         let (query_part, where_params) = filter.build();
+//         self.where_str.push_str(&format!("{}\n", &query_part));
+//         self.params.extend(where_params);
+//         self
+//     }
+// }
 
 //Create statement methods
 impl<Q: CanNode> Neo4gCreateStatement<Q> {
@@ -128,7 +131,8 @@ impl<Q: CanNode> Neo4gCreateStatement<Q> {
         self.params.extend(new_params);
         self.transition::<CreatedNode>()
     }
-    pub fn node_ref(mut self, node_ref: &str) -> Neo4gCreateStatement<CreatedNode> {
+    pub fn node_ref<T: Neo4gEntity>(mut self, node_to_alias: &T) -> Neo4gCreateStatement<CreatedNode> {
+        let node_ref = node_to_alias.get_alias();
         self.query.push_str(&format!("({})",node_ref));
         self.transition::<CreatedNode>()
     }

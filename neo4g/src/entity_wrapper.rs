@@ -1,6 +1,6 @@
 use neo4g_macro_rules::generate_entity_wrappers;
 use paste::paste;
-use crate::objects::{User, Group, UserProps, GroupProps, MemberOf, MemberOfProps};
+use crate::objects::{User, Group, UserProps, GroupProps, MemberOf, MemberOfProps, Page, Component, HasComponent, HasComponentProps, PageProps, ComponentProps};
 use neo4g_derive::{Neo4gEntityWrapper, Neo4gPropsWrapper, Neo4gLabels, Neo4gNode};
 use heck::ToPascalCase;
 use crate::traits::{Neo4gEntity, QueryParam};
@@ -37,4 +37,4 @@ use neo4rs::{
         pub nothing: bool,
     }
 
-generate_entity_wrappers!(Nothing, User, Group, MemberOf);
+generate_entity_wrappers!(Nothing, User, Group, MemberOf, HasComponent, Page, Component);
