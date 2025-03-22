@@ -432,7 +432,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
     };
 
         // Generate field initializers for the From<relation> impl.
-        let field_inits: Vec<_> = all_fields_full.iter().map(|(field)| {
+        let field_inits: Vec<_> = all_fields_full.iter().map(|field| {
             let field_ident = field.ident.as_ref().unwrap();
             let field_type = field.ty.clone();
         
