@@ -149,7 +149,8 @@ impl Neo4gCreateStatement<CreatedNode> {
         self.params.extend(params);
         self.transition::<CreatedRelation>()
     }
-    pub fn relation_ref(mut self, relation_ref: &str) -> Neo4gCreateStatement<CreatedRelation> {
+    pub fn relation_ref<T: Neo4gEntity>(mut self, rel_to_alias: &T) -> Neo4gCreateStatement<CreatedRelation> {
+        let relation_ref = rel_to_alias.get_alias();
         self.query.push_str(&format!("-[{}]->", relation_ref));
         self.transition::<CreatedRelation>()
     }
@@ -193,7 +194,8 @@ impl<Q: CanNode> Neo4gMergeStatement<Q> {
         }
         self.transition::<CreatedNode>()
     }
-    pub fn node_ref(mut self, node_ref: &str) -> Neo4gMergeStatement<CreatedNode> {
+    pub fn node_ref<T: Neo4gEntity>(mut self, node_to_alias: &T) -> Neo4gMergeStatement<CreatedNode> {
+        let node_ref = node_to_alias.get_alias();
         self.query.push_str(&format!("({})",node_ref));
         self.transition::<CreatedNode>()
     }
@@ -241,7 +243,8 @@ impl Neo4gMergeStatement<CreatedNode> {
         self.query.push_str("--");
         self.transition::<CreatedRelation>()
     }
-    pub fn relation_ref(mut self, relation_ref: &str) -> Neo4gMergeStatement<CreatedRelation> {
+    pub fn relation_ref<T: Neo4gEntity>(mut self, rel_to_alias: &T) -> Neo4gMergeStatement<CreatedRelation> {
+        let relation_ref = rel_to_alias.get_alias();
         self.query.push_str(&format!("-[{}]->", relation_ref));
         self.transition::<CreatedRelation>()
     }
@@ -274,20 +277,29 @@ impl <Q: PossibleStatementEnd> Neo4gMergeStatement<Q> {
         }
         self
     }
-    pub fn set<T: Neo4gEntity>(mut self, entity_to_alias: T, props: &[PropsWrapper]) -> Self {
+    pub fn set<T: Neo4gEntity>(mut self, entity_to_alias: T, props: &[T::Props]) -> Self
+        where T::Props: Clone, PropsWrapper: From<<T as Neo4gEntity>::Props> {
+        self.set_number += 1;
+        let wrapped_props: Vec<PropsWrapper> = props.iter().map(|p| {
+            PropsWrapper::from(p.clone())
+        }).collect();
         let alias = entity_to_alias.get_alias();
-        let (query, params) = PropsWrapper::set_by(&alias, self.set_number, props);
+        let (query, params) = PropsWrapper::set_by(&alias, self.set_number, &wrapped_props);
         self.params.extend(params);
         match self.current_on_str {
             OnString::Create => {
                 if self.on_create_str == "\nON CREATE\n".to_string() {
                     self.on_create_str.push_str("SET ");
+                } else {
+                    self.on_create_str.push_str(", ");
                 }
                 self.on_create_str.push_str(&query)
             },
             OnString::Match => {
                 if self.on_match_str == "\nON MATCH\n".to_string() {
                     self.on_match_str.push_str("SET ");
+                } else {
+                    self.on_match_str.push_str(", ");
                 }
                 self.on_match_str.push_str(&query)
             },
@@ -322,7 +334,8 @@ impl<Q: CanNode> Neo4gMatchStatement<Q> {
         }
         self.transition::<MatchedNode>()
     }
-    pub fn node_ref(mut self, node_ref: &str) -> Neo4gMatchStatement<MatchedNode> {
+    pub fn node_ref<T: Neo4gEntity>(mut self, node_to_alias: &T) -> Neo4gMatchStatement<MatchedNode> {
+        let node_ref = node_to_alias.get_alias();
         self.query.push_str(&format!("({})",node_ref));
         self.transition::<MatchedNode>()
     }
@@ -370,7 +383,8 @@ impl Neo4gMatchStatement<MatchedNode> {
         self.query.push_str("--");
         self.transition::<CreatedRelation>()
     }
-    pub fn relation_ref(mut self, relation_ref: &str) -> Neo4gMatchStatement<MatchedRelation> {
+    pub fn relation_ref<T: Neo4gEntity>(mut self, rel_to_alias: &T) -> Neo4gMatchStatement<MatchedRelation> {
+        let relation_ref = rel_to_alias.get_alias();
         self.query.push_str(&format!("-[{}]->", relation_ref));
         self.transition::<MatchedRelation>()
     }

@@ -28,24 +28,55 @@ pub async fn connect_neo4j() -> Graph { //return db object, run on startup, bind
 async fn main() {
     let graph = connect_neo4j().await;
     let mut component1 = Component::new("cid3", "path3", ComponentType::Type1);
-    let mut component2 = Component::new("cid4", "path4", ComponentType::Type2);
+    let mut component2 = Component::new("cid73", "path16", ComponentType::Type2);
     let mut hcrel1 = HasComponent::default();
     let mut hcrel2 = HasComponent::default();
     let mut page1 = Page::new("pid4", "ppath4", vec![component1.clone(), component2.clone()]);
     let result = Neo4gBuilder::new()
-        .create()
-            .node(&mut page1).add_to_return()
-            .relation(&mut hcrel1).add_to_return()
-            .node(&mut component1).add_to_return()
-            .end_statement()
-        .with(&[&page1.clone().into(), &component1.clone().into(), &hcrel1.clone().into()])
-        .create()
-            .node_ref(&page1)
-            .relation(&mut hcrel2).add_to_return()
-            .node(&mut component2).add_to_return()
-            .end_statement()
-        .run_query(graph).await;
+
     println!("{:?}", result);
+
+
+
+    // !! Functional MERGE Query:
+    // let result = Neo4gBuilder::new()
+    // .merge()
+    //     .node(&mut page1, &[PageProps::Id("pid99".to_string())]).add_to_return()
+    //     .relation(&mut hcrel1, &[]).add_to_return()
+    //     .node(&mut component1, &[ComponentProps::Id("cid3".to_string())]).add_to_return()
+    //     .on_create()
+    //         .set(page1.clone(), &[PageProps::Path("on_create_set page1".to_string())])
+    //         .set(component1.clone(), &[ComponentProps::Path("on_create_set c1p1".to_string())])
+    //     .on_match()
+    //         .set(page1.clone(), &[PageProps::Path("on_match_set page1".to_string())])
+    // .end_statement()
+    // .with(&[&page1.clone().into(), &component1.clone().into(), &hcrel1.clone().into()])
+    // .merge()
+    //     .node_ref(&page1)
+    //     .relation(&mut hcrel2, &[]).add_to_return()
+    //     .node(&mut component2, &[ComponentProps::Id("cid73".to_string())]).add_to_return()
+    // .end_statement()
+    // .run_query(graph).await;
+    // println!("{:?}", result);
+    
+    // !! Functional CREATE Query:
+    // let result = Neo4gBuilder::new()
+    //     .create()
+    //         .node(&mut page1).add_to_return()
+    //         .relation(&mut hcrel1).add_to_return()
+    //         .node(&mut component1).add_to_return()
+    //         .end_statement()
+    //     .with(&[&page1.clone().into(), &component1.clone().into(), &hcrel1.clone().into()])
+    //     .create()
+    //         .node_ref(&page1)
+    //         .relation(&mut hcrel2).add_to_return()
+    //         .node(&mut component2).add_to_return()
+    //         .end_statement()
+    //     .run_query(graph).await;
+    // println!("{:?}", result);
+
+
+
         
     //let test1 = Neo4gBuilder::new()
         
