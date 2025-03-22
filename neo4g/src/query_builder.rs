@@ -1,4 +1,4 @@
-use crate::entity_wrapper::{EntityWrapper, PropsWrapper};
+use crate::entity_wrapper::{EntityWrapper, PropsWrapper, Label};
 use crate::traits::{Neo4gEntity, QueryParam};
 use neo4rs::{query, BoltNull, BoltType, Graph, Node, Query, Relation};
 use std::marker::PhantomData;
@@ -154,8 +154,9 @@ impl Neo4gCreateStatement<CreatedNode> {
         self.query.push_str(&format!("-[{}]->", relation_ref));
         self.transition::<CreatedRelation>()
     }
-    pub fn set_additional_labels(mut self, labels: &[&str]) -> Self {
-        self.query = self.query.replace(":AdditionalLabels", &labels.join(":"));
+    pub fn set_additional_labels(mut self, labels: &[Label]) -> Self {
+        let additional_lables: Vec<String> = labels.iter().map(|l| l.to_string()).collect();
+        self.query = self.query.replace(":AdditionalLabels", &additional_lables.join(":"));
         self
     }
 }
@@ -248,8 +249,9 @@ impl Neo4gMergeStatement<CreatedNode> {
         self.query.push_str(&format!("-[{}]->", relation_ref));
         self.transition::<CreatedRelation>()
     }
-    pub fn set_additional_labels(mut self, labels: &[&str]) -> Self {
-        self.query = self.query.replace(":AdditionalLabels", &labels.join(":"));
+    pub fn set_additional_labels(mut self, labels: &[Label]) -> Self {
+        let additional_lables: Vec<String> = labels.iter().map(|l| l.to_string()).collect();
+        self.query = self.query.replace(":AdditionalLabels", &additional_lables.join(":"));
         self
     }
 }
@@ -388,8 +390,9 @@ impl Neo4gMatchStatement<MatchedNode> {
         self.query.push_str(&format!("-[{}]->", relation_ref));
         self.transition::<MatchedRelation>()
     }
-    pub fn set_additional_labels(mut self, labels: &[&str]) -> Self {
-        self.query = self.query.replace(":AdditionalLabels", &labels.join(":"));
+    pub fn set_additional_labels(mut self, labels: &[Label]) -> Self {
+        let additional_lables: Vec<String> = labels.iter().map(|l| l.to_string()).collect();
+        self.query = self.query.replace(":AdditionalLabels", &additional_lables.join(":"));
         self
     }
 }
