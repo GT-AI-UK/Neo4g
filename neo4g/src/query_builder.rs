@@ -443,16 +443,26 @@ impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> {
 
 //Statement combiners
 impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
-    pub fn set_returns(mut self, returns: &[(String, EntityType, EntityWrapper)]) -> Self {
+    pub fn set_returns(mut self, returns: &[(EntityType, EntityWrapper)]) -> Self {
         if returns.is_empty() && self.return_refs.is_empty() {
             println!("Nothing will be returned from this query...");
+        } else {
+            
         }
         if !returns.is_empty() {
-            self.return_refs = returns.to_owned();
+            self.return_refs = returns.iter().map(|(entity_type, wrapper)| {
+                let entity = wrapper.clone();
+                let alias = entity.get_alias();
+                (alias, entity_type.clone(), wrapper.clone())
+            }).collect();
         }
         if !self.return_refs.is_empty() {
             self.query.push_str("RETURN ");
-            let aliases: Vec<String> = self.return_refs.iter().map(|(alias, _, _)| alias.clone()).collect();
+            let aliases: Vec<String> = self.return_refs.iter().map(|(_, _, wrapper)| {
+                let entity = wrapper.clone();
+                let alias = entity.get_alias();
+                alias
+            }).collect();
             self.query.push_str(&aliases.join(", "));
         }
         self
