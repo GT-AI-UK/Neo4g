@@ -120,19 +120,14 @@ impl<Q: CanNode> Neo4gCreateStatement<Q> {
     /// This is a docstring
     pub fn node<T: Neo4gEntity>(mut self, entity: &mut T) -> Neo4gCreateStatement<CreatedNode>
     where EntityWrapper: From<T>, T: Clone {
-        !! Need to make all node and rel functions resemble the below!!!
         self.node_number += 1;
         let label = entity.get_label();
         entity.set_alias(&format!("{}{}", label.to_lowercase(), self.node_number));
         let name = format!("{}{}:AdditionalLabels", label.to_lowercase(), self.node_number);
         self.previous_entity = Some((name.clone(), EntityType::Node, EntityWrapper::from(entity.clone())));
         let (query_part, params) = entity.create_from_self();
-        //let new_params = prepend_params_key(&entity.get_alias(), params);
-        //self.query.push_str(&query_part.replace("neo4g_node", &name.clone()));
         self.query.push_str(&query_part);
-        //self.params.extend(new_params.clone());
-        self.params.extend(params.clone());
-        println!("THE STUFF YOU WANT IS HERE {:?}{:?}", query_part, params);
+        self.params.extend(params);
         self.transition::<CreatedNode>()
     }
     pub fn node_ref<T: Neo4gEntity>(mut self, node_to_alias: &T) -> Neo4gCreateStatement<CreatedNode> {
@@ -150,9 +145,8 @@ impl Neo4gCreateStatement<CreatedNode> {
         let name = format!("{}{}", label.to_lowercase(), self.relation_number);
         self.previous_entity = Some((name.clone(), EntityType::Relation, EntityWrapper::from(entity.clone())));
         let (query_part, params) = entity.create_from_self();
-        let new_params = prepend_params_key(&entity.get_alias(), params);
-        self.query.push_str(&query_part.replace("neo4g_rel", &name.clone()));
-        self.params.extend(new_params);
+        self.query.push_str(&query_part);
+        self.params.extend(params);
         self.transition::<CreatedRelation>()
     }
     pub fn relation_ref(mut self, relation_ref: &str) -> Neo4gCreateStatement<CreatedRelation> {
@@ -194,9 +188,8 @@ impl<Q: CanNode> Neo4gMergeStatement<Q> {
             self.query.push_str(&format!("({})", name));
         } else {
             let (query_part, params) = entity.entity_by(&alias, props);
-            let new_params = prepend_params_key(&entity.get_alias(), params);
-            self.query.push_str(&query_part.replace("neo4g_node", &name));
-            self.params.extend(new_params);
+            self.query.push_str(&query_part);
+            self.params.extend(params);
         }
         self.transition::<CreatedNode>()
     }
@@ -215,9 +208,8 @@ impl Neo4gMergeStatement<CreatedNode> {
         let name = format!("{}{}", label.to_lowercase(), self.relation_number);
         self.previous_entity = Some((name.clone(), EntityType::Relation, EntityWrapper::from(entity.clone())));
         let (query_part, params) = entity.entity_by(&alias, props);
-        let new_params = prepend_params_key(&entity.get_alias(), params);
-        self.query.push_str(&query_part.replace("neo4g_rel", &name.clone()).replace("min_hops", &format!("{}", min_hops)));
-        self.params.extend(new_params);
+        self.query.push_str(&query_part.replace("min_hops", &format!("{}", min_hops)));
+        self.params.extend(params);
         self.transition::<CreatedRelation>()
     }
     pub fn relation<T: Neo4gEntity>(mut self, entity: &mut T, props: &[T::Props]) -> Neo4gMergeStatement<CreatedRelation>
@@ -229,9 +221,8 @@ impl Neo4gMergeStatement<CreatedNode> {
         let name = format!("{}{}", label.to_lowercase(), self.relation_number);
         self.previous_entity = Some((name.clone(), EntityType::Relation, EntityWrapper::from(entity.clone())));
         let (query_part, params) = entity.entity_by(&alias, props);
-        let new_params = prepend_params_key(&entity.get_alias(), params);
-        self.query.push_str(&query_part.replace("neo4g_rel", &name.clone()).replace("*min_hops..", ""));
-        self.params.extend(new_params);
+        self.query.push_str(&query_part.replace("*min_hops..", ""));
+        self.params.extend(params);
         self.transition::<CreatedRelation>()
     }
     pub fn relation_flipped<T: Neo4gEntity>(mut self, entity: &mut T) -> Neo4gMergeStatement<CreatedRelation>
@@ -242,9 +233,8 @@ impl Neo4gMergeStatement<CreatedNode> {
         let name = format!("{}{}", label.to_lowercase(), self.relation_number);
         self.previous_entity = Some((name.clone(), EntityType::Relation, EntityWrapper::from(entity.clone())));
         let (query_part, params) = entity.create_from_self();
-        let new_params = prepend_params_key(&entity.get_alias(), params);
-        self.query.push_str(&query_part.replace("-[", "<-[").replace("neo4g_rel", &name).replace("]->", "]-"));
-        self.params.extend(new_params);
+        self.query.push_str(&query_part.replace("-[", "<-[").replace("]->", "]-"));
+        self.params.extend(params);
         self.transition::<CreatedRelation>()
     }
     pub fn relation_undirected(mut self) -> Neo4gMergeStatement<CreatedRelation> {
@@ -327,9 +317,8 @@ impl<Q: CanNode> Neo4gMatchStatement<Q> {
             self.query.push_str(&format!("({})", name));
         } else {
             let (query_part, params) = entity.entity_by(&alias, props);
-            let new_params = prepend_params_key(&entity.get_alias(), params);
-            self.query.push_str(&query_part.replace("neo4g_node", &name));
-            self.params.extend(new_params);
+            self.query.push_str(&query_part);
+            self.params.extend(params);
         }
         self.transition::<MatchedNode>()
     }
@@ -348,9 +337,8 @@ impl Neo4gMatchStatement<MatchedNode> {
         let name = format!("{}{}", label.to_lowercase(), self.node_number);
         self.previous_entity = Some((name.clone(), EntityType::Relation, EntityWrapper::from(entity.clone())));
         let (query_part, params) = entity.entity_by(&alias, props);
-        let new_params = prepend_params_key(&entity.get_alias(), params);
-        self.query.push_str(&query_part.replace("neo4g_rel", &name.clone()).replace("min_hops", &format!("{}", min_hops)));
-        self.params.extend(new_params);
+        self.query.push_str(&query_part.replace("min_hops", &format!("{}", min_hops)));
+        self.params.extend(params);
         self.transition::<CreatedRelation>()
     }
     pub fn relation<T: Neo4gEntity>(mut self, entity: &mut T, props: &[T::Props]) -> Neo4gMatchStatement<MatchedRelation>
@@ -362,9 +350,8 @@ impl Neo4gMatchStatement<MatchedNode> {
         let name = format!("{}{}", label.to_lowercase(), self.node_number);
         self.previous_entity = Some((name.clone(), EntityType::Relation, EntityWrapper::from(entity.clone())));
         let (query_part, params) = entity.entity_by(&alias, props);
-        let new_params = prepend_params_key(&entity.get_alias(), params);
-        self.query.push_str(&query_part.replace("neo4g_rel", &name.clone()).replace("*min_hops..", ""));
-        self.params.extend(new_params);
+        self.query.push_str(&query_part.replace("*min_hops..", ""));
+        self.params.extend(params);
         self.transition::<MatchedRelation>()
     }
     pub fn relation_flipped<T: Neo4gEntity>(mut self, entity: &mut T) -> Neo4gMatchStatement<CreatedRelation>
@@ -375,9 +362,8 @@ impl Neo4gMatchStatement<MatchedNode> {
         let name = format!("{}{}", label.to_lowercase(), self.node_number);
         self.previous_entity = Some((name.clone(), EntityType::Relation, EntityWrapper::from(entity.clone())));
         let (query_part, params) = entity.create_from_self();
-        let new_params = prepend_params_key(&entity.get_alias(), params);
-        self.query.push_str(&query_part.replace("-[", "<-[").replace("neo4g_rel", &name).replace("]->", "]-"));
-        self.params.extend(new_params);
+        self.query.push_str(&query_part.replace("-[", "<-[").replace("]->", "]-"));
+        self.params.extend(params);
         self.transition::<CreatedRelation>()
     }
     pub fn relation_undirected(mut self) -> Neo4gMatchStatement<CreatedRelation> {
