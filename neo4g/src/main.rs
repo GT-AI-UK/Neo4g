@@ -3,7 +3,7 @@ use neo4g::objects::{Group, GroupProps, MemberOf, MemberOfProps, User, UserProps
 use neo4g::query_builder::{self, CompareJoiner, CompareOperator, Neo4gBuilder, Where};
 use neo4rs::Graph;
 use dotenv::dotenv;
-use std::env;
+use std::{env, result};
 use heck::ToShoutySnakeCase;
 
 pub async fn connect_neo4j() -> Graph { //return db object, run on startup, bind to state var
@@ -27,30 +27,24 @@ pub async fn connect_neo4j() -> Graph { //return db object, run on startup, bind
 #[tokio::main]
 async fn main() {
     let graph = connect_neo4j().await;
-    let mut component1 = Component::new("cid1", "path1", ComponentType::Type1);
-    let mut component2 = Component::new("cid2", "path2", ComponentType::Type2);
+    let mut component1 = Component::new("cid3", "path3", ComponentType::Type1);
+    let mut component2 = Component::new("cid4", "path4", ComponentType::Type2);
     let mut hcrel1 = HasComponent::default();
     let mut hcrel2 = HasComponent::default();
-    let mut page1 = Page::new("pid1", "ppath1", vec![component1.clone(), component2.clone()]);
-    let test_creates = Neo4gBuilder::new()
-        .create() // create doesn't work because create_from_self doesn't use to_query_param for props because props aren't provided - only the entity is.
-         // potential solutions are to:
-        // 1. write a macro that generates an entity_to_props function so that to_query_param can be called easily
-        // 2. update the create_from_self function so that it contains all the functionality of to_query_param
-        // option1 seems preferable because that way to_query_param governs that pattern?
+    let mut page1 = Page::new("pid4", "ppath4", vec![component1.clone(), component2.clone()]);
+    let result = Neo4gBuilder::new()
+        .create()
             .node(&mut page1).add_to_return()
-            // .relation(&mut hcrel1).add_to_return()
-            // .node(&mut component1).add_to_return()
-        //     .end_statement()
-        // .with(&[&page1.clone().into(), &component1.clone().into()])
-        // .create()
-        //     .node_ref(&page1)
-        //     .relation(&mut hcrel2)
-        //     .node(&mut component2)
-            .end_statement();
-        //.with(&[&page1.clone().into(), &component1.clone().into(), &component2.clone().into()]);
-    println!("{:?}", test_creates.clone());
-    let mut result = test_creates.run_query(graph).await;
+            .relation(&mut hcrel1).add_to_return()
+            .node(&mut component1).add_to_return()
+            .end_statement()
+        .with(&[&page1.clone().into(), &component1.clone().into(), &hcrel1.clone().into()])
+        .create()
+            .node_ref(&page1)
+            .relation(&mut hcrel2).add_to_return()
+            .node(&mut component2).add_to_return()
+            .end_statement()
+        .run_query(graph).await;
     println!("{:?}", result);
         
     //let test1 = Neo4gBuilder::new()

@@ -97,7 +97,7 @@ impl<Q: CanWith> Neo4gBuilder<Q> {
         let aliases: Vec<String> = entities_to_alias.iter().map(|entity| {
             entity.get_alias()
         }).collect();
-        self.query.push_str(&format!("WITH {}\n", aliases.join(", ")));
+        self.query.push_str(&format!("\nWITH {}\n", aliases.join(", ")));
         self.transition::<Withed>()
     }
     //pub fn with_parameterised_array(mut self, param: ParamString) need a way to alias automatically?
@@ -476,7 +476,7 @@ impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
 
     pub async fn run_query(mut self, graph: Graph) -> anyhow::Result<Vec<EntityWrapper>> {
         if !self.return_refs.is_empty() {
-            self.query.push_str("RETURN ");
+            self.query.push_str("\nRETURN ");
             let aliases: Vec<String> = self.return_refs.iter().map(|(alias, _, _)| alias.clone()).collect();
             self.query.push_str(&aliases.join(", "));
         }
