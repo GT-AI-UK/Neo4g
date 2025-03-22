@@ -268,14 +268,14 @@ impl <Q: PossibleStatementEnd> Neo4gMergeStatement<Q> {
     pub fn on_create(mut self) -> Self {
         self.current_on_str = OnString::Create;
         if self.on_create_str.is_empty() {
-            self.on_create_str.push_str("\nON CREATE\n");
+            self.on_create_str.push_str("\nON CREATE");
         }
         self
     }
     pub fn on_match(mut self) -> Self {
         self.current_on_str = OnString::Match;
         if self.on_match_str.is_empty() {
-            self.on_match_str.push_str("\nON MATCH\n");
+            self.on_match_str.push_str("\nON MATCH");
         }
         self
     }
@@ -290,16 +290,16 @@ impl <Q: PossibleStatementEnd> Neo4gMergeStatement<Q> {
         self.params.extend(params);
         match self.current_on_str {
             OnString::Create => {
-                if self.on_create_str == "\nON CREATE\n".to_string() {
-                    self.on_create_str.push_str("SET ");
+                if self.on_create_str == "\nON CREATE".to_string() {
+                    self.on_create_str.push_str("\nSET ");
                 } else {
                     self.on_create_str.push_str(", ");
                 }
                 self.on_create_str.push_str(&query)
             },
             OnString::Match => {
-                if self.on_match_str == "\nON MATCH\n".to_string() {
-                    self.on_match_str.push_str("SET ");
+                if self.on_match_str == "\nON MATCH".to_string() {
+                    self.on_match_str.push_str("\nSET ");
                 } else {
                     self.on_match_str.push_str(", ");
                 }
@@ -312,7 +312,7 @@ impl <Q: PossibleStatementEnd> Neo4gMergeStatement<Q> {
     pub fn end_statement(mut self) -> Neo4gBuilder<CreatedNode> {
         self.query = self.query.replace(":AdditionalLabels", "");
         println!("INSIDE MERGE! Query: {}", &self.query);
-        self.query.push_str(&format!("{}\n{}", self.on_match_str, self.on_create_str));
+        self.query.push_str(&format!("{}{}", self.on_match_str, self.on_create_str));
         Neo4gBuilder::from(self)
     }
 }
