@@ -547,7 +547,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
 
         let silly_from_impl = quote! {
             impl From<Node> for #new_struct_name {
-                fn from(node: Node) -> Self {
+                fn from(relation: Node) -> Self {
                     Self {
                         alias: String::new(),
                         #(#field_inits),*
