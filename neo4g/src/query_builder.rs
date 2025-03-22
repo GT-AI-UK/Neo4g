@@ -120,6 +120,7 @@ impl<Q: CanNode> Neo4gCreateStatement<Q> {
     /// This is a docstring
     pub fn node<T: Neo4gEntity>(mut self, entity: &mut T) -> Neo4gCreateStatement<CreatedNode>
     where EntityWrapper: From<T>, T: Clone {
+        !! Need to make all node and rel functions resemble the below!!!
         self.node_number += 1;
         let label = entity.get_label();
         entity.set_alias(&format!("{}{}", label.to_lowercase(), self.node_number));
