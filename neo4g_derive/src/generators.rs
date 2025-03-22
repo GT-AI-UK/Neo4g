@@ -71,8 +71,8 @@ pub fn generate_node_by(struct_name: &Ident, struct_name_str: &str, props_enum_n
                 .iter()
                 .map(|prop| {
                     let (key, value) = prop.to_query_param();
-                    params.insert(format!("{}_{}", alias, key.to_string()), value);
-                    format!("{}_{}: ${}_{}", alias, key, alias, key)
+                    params.insert(format!("{}_{}", alias.to_lowercase(), key.to_string()), value);
+                    format!("{}: ${}_{}", key, alias.to_lowercase(), key)
                 })
                 .collect();
 
@@ -95,7 +95,7 @@ pub fn generate_get_relation_entity_type() -> proc_macro2::TokenStream {
 pub fn generate_set_alias() -> proc_macro2::TokenStream {
     quote! {
         pub fn set_entity_alias(&mut self, alias: &str) {
-            self.alias = alias.to_string();
+            self.alias = alias.to_string().to_lowercase();
         }
     }
 }
@@ -150,8 +150,8 @@ pub fn generate_relation_by(struct_name: &Ident, struct_name_str: &str, props_en
                     .iter()
                     .map(|prop| {
                         let (key, value) = prop.to_query_param();
-                        params.insert(format!("{}_{}", alias, key.to_string()), value);
-                        format!("{}_{}: ${}_{}", alias, key, alias, key)
+                        params.insert(format!("{}_{}", alias.to_lowercase(), key.to_string()), value);
+                        format!("{}: ${}_{}", key, alias.to_lowercase(), key)
                     })
                     .collect();
 

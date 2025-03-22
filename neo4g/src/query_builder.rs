@@ -126,10 +126,12 @@ impl<Q: CanNode> Neo4gCreateStatement<Q> {
         let name = format!("{}{}:AdditionalLabels", label.to_lowercase(), self.node_number);
         self.previous_entity = Some((name.clone(), EntityType::Node, EntityWrapper::from(entity.clone())));
         let (query_part, params) = entity.create_from_self();
-        let new_params = prepend_params_key(&entity.get_alias(), params);
-        self.query.push_str(&query_part.replace("neo4g_node", &name.clone()));
-        self.params.extend(new_params.clone());
-        println!("THE STUFF YOU WANT IS HERE {:?}{:?}", query_part, new_params);
+        //let new_params = prepend_params_key(&entity.get_alias(), params);
+        //self.query.push_str(&query_part.replace("neo4g_node", &name.clone()));
+        self.query.push_str(&query_part);
+        //self.params.extend(new_params.clone());
+        self.params.extend(params.clone());
+        println!("THE STUFF YOU WANT IS HERE {:?}{:?}", query_part, params);
         self.transition::<CreatedNode>()
     }
     pub fn node_ref<T: Neo4gEntity>(mut self, node_to_alias: &T) -> Neo4gCreateStatement<CreatedNode> {

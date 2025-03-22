@@ -102,7 +102,7 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
     
     let create_node_from_self_fn = quote! {
         pub fn create_node_from_self(&self) -> (String, std::collections::HashMap<String, BoltType>) {
-            Neo4gEntity::entity_by(self, &Neo4gEntity::get_label(self), &self.self_to_props())
+            Neo4gEntity::entity_by(self, &Neo4gEntity::get_alias(self), &self.self_to_props())
             // let props = self_to_props(&self);
             // let keys: Vec<String> = vec![ #(#create_query_params),* ];
             // let query = format!("(neo4g_node:{} {{{}}})\n", #new_struct_name_str, keys.join(", "));
