@@ -61,11 +61,17 @@ impl Neo4gBuilder<Empty> {
 impl<Q: CanCreate> Neo4gBuilder<Q> {
     pub fn create(mut self) -> Neo4gCreateStatement<Empty> {
         self.clause = Clause::Create;
+        if !self.query.is_empty() {
+            self.query.push_str("\n");
+        }
         self.query.push_str("CREATE ");
         Neo4gCreateStatement::from(self)
     }
     pub fn merge(mut self) -> Neo4gMergeStatement<Empty> {
         self.clause = Clause::Merge;
+        if !self.query.is_empty() {
+            self.query.push_str("\n");
+        }
         self.query.push_str("MERGE ");
         Neo4gMergeStatement::from(self)
     }
@@ -74,11 +80,17 @@ impl<Q: CanCreate> Neo4gBuilder<Q> {
 impl<Q: CanMatch> Neo4gBuilder<Q> {
     pub fn get(mut self) -> Neo4gMatchStatement<Empty> {
         self.clause = Clause::Match;
+        if !self.query.is_empty() {
+            self.query.push_str("\n");
+        }
         self.query.push_str("MATCH ");
         Neo4gMatchStatement::from(self)
     }
     pub fn optional_match(mut self) -> Neo4gMatchStatement<Empty> {
         self.clause = Clause::Match;
+        if !self.query.is_empty() {
+            self.query.push_str("\n");
+        }
         self.query.push_str("OPTIONAL MATCH ");
         Neo4gMatchStatement::from(self)
     }
@@ -411,7 +423,7 @@ impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> {
             self.where_str.push_str("\nWHERE ")
         }
         let (query_part, where_params) = filter.build();
-        self.where_str.push_str(&format!("{}\n", &query_part));
+        self.where_str.push_str(&query_part);
         self.params.extend(where_params);
         self
     }
@@ -1063,7 +1075,15 @@ impl<S> Where<S> {
 
 impl Where<Empty> {
     pub fn new() -> Self {
-        Where {
+        Self {
+            string: String::new(),
+            params: HashMap::new(),
+            condition_number: 0,
+            _state: PhantomData,
+        }
+    }
+    pub fn new_nested() -> Self {
+        Self {
             string: String::new(),
             params: HashMap::new(),
             condition_number: 0,
@@ -1080,6 +1100,7 @@ impl<Q: CanCondition> Where<Q> {
         let alias = entity_to_alias.get_alias();
         self.string.push_str(&format!("{}.{} {} ${}", alias, name, operator.to_string(), &param_name));
         self.params.insert(param_name, value);
+        println!("{:?}", self.params);
         self.transition::<Condition>()
     }
     pub fn coalesce<T: Neo4gEntity>(mut self, entity_to_alias: &T, prop: PropsWrapper) -> Where<Condition> {
@@ -1100,12 +1121,23 @@ impl<Q: CanCondition> Where<Q> {
     //     self.string.push_str(&format!("{}.{} {} {}", alias, name, operator.to_string(), func_query_part));
     //     self.transition::<Condition>()
     // }
-    pub fn nest(mut self, inner_builder: Where<Condition>) -> Where<Condition> {
-        let (query, params) = inner_builder.build();
+    pub fn nest<F, B>(mut self, parent_closure: F, inner_builder: Where<Condition>) -> Where<Condition>
+    where F: FnOnce(&Self) -> &Where<B> {
+        let parent = parent_closure(&self);
+        self.condition_number = parent.condition_number;
+        let (query, params) = inner_builder.build(); // Assuming build() consumes the nested builder into (query, params)
         self.string.push_str(&format!("({})", query));
         self.params.extend(params);
         self.transition::<Condition>()
     }
+
+    // pub fn nest(mut self, inner_builder: Where<Condition>) -> Where<Condition> {
+    //     self.condition_number = inner_builder.condition_number;
+    //     let (query, params) = inner_builder.build();
+    //     self.string.push_str(&format!("({})", query));
+    //     self.params.extend(params);
+    //     self.transition::<Condition>()
+    // }
 }
 
 impl<Q: CanJoin> Where<Q> {
