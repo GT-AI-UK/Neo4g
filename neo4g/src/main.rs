@@ -37,7 +37,7 @@ async fn main() {
             .node(&mut page1, &[PageProps::Id("pid99".to_string())]).add_to_return()
             .relation(&mut hcrel1, &[]).add_to_return()
             .node(&mut component1, &[ComponentProps::Id("cid3".to_string())]).add_to_return()
-            .end_statement()
+        .end_statement()
         .get()
             .node_ref(&page1)
             .relation(&mut hcrel2, &[]).add_to_return()

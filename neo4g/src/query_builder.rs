@@ -48,7 +48,7 @@ impl<Q: CanCreate> Neo4gBuilder<Q> {
     ///     .node(&mut node1).add_to_return()
     ///     .relation(&mut rel).add_to_return()
     ///     .node(&mut node2).add_to_return()
-    ///     .end_statement()
+    /// .end_statement()
     /// ```
     /// The example above generates the following query:
     /// ```rust
@@ -108,7 +108,7 @@ impl<Q: CanMatch> Neo4gBuilder<Q> {
     ///     .filter(Where::new()
     ///         .condition(&node1, Node1Props::Prop2(123), CompareOperator::Gt)         
     ///     )
-    ///     .end_statement()
+    /// .end_statement()
     /// ```
     /// The example above generates the following query:
     /// ```rust
