@@ -102,13 +102,13 @@ impl<Q: CanMatch> Neo4gBuilder<Q> {
     /// # Example
     /// ```rust
     /// .get()
-    /// .node(&mut node1, &[Node1Props::Prop(123)]).add_to_return()
-    /// .relation(&mut rel, &[]).add_to_return()
-    /// .node(&mut node2, &[Node2Props::Prop(123)]).add_to_return()
-    /// .filter(Where::new()
-    ///     .condition(&node1, Node1Props::Prop2(123), CompareOperator::Gt)         
-    /// )
-    /// .end_statement()
+    ///     .node(&mut node1, &[Node1Props::Prop(123)]).add_to_return()
+    ///     .relation(&mut rel, &[]).add_to_return()
+    ///     .node(&mut node2, &[Node2Props::Prop(123)]).add_to_return()
+    ///     .filter(Where::new()
+    ///         .condition(&node1, Node1Props::Prop2(123), CompareOperator::Gt)         
+    ///     )
+    ///     .end_statement()
     /// ```
     /// The example above generates the following query:
     /// ```rust
