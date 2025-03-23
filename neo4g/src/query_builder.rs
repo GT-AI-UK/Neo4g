@@ -52,7 +52,7 @@ impl<Q: CanCreate> Neo4gBuilder<Q> {
     /// ```
     /// The example above generates the following query:
     /// ```rust
-    /// CREATE (node1alias:Node1Label {node1_prop1: $node1_prop1, etc})-[relalias:RelType {etc}]->(node2alias: Node2Label {etc})
+    /// CREATE (node1alias:Node1Label {node1_prop1: $node1_prop1, etc})-[relalias:REL_TYPE {etc}]->(node2alias: Node2Label {etc})
     /// RETURN node1alias, relalias, node2alias
     /// ```
     /// and asociated params. etc is used to save room instead of typing out loads of example props.
@@ -81,7 +81,7 @@ impl<Q: CanCreate> Neo4gBuilder<Q> {
     /// ```
     /// The example above generates the following query:
     /// ```rust
-    /// MERGE (node1alias:Node1Label {node1_prop1: $node1_prop1)-[relalias:RelType]->(node2alias: Node2Label {node2_prop2: $node2_prop2})
+    /// MERGE (node1alias:Node1Label {prop: $node1_prop1)-[relalias:REL_TYPE]->(node2alias: Node2Label {prop: $node2_prop2})
     /// ON CREATE SET node1alias.eg = $node1alias.eg1, node2alias.eg = $node2alias.eg2
     /// ON MATCH SET node1alias.eg = $node1alias.eg1
     /// RETURN node1alias, relalias, node2alias
@@ -98,6 +98,25 @@ impl<Q: CanCreate> Neo4gBuilder<Q> {
 }
 
 impl<Q: CanMatch> Neo4gBuilder<Q> {
+    /// Generates a MATCH statement
+    /// # Example
+    /// ```rust
+    /// .get()
+    /// .node(&mut node1, &[Node1Props::Prop(123)]).add_to_return()
+    /// .relation(&mut rel, &[]).add_to_return()
+    /// .node(&mut node2, &[Node2Props::Prop(123)]).add_to_return()
+    /// .filter(Where::new()
+    ///     .condition(&node1, Node1Props::Prop2(123), CompareOperator::Gt)         
+    /// )
+    /// .end_statement()
+    /// ```
+    /// The example above generates the following query:
+    /// ```rust
+    /// MATCH (node1alias: Node1Label {prop: $node1_prop1})-[relalias: REL_TYPE]->(node2alias: Node2Label {prop: $node2_prop2})
+    /// WHERE node1alias.prop2 = $where_prop21
+    /// RETURN node1alias, relalias, node2alias
+    /// ```
+    /// and asociated params.
     pub fn get(mut self) -> Neo4gMatchStatement<Empty> {
         self.clause = Clause::Match;
         if !self.query.is_empty() {
