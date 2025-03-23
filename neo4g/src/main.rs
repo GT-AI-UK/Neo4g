@@ -45,7 +45,7 @@ async fn main() {
             .filter(Where::new()
                 .condition(&page1, PageProps::Id("pid99".into()).into(), CompareOperator::Eq)
                 .join(CompareJoiner::And)
-                .nest(|parent_filter| parent_filter, Where::new_nested()
+                .nest(|parent_filter| parent_filter, Where::new()
                     .condition(&component1, ComponentProps::Id("pid99".into()).into(), CompareOperator::Ne)
                     .join(CompareJoiner::And)
                     .condition(&component2, ComponentProps::Id("pid99".into()).into(), CompareOperator::Ne)
@@ -58,7 +58,7 @@ async fn main() {
     let test_filter = Where::new()
         .condition(&page1, PageProps::Id("pid99".into()).into(), CompareOperator::Eq)
         .join(CompareJoiner::And)
-        .nest(|p| p, Where::new_nested().condition(&page1, PageProps::Id("pid99".into()).into(), CompareOperator::Eq));
+        .nest(|p| p, Where::new().condition(&page1, PageProps::Id("pid99".into()).into(), CompareOperator::Eq));
 
     // !! Functional MERGE Query:
     // let result = Neo4gBuilder::new()

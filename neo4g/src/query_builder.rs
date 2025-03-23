@@ -38,24 +38,25 @@ impl Neo4gBuilder<Empty> {
             _state: PhantomData,
         }
     }
-    pub fn new_inner(node_number:u32, relation_number: u32, unwind_number: u32, set_number: u32) -> Self {
-        Self {
-            query: String::new(),
-            params: HashMap::new(),
-            node_number,
-            relation_number,
-            unwind_number,
-            set_number,
-            return_refs: Vec::new(),
-            order_by_str: String::new(),
-            previous_entity: None,
-            clause: Clause::None,
-            _state: PhantomData,
-        }
-    }
 }
 
 impl<Q: CanCreate> Neo4gBuilder<Q> {
+    /// Generates a CREATE statement
+    /// # Example
+    /// ```rust
+    /// .create()
+    ///     .node(&mut node1).add_to_return()
+    ///     .relation(&mut rel).add_to_return()
+    ///     .node(&mut node2).add_to_return()
+    ///     .end_statement()
+    /// ```
+    /// The example above generates the following query:
+    /// ```rust
+    /// CREATE (node1alias:Node1Label {node1_prop1: $node1_prop1, etc})-[relalias:RelType {etc}]->(node2alias: Node2Label {etc})
+    /// RETURN node1alias, relalias, node2alias
+    /// ```
+    /// and asociated params. etc is used to save room instead of typing out loads of example props.
+    /// each non-excluded property of the provided struct is used when creating the database entities.
     pub fn create(mut self) -> Neo4gCreateStatement<Empty> {
         self.clause = Clause::Create;
         if !self.query.is_empty() {
@@ -64,6 +65,28 @@ impl<Q: CanCreate> Neo4gBuilder<Q> {
         self.query.push_str("CREATE ");
         Neo4gCreateStatement::from(self)
     }
+    /// Generates a MERGE statement
+    /// # Example
+    /// ```rust
+    /// .merge()
+    ///     .node(&mut node1, &[Node1Props::Prop(123)]).add_to_return()
+    ///     .relation(&mut rel, &[]).add_to_return()
+    ///     .node(&mut node2, &[Node2Props::Prop(456))]).add_to_return()
+    ///     .on_create()
+    ///         .set(node1, &[Node1Props::Eg(987)]))
+    ///         .set(node2, &[Node1Props::Eg(654)]))
+    ///     .on_match()
+    ///         .set(node1, &[Node1Props::Eg(321)]))
+    /// .end_statement()
+    /// ```
+    /// The example above generates the following query:
+    /// ```rust
+    /// MERGE (node1alias:Node1Label {node1_prop1: $node1_prop1)-[relalias:RelType]->(node2alias: Node2Label {node2_prop2: $node2_prop2})
+    /// ON CREATE SET node1alias.eg = $node1alias.eg1, node2alias.eg = $node2alias.eg2
+    /// ON MATCH SET node1alias.eg = $node1alias.eg1
+    /// RETURN node1alias, relalias, node2alias
+    /// ```
+    /// and asociated params.
     pub fn merge(mut self) -> Neo4gMergeStatement<Empty> {
         self.clause = Clause::Merge;
         if !self.query.is_empty() {
@@ -1103,14 +1126,6 @@ impl Where<Empty> {
             _state: PhantomData,
         }
     }
-    pub fn new_nested() -> Self {
-        Self {
-            string: String::new(),
-            params: HashMap::new(),
-            condition_number: 0,
-            _state: PhantomData,
-        }
-    }
 }
 
 impl<Q: CanCondition> Where<Q> {
@@ -1142,6 +1157,17 @@ impl<Q: CanCondition> Where<Q> {
     //     self.string.push_str(&format!("{}.{} {} {}", alias, name, operator.to_string(), func_query_part));
     //     self.transition::<Condition>()
     // }
+
+    /// Nests conditions within the inner_builder in parens.
+    /// # Example
+    /// ```rust
+    /// .nest(|parent_filter| parent_filter, Where::new_nested()
+    ///     .condition(&entity1, EntityProps::Prop(123).into(), CompareOperator::Eq)
+    ///     .join(CompareJoiner::And)
+    ///     .condition(&entity2, EntityProps::Prop(456).into(), CompareOperator::Ne)
+    /// )  
+    /// ```
+    /// The example above generates "(entity1alias.prop = 123 AND entity2alias.prop <> 456)"
     pub fn nest<F, S>(mut self, parent_closure: F, inner_builder: Where<Condition>) -> Where<Condition>
     where F: FnOnce(&Self) -> &Where<S> {
         let parent = parent_closure(&self);
