@@ -53,9 +53,6 @@ impl Neo4gBuilder<Empty> {
             _state: PhantomData,
         }
     }
-    pub fn build(self) -> (String, HashMap<String, BoltType>) {
-        (self.query, self.params)
-    }
 }
 
 impl<Q: CanCreate> Neo4gBuilder<Q> {
@@ -458,6 +455,9 @@ impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> {
 
 //Statement combiners
 impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
+    pub fn build(self) -> (String, HashMap<String, BoltType>) {
+        (self.query, self.params)
+    }
     pub fn set_returns(mut self, returns: &[(EntityType, EntityWrapper)]) -> Self {
         if returns.is_empty() && self.return_refs.is_empty() {
             println!("Nothing will be returned from this query...");
@@ -484,14 +484,35 @@ impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
     }
 
     /// inner_builder should be created with Neo4gBuilder::new_inner() in all cases I can think of.
-    pub fn call(mut self, aliases: &[&str], inner_bulder: Neo4gBuilder<Empty>) -> Neo4gBuilder<Called> {
-        self.node_number = inner_bulder.node_number;
-        self.relation_number = inner_bulder.relation_number;
+    pub fn call<F, S, B>(mut self, parent_closure: F, entities_to_alias: &[&EntityWrapper], inner_bulder: Neo4gBuilder<B>) -> Neo4gBuilder<Called>
+    where B: PossibleQueryEnd, F: FnOnce(&Self) -> &Neo4gBuilder<S> {
+        let parent = parent_closure(&self);
+        let node_number = parent.node_number;
+        let relation_number = parent.relation_number;
+        let set_number = parent.set_number;
+        let unwind_number = parent.unwind_number;
+        self.node_number = node_number;
+        self.relation_number = relation_number;
+        self.set_number = set_number;
+        self.unwind_number = unwind_number;
+        let aliases: Vec<String> = entities_to_alias.iter().map(|entity| {
+            entity.get_alias()
+        }).collect();
         let (query, params) = inner_bulder.build();
-        self.query.push_str(format!("CALL ({}) {{\n {} \n}}\n", &aliases.join(", "), &query).as_str());
+        self.query.push_str(format!("CALL ({}) {{\n {} \n}}\n", aliases.join(", "), &query).as_str());
         self.params.extend(params);
         self.transition::<Called>()
     }
+
+    // pub fn nest<F, B>(mut self, parent_closure: F, inner_builder: Where<Condition>) -> Where<Condition>
+    // where F: FnOnce(&Self) -> &Where<B> {
+    //     let parent = parent_closure(&self);
+    //     self.condition_number = parent.condition_number;
+    //     let (query, params) = inner_builder.build(); // Assuming build() consumes the nested builder into (query, params)
+    //     self.string.push_str(&format!("({})", query));
+    //     self.params.extend(params);
+    //     self.transition::<Condition>()
+    // }
 
     pub fn skip(mut self, skip: u32) -> Self {
         self.query.push_str(&format!("SKIP {}\n", skip));
@@ -1121,8 +1142,8 @@ impl<Q: CanCondition> Where<Q> {
     //     self.string.push_str(&format!("{}.{} {} {}", alias, name, operator.to_string(), func_query_part));
     //     self.transition::<Condition>()
     // }
-    pub fn nest<F, B>(mut self, parent_closure: F, inner_builder: Where<Condition>) -> Where<Condition>
-    where F: FnOnce(&Self) -> &Where<B> {
+    pub fn nest<F, S>(mut self, parent_closure: F, inner_builder: Where<Condition>) -> Where<Condition>
+    where F: FnOnce(&Self) -> &Where<S> {
         let parent = parent_closure(&self);
         self.condition_number = parent.condition_number;
         let (query, params) = inner_builder.build(); // Assuming build() consumes the nested builder into (query, params)
@@ -1130,14 +1151,6 @@ impl<Q: CanCondition> Where<Q> {
         self.params.extend(params);
         self.transition::<Condition>()
     }
-
-    // pub fn nest(mut self, inner_builder: Where<Condition>) -> Where<Condition> {
-    //     self.condition_number = inner_builder.condition_number;
-    //     let (query, params) = inner_builder.build();
-    //     self.string.push_str(&format!("({})", query));
-    //     self.params.extend(params);
-    //     self.transition::<Condition>()
-    // }
 }
 
 impl<Q: CanJoin> Where<Q> {
