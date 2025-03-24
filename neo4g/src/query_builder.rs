@@ -125,6 +125,25 @@ impl<Q: CanMatch> Neo4gBuilder<Q> {
         self.query.push_str("MATCH ");
         Neo4gMatchStatement::from(self)
     }
+    /// Generates an OPTION MATCH statement
+    /// # Example
+    /// ```rust
+    /// .optional_match()
+    ///     .node(&mut node1, &[Node1Props::Prop(123)]).add_to_return()
+    ///     .relation(&mut rel, &[]).add_to_return()
+    ///     .node(&mut node2, &[Node2Props::Prop(123)]).add_to_return()
+    ///     .filter(Where::new()
+    ///         .condition(&node1, Node1Props::Prop2(123), CompareOperator::Gt)         
+    ///     )
+    /// .end_statement()
+    /// ```
+    /// The example above generates the following query:
+    /// ```rust
+    /// OPTION MATCH (node1alias: Node1Label {prop: $node1_prop1})-[relalias: REL_TYPE]->(node2alias: Node2Label {prop: $node2_prop2})
+    /// WHERE node1alias.prop2 = $where_prop21
+    /// RETURN node1alias, relalias, node2alias
+    /// ```
+    /// and asociated params.
     pub fn optional_match(mut self) -> Neo4gMatchStatement<Empty> {
         self.clause = Clause::Match;
         if !self.query.is_empty() {
@@ -136,19 +155,41 @@ impl<Q: CanMatch> Neo4gBuilder<Q> {
 }
 
 impl<Q: CanWith> Neo4gBuilder<Q> {
+    /// Generates an UNWIND call
+    /// # Example
+    /// ```rust
+    /// .unwind(
+    ///     Unwinder::new(vec![PropsWrapper::EntityProps(EntityProps::Prop(123))])
+    /// )
+    /// ```
+    /// The example above generates the following query:
+    /// ```rust
+    /// UNWIND $neo4g_unwind1 as neo4g_unwind1
+    /// ```
+    /// and asociated params.
     pub fn unwind(mut self, mut unwinder: Unwinder) -> Self {
         self.unwind_number += 1;
         unwinder.alias = format!("neo4g_unwind{}", self.unwind_number);
         let (query, params) = unwinder.unwind();
-        self.query.push_str(&format!("{}\n", query));
+        self.query.push_str(&format!("\n{}", query));
         self.params.extend(params);
         self
     }
+    /// Generates a WITH call
+    /// # Example
+    /// ```rust
+    /// .with(&[EntityWrapper::Entity(Entity1), EntityWrapper::Entity2(Entity2)])
+    /// ```
+    /// The example above generates the following query:
+    /// ```rust
+    /// WITH entity1alias, entity2alias
+    /// ```
+    /// and asociated params.
     pub fn with(mut self, entities_to_alias: &[&EntityWrapper]) -> Neo4gBuilder<Withed> {
         let aliases: Vec<String> = entities_to_alias.iter().map(|entity| {
             entity.get_alias()
         }).collect();
-        self.query.push_str(&format!("\nWITH {}\n", aliases.join(", ")));
+        self.query.push_str(&format!("\nWITH {}", aliases.join(", ")));
         self.transition::<Withed>()
     }
     //pub fn with_parameterised_array(mut self, param: ParamString) need a way to alias automatically?
@@ -316,6 +357,11 @@ impl <Q: CanAddReturn> Neo4gMergeStatement<Q> {
     }
 }
 impl <Q: PossibleStatementEnd> Neo4gMergeStatement<Q> {
+    /// Appends ON CREATE to the query string and changes the builder state so that .set() can be called
+    /// # Example
+    /// ```rust
+    /// .on_create()
+    /// ```
     pub fn on_create(mut self) -> Self {
         self.current_on_str = OnString::Create;
         if self.on_create_str.is_empty() {
@@ -323,6 +369,11 @@ impl <Q: PossibleStatementEnd> Neo4gMergeStatement<Q> {
         }
         self
     }
+    /// Appends ON MATCH to the query string and changes the builder state so that .set() can be called
+    /// # Example
+    /// ```rust
+    /// .on_match()
+    /// ```
     pub fn on_match(mut self) -> Self {
         self.current_on_str = OnString::Match;
         if self.on_match_str.is_empty() {
@@ -330,6 +381,17 @@ impl <Q: PossibleStatementEnd> Neo4gMergeStatement<Q> {
         }
         self
     }
+    /// Generates a SET call
+    /// # Example
+    /// ```rust
+    /// .set(Entity, &[Entity1Props::Prop1(123), Entity1Props::Prop2(456)])
+    /// .set(Entity2, &[Entity2Props::Prop1(987), Entity2Props::Prop2(654)])
+    /// ```
+    /// The example above generates the following query:
+    /// ```rust
+    /// SET entity1alias.prop1 = $set1_prop1, entity1alias.prop2 = $set1_prop2, entity2alias.prop1 = $set2_prop1, entity2alias.prop2 = $set2_prop2
+    /// ```
+    /// and asociated params for the inner builder.
     pub fn set<T: Neo4gEntity>(mut self, entity_to_alias: T, props: &[T::Props]) -> Self
         where T::Props: Clone, PropsWrapper: From<<T as Neo4gEntity>::Props> {
         self.set_number += 1;
@@ -457,6 +519,20 @@ impl <Q: CanAddReturn> Neo4gMatchStatement<Q> {
     }
 }
 impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> {
+    /// Generates a WHERE call
+    /// # Example
+    /// ```rust
+    /// .filter(Where::new()
+    ///     .condition(&node1, Node1Props::Prop1(123), CompareOperator::Eq)
+    ///     .join(CompareJoiner::And)
+    ///     .condition(&node1, Node1Props::Prop2(456), CompareOperator::Gt)       
+    /// )
+    /// ```
+    /// The example above generates the following query:
+    /// ```rust
+    /// WHERE node1alias.prop1 = $where1_prop1 AND node1alias.prop2 > $where2_prop2
+    /// ```
+    /// and asociated params for the inner builder.
     pub fn filter(mut self, filter: Where<Condition>) -> Self {
         if self.where_str.is_empty() {
             self.where_str.push_str("\nWHERE ")
@@ -466,12 +542,26 @@ impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> {
         self.params.extend(where_params);
         self
     }
+    /// Generates a SET call
+    /// # Example
+    /// ```rust
+    /// .set(Entity, &[Entity1Props::Prop1(123), Entity1Props::Prop2(456)])
+    /// .set(Entity2, &[Entity2Props::Prop1(987), Entity2Props::Prop2(654)])
+    /// ```
+    /// The example above generates the following query:
+    /// ```rust
+    /// SET entity1alias.prop1 = $set1_prop1, entity1alias.prop2 = $set1_prop2, entity2alias.prop1 = $set2_prop1, entity2alias.prop2 = $set2_prop2
+    /// ```
+    /// and asociated params for the inner builder.
     pub fn set<T: Neo4gEntity>(mut self, entity_to_alias: T, props: &[PropsWrapper]) -> Self {
+        self.set_number += 1;
         let alias = entity_to_alias.get_alias();
         let (query, params) = PropsWrapper::set_by(&alias, self.set_number, props);
         self.params.extend(params);
         if self.set_str.is_empty() {
             self.set_str = "\nSET ".to_string();
+        } else {
+            self.set_str.push_str(", ");
         }
         self.set_str.push_str(&query);
         self
@@ -489,7 +579,6 @@ impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> {
                 self.query.push_str(&format!("WITH {}\n", return_aliases.join(", ")));
             }
         }
-        
         self.query = self.query.replace(":AdditionalLabels", "");
         Neo4gBuilder::from(self)
     }
@@ -525,7 +614,23 @@ impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
         self
     }
 
-    /// inner_builder should be created with Neo4gBuilder::new_inner() in all cases I can think of.
+    /// Generates a CALL call
+    /// # Example
+    /// ```rust
+    /// .call(|parent_builder| parent_builder,
+    ///     &[EntityWrapper::Entity(Entity1), EntityWrapper::Entity2(Entity2)],
+    ///     Neo4gBuilder::new(
+    ///         ... //get(), merge(), create(), etc.
+    ///     )
+    /// )
+    /// ```
+    /// The example above generates the following query:
+    /// ```rust
+    /// CALL (entity1alias, entity2alias) {
+    ///     ... // query generated by inner builder
+    /// }
+    /// ```
+    /// and asociated params for the inner builder.
     pub fn call<F, S, B>(mut self, parent_closure: F, entities_to_alias: &[&EntityWrapper], inner_bulder: Neo4gBuilder<B>) -> Neo4gBuilder<Called>
     where B: PossibleQueryEnd, F: FnOnce(&Self) -> &Neo4gBuilder<S> {
         let parent = parent_closure(&self);
@@ -1255,10 +1360,10 @@ pub struct Unwinder {
 }
 
 impl Unwinder {
-    pub fn new(list: Vec<PropsWrapper>) -> Self {
+    pub fn new(list: &[PropsWrapper]) -> Self {
         Self {
             alias: String::new(),
-            list,
+            list: list.to_owned(),
         }
     }
     pub fn unwind(self) -> (String, HashMap<String, BoltType>) {
@@ -1275,7 +1380,7 @@ impl Unwinder {
 
 impl Default for Unwinder {
     fn default() -> Self {
-        Self::new(vec![])
+        Self::new(&[])
     }
 }
 
