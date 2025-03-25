@@ -304,6 +304,10 @@ impl Neo4gCreateStatement<CreatedNode> {
 }
 impl <Q: CanAddReturn> Neo4gCreateStatement<Q> {
     /// Adds the previous query object to a builder property that tracks return types and values.
+    /// When .run_query(graph).await; is called, the following will be appended to the query:
+    /// ```rust
+    /// RETURN alias1, alias2, aliasn
+    /// ```
     pub fn add_to_return(mut self) -> Self {
         if let Some((mut name, entity_type, entity)) = self.previous_entity.clone() {
             name = name.replace(":AdditionalLabels", "");
@@ -431,6 +435,11 @@ impl Neo4gMergeStatement<CreatedNode> {
     }
 }
 impl <Q: CanAddReturn> Neo4gMergeStatement<Q> {
+    /// Adds the previous query object to a builder property that tracks return types and values.
+    /// When .run_query(graph).await; is called, the following will be appended to the query:
+    /// ```rust
+    /// RETURN alias1, alias2, aliasn
+    /// ```
     pub fn add_to_return(mut self) -> Self {
         if let Some((mut name, entity_type, entity)) = self.previous_entity.clone() {
             name = name.replace(":AdditionalLabels", "");
@@ -505,6 +514,7 @@ impl <Q: PossibleStatementEnd> Neo4gMergeStatement<Q> {
         }
         self
     }
+    /// Finalises the current statement, tidies up placeholders, and changes the state of the builder so that new statements can be added.
     pub fn end_statement(mut self) -> Neo4gBuilder<CreatedNode> {
         self.query = self.query.replace(":AdditionalLabels", "");
         println!("INSIDE MERGE! Query: {}", &self.query);
@@ -613,6 +623,11 @@ impl Neo4gMatchStatement<MatchedNode> {
     }
 }
 impl <Q: CanAddReturn> Neo4gMatchStatement<Q> {
+    /// Adds the previous query object to a builder property that tracks return types and values.
+    /// When .run_query(graph).await; is called, the following will be appended to the query:
+    /// ```rust
+    /// RETURN alias1, alias2, aliasn
+    /// ```
     pub fn add_to_return(mut self) -> Self {
         if let Some((mut name, entity_type, entity)) = self.previous_entity.clone() {
             name = name.replace(":AdditionalLabels", "");
@@ -669,6 +684,7 @@ impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> {
         self.set_str.push_str(&query);
         self
     }
+    /// Finalises the current statement, tidies up placeholders, and changes the state of the builder so that new statements can be added.
     pub fn end_statement(mut self) -> Neo4gBuilder<MatchedNode> {
         if !self.where_str.is_empty() {
             self.query.push_str(&format!("{}", self.where_str));
@@ -689,9 +705,21 @@ impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> {
 
 //Statement combiners
 impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
+    /// Builds the query and params. This is used by .call(), and should otherwise not be used unless you know what you're doing. 
+    /// It has to be a pub fn to allow .call() to work as intended, but is not intended for use by API consumers.
     pub fn build(self) -> (String, HashMap<String, BoltType>) {
         (self.query, self.params)
     }
+    /// An alternative to calling .add_to_return() for each object in the query. 
+    /// This is a more traditional way of managing returns and may be more familiar to people who are used to writing database queries.
+    /// # Example
+    /// ```rust
+    /// .set_returns(&[(EntityType::Node, EntityWrapper::Node1(node)), (EntityType::Relation, relation.clone().into())])
+    /// ```
+    /// When .run_query(graph).await; is called, the following will be appended to the query:
+    /// ```rust
+    /// RETURN node1alias, rel1alias
+    /// ```
     pub fn set_returns(mut self, returns: &[(EntityType, EntityWrapper)]) -> Self {
         if returns.is_empty() && self.return_refs.is_empty() {
             println!("Nothing will be returned from this query...");
