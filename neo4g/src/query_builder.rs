@@ -209,7 +209,17 @@ impl<Q: CanWith> Neo4gBuilder<Q> {
 
 //Create statement methods
 impl<Q: CanNode> Neo4gCreateStatement<Q> {
-    /// This is a docstring
+    /// Generates a node query object
+    /// Uses all of the properties of the node object as properties of the node in the database.
+    /// # Example
+    /// ```rust
+    /// .node(&mut node)
+    /// ```
+    /// The example above generates the following query:
+    /// ```rust
+    /// (nodealias:NodeLabel {prop1: $node1_prop1, prop2: $node1_prop2, propn: $node1_propn})
+    /// ```
+    /// and asociated params.
     pub fn node<T: Neo4gEntity>(mut self, entity: &mut T) -> Neo4gCreateStatement<CreatedNode>
     where EntityWrapper: From<T>, T: Clone {
         self.node_number += 1;
@@ -222,6 +232,16 @@ impl<Q: CanNode> Neo4gCreateStatement<Q> {
         self.params.extend(params);
         self.transition::<CreatedNode>()
     }
+    /// Provides a node alias for use in a query string
+    /// Uses all of the properties of the node object as properties of the node in the database.
+    /// # Example
+    /// ```rust
+    /// .node_ref(&mut node)
+    /// ```
+    /// The example above generates the following query:
+    /// ```rust
+    /// (nodealias)
+    /// ```
     pub fn node_ref<T: Neo4gEntity>(mut self, node_to_alias: &T) -> Neo4gCreateStatement<CreatedNode> {
         let node_ref = node_to_alias.get_alias();
         self.query.push_str(&format!("({})",node_ref));
@@ -229,6 +249,17 @@ impl<Q: CanNode> Neo4gCreateStatement<Q> {
     }
 }
 impl Neo4gCreateStatement<CreatedNode> {
+    /// Generates a relation query object
+    /// Uses all of the properties of the relation object as properties of the relation in the database.
+    /// # Example
+    /// ```rust
+    /// .relation(&mut relation)
+    /// ```
+    /// The example above generates the following query:
+    /// ```rust
+    /// [realtionalias:REL_TYPE {prop1: $relation1_prop1, prop2: $relation1_prop2, propn: $relation1_propn}]->
+    /// ```
+    /// and asociated params.
     pub fn relation<T: Neo4gEntity>(mut self, entity: &mut T) -> Neo4gCreateStatement<CreatedRelation>
     where EntityWrapper: From<T>, T: Clone {
         self.relation_number += 1;
@@ -241,11 +272,30 @@ impl Neo4gCreateStatement<CreatedNode> {
         self.params.extend(params);
         self.transition::<CreatedRelation>()
     }
+    /// Provides a relation alias for use in a query string
+    /// Uses all of the properties of the relation object as properties of the relation in the database.
+    /// # Example
+    /// ```rust
+    /// .relation(&mut relation)
+    /// ```
+    /// The example above generates the following query:
+    /// ```rust
+    /// [realtionalias]->
+    /// ```
     pub fn relation_ref<T: Neo4gEntity>(mut self, rel_to_alias: &T) -> Neo4gCreateStatement<CreatedRelation> {
         let relation_ref = rel_to_alias.get_alias();
         self.query.push_str(&format!("-[{}]->", relation_ref));
         self.transition::<CreatedRelation>()
     }
+    /// Appends Labels to the node object that was created before calling this.
+    /// This can only be called once per node!
+    /// Two default labels are included in the Label enum.
+    /// Labels are automatically added to the enum by generate_entity_wrappers!
+    /// # Example
+    /// ```rust
+    /// .set_additional_labels(&[Label::Any, Label::SysObj])
+    /// ```
+    /// The example above inserts the labels within a node object, eg. (node1:Node) becomes (node1:Node:Any:SysObj):
     pub fn set_additional_labels(mut self, labels: &[Label]) -> Self {
         let additional_lables: Vec<String> = labels.iter().map(|l| l.to_string()).collect();
         self.query = self.query.replace(":AdditionalLabels", &additional_lables.join(":"));
@@ -253,6 +303,7 @@ impl Neo4gCreateStatement<CreatedNode> {
     }
 }
 impl <Q: CanAddReturn> Neo4gCreateStatement<Q> {
+    /// Adds the previous query object to a builder property that tracks return types and values.
     pub fn add_to_return(mut self) -> Self {
         if let Some((mut name, entity_type, entity)) = self.previous_entity.clone() {
             name = name.replace(":AdditionalLabels", "");
@@ -262,6 +313,7 @@ impl <Q: CanAddReturn> Neo4gCreateStatement<Q> {
     }
 }
 impl <Q: PossibleStatementEnd> Neo4gCreateStatement<Q> {
+    /// Finalises the current statement, tidies up placeholders, and changes the state of the builder so that new statements can be added.
     pub fn end_statement(mut self) -> Neo4gBuilder<CreatedNode> {
         self.query = self.query.replace(":AdditionalLabels", "");
         Neo4gBuilder::from(self)
@@ -270,6 +322,17 @@ impl <Q: PossibleStatementEnd> Neo4gCreateStatement<Q> {
 
 //Merge statement methods
 impl<Q: CanNode> Neo4gMergeStatement<Q> {
+    /// Generates a node query object
+    /// Uses the T::Props vec to set the conditions for the MERGE.
+    /// # Example
+    /// ```rust
+    /// .node(&mut node, &[NodeProps::Prop1(123), NodeProps::Prop2(456)])
+    /// ```
+    /// The example above generates the following query:
+    /// ```rust
+    /// (nodealias:NodeLabel {prop1: $node1_prop1, prop2: $node1_prop2})
+    /// ```
+    /// and asociated params.
     pub fn node<T: Neo4gEntity>(mut self, entity: &mut T, props: &[T::Props]) -> Neo4gMergeStatement<CreatedNode>
     where EntityWrapper: From<T>, T: Clone {
         self.node_number += 1;
@@ -287,6 +350,16 @@ impl<Q: CanNode> Neo4gMergeStatement<Q> {
         }
         self.transition::<CreatedNode>()
     }
+    /// Provides a node alias for use in a query string
+    /// Uses all of the properties of the node object as properties of the node in the database.
+    /// # Example
+    /// ```rust
+    /// .node_ref(&mut node)
+    /// ```
+    /// The example above generates the following query:
+    /// ```rust
+    /// (nodealias)
+    /// ```
     pub fn node_ref<T: Neo4gEntity>(mut self, node_to_alias: &T) -> Neo4gMergeStatement<CreatedNode> {
         let node_ref = node_to_alias.get_alias();
         self.query.push_str(&format!("({})",node_ref));
@@ -336,6 +409,16 @@ impl Neo4gMergeStatement<CreatedNode> {
         self.query.push_str("--");
         self.transition::<CreatedRelation>()
     }
+    /// Provides a relation alias for use in a query string
+    /// Uses all of the properties of the relation object as properties of the relation in the database.
+    /// # Example
+    /// ```rust
+    /// .relation(&mut relation)
+    /// ```
+    /// The example above generates the following query:
+    /// ```rust
+    /// [realtionalias]->
+    /// ```
     pub fn relation_ref<T: Neo4gEntity>(mut self, rel_to_alias: &T) -> Neo4gMergeStatement<CreatedRelation> {
         let relation_ref = rel_to_alias.get_alias();
         self.query.push_str(&format!("-[{}]->", relation_ref));
@@ -449,6 +532,16 @@ impl<Q: CanNode> Neo4gMatchStatement<Q> {
         }
         self.transition::<MatchedNode>()
     }
+    /// Provides a node alias for use in a query string
+    /// Uses all of the properties of the node object as properties of the node in the database.
+    /// # Example
+    /// ```rust
+    /// .node_ref(&mut node)
+    /// ```
+    /// The example above generates the following query:
+    /// ```rust
+    /// (nodealias)
+    /// ```
     pub fn node_ref<T: Neo4gEntity>(mut self, node_to_alias: &T) -> Neo4gMatchStatement<MatchedNode> {
         let node_ref = node_to_alias.get_alias();
         self.query.push_str(&format!("({})",node_ref));
@@ -498,6 +591,16 @@ impl Neo4gMatchStatement<MatchedNode> {
         self.query.push_str("--");
         self.transition::<CreatedRelation>()
     }
+    /// Provides a relation alias for use in a query string
+    /// Uses all of the properties of the relation object as properties of the relation in the database.
+    /// # Example
+    /// ```rust
+    /// .relation(&mut relation)
+    /// ```
+    /// The example above generates the following query:
+    /// ```rust
+    /// [realtionalias]->
+    /// ```
     pub fn relation_ref<T: Neo4gEntity>(mut self, rel_to_alias: &T) -> Neo4gMatchStatement<MatchedRelation> {
         let relation_ref = rel_to_alias.get_alias();
         self.query.push_str(&format!("-[{}]->", relation_ref));
