@@ -21,6 +21,15 @@ pub struct Neo4gBuilder<State> {
     _state: PhantomData<State>,
 }
 
+// A few things to do:
+// New Traits for:
+//  1. Neo4gNode - to remove silly from impl in the macro
+//  2. Neo4gRelation - as above.
+//  3. Aliasable - to remove lots of unneeded and confusing code for Unwind. Nodes, Rels and Unwind to impl Aliasable. Aliasable to be used instead of Neo4gEntity where appropriate.
+//  4. Restructure macros to remove duplicate code and confusion.
+//  5. Document macros.
+//  6. Test EVERYTHING - write tests, or test manually?
+
 impl Neo4gBuilder<Empty> {
     pub fn new() -> Self {
         Self {
