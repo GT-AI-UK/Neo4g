@@ -32,6 +32,7 @@ use crate::traits::Neo4gEntity;
 use heck::ToShoutySnakeCase;
 use serde::{Serialize, Deserialize};
 use crate::traits::QueryParam;
+use crate::traits::Aliasable;
 
 #[derive(Neo4gNode, Serialize, Deserialize, Debug, Clone)]
 pub struct GroupTemplate {

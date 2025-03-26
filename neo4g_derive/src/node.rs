@@ -87,7 +87,7 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
     
     let create_node_from_self_fn = quote! {
         pub fn create_node_from_self(&self) -> (String, std::collections::HashMap<String, BoltType>) {
-            Neo4gEntity::entity_by(self, &Neo4gEntity::get_alias(self), &self.self_to_props())
+            Neo4gEntity::entity_by(self, &Aliasable::get_alias(self), &self.self_to_props())
         }
     };
 
@@ -590,16 +590,20 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
                 Self::node_by(alias, props)
             }
 
+            
+
+            fn create_from_self(&self) -> (String, std::collections::HashMap<String, BoltType>) {
+                self.create_node_from_self()
+            }
+        }
+
+        impl Aliasable for #new_struct_name {
             fn set_alias(&mut self, alias: &str) {
                 self.set_entity_alias(alias);
             }
 
             fn get_alias(&self) -> String {
                 self.get_entity_alias()
-            }
-
-            fn create_from_self(&self) -> (String, std::collections::HashMap<String, BoltType>) {
-                self.create_node_from_self()
             }
         }
         
