@@ -22,7 +22,6 @@ pub struct Neo4gBuilder<State> {
 }
 
 impl Neo4gBuilder<Empty> {
-    // Constructors
     pub fn new() -> Self {
         Self {
             query: String::new(),
@@ -41,7 +40,7 @@ impl Neo4gBuilder<Empty> {
 }
 
 impl<Q: CanCreate> Neo4gBuilder<Q> {
-    /// Generates a CREATE statement
+    /// Generates a CREATE statement. 
     /// # Example
     /// ```rust
     /// .create()
@@ -65,7 +64,7 @@ impl<Q: CanCreate> Neo4gBuilder<Q> {
         self.query.push_str("CREATE ");
         Neo4gCreateStatement::from(self)
     }
-    /// Generates a MERGE statement
+    /// Generates a MERGE statement. 
     /// # Example
     /// ```rust
     /// .merge()
@@ -98,7 +97,7 @@ impl<Q: CanCreate> Neo4gBuilder<Q> {
 }
 
 impl<Q: CanMatch> Neo4gBuilder<Q> {
-    /// Generates a MATCH statement
+    /// Generates a MATCH statement. 
     /// # Example
     /// ```rust
     /// .get()
@@ -125,7 +124,7 @@ impl<Q: CanMatch> Neo4gBuilder<Q> {
         self.query.push_str("MATCH ");
         Neo4gMatchStatement::from(self)
     }
-    /// Generates an OPTION MATCH statement
+    /// Generates an OPTION MATCH statement. 
     /// # Example
     /// ```rust
     /// .optional_match()
@@ -155,7 +154,7 @@ impl<Q: CanMatch> Neo4gBuilder<Q> {
 }
 
 impl<Q: CanWith> Neo4gBuilder<Q> {
-    /// Generates an UNWIND call
+    /// Generates an UNWIND call. 
     /// # Example
     /// ```rust
     /// .unwind(
@@ -175,7 +174,7 @@ impl<Q: CanWith> Neo4gBuilder<Q> {
         self.params.extend(params);
         self
     }
-    /// Generates a WITH call
+    /// Generates a WITH call. 
     /// # Example
     /// ```rust
     /// .with(&[EntityWrapper::Entity(Entity1), EntityWrapper::Entity2(Entity2)])
@@ -192,7 +191,6 @@ impl<Q: CanWith> Neo4gBuilder<Q> {
         self.query.push_str(&format!("\nWITH {}", aliases.join(", ")));
         self.transition::<Withed>()
     }
-    //pub fn with_parameterised_array(mut self, param: ParamString) need a way to alias automatically?
 }
 
 // impl<Q: CanWhere> Neo4gBuilder<Q> {
@@ -209,7 +207,7 @@ impl<Q: CanWith> Neo4gBuilder<Q> {
 
 //Create statement methods
 impl<Q: CanNode> Neo4gCreateStatement<Q> {
-    /// Generates a node query object
+    /// Generates a node query object. 
     /// Uses all of the properties of the node object as properties of the node in the database.
     /// # Example
     /// ```rust
@@ -232,7 +230,7 @@ impl<Q: CanNode> Neo4gCreateStatement<Q> {
         self.params.extend(params);
         self.transition::<CreatedNode>()
     }
-    /// Provides a node alias for use in a query string
+    /// Provides a node alias for use in a query string. 
     /// Uses all of the properties of the node object as properties of the node in the database.
     /// # Example
     /// ```rust
@@ -249,7 +247,7 @@ impl<Q: CanNode> Neo4gCreateStatement<Q> {
     }
 }
 impl Neo4gCreateStatement<CreatedNode> {
-    /// Generates a relation query object
+    /// Generates a relation query object. 
     /// Uses all of the properties of the relation object as properties of the relation in the database.
     /// # Example
     /// ```rust
@@ -272,7 +270,7 @@ impl Neo4gCreateStatement<CreatedNode> {
         self.params.extend(params);
         self.transition::<CreatedRelation>()
     }
-    /// Provides a relation alias for use in a query string
+    /// Provides a relation alias for use in a query string. 
     /// Uses all of the properties of the relation object as properties of the relation in the database.
     /// # Example
     /// ```rust
@@ -287,7 +285,7 @@ impl Neo4gCreateStatement<CreatedNode> {
         self.query.push_str(&format!("-[{}]->", relation_ref));
         self.transition::<CreatedRelation>()
     }
-    /// Appends Labels to the node object that was created before calling this.
+    /// Appends Labels to the node object that was created before calling this. 
     /// This can only be called once per node!
     /// Two default labels are included in the Label enum.
     /// Labels are automatically added to the enum by generate_entity_wrappers!
@@ -303,7 +301,7 @@ impl Neo4gCreateStatement<CreatedNode> {
     }
 }
 impl <Q: CanAddReturn> Neo4gCreateStatement<Q> {
-    /// Adds the previous query object to a builder property that tracks return types and values.
+    /// Adds the previous query object to a builder property that tracks return types and values. 
     /// When .run_query(graph).await; is called, the following will be appended to the query:
     /// ```rust
     /// RETURN alias1, alias2, aliasn
@@ -326,7 +324,7 @@ impl <Q: PossibleStatementEnd> Neo4gCreateStatement<Q> {
 
 //Merge statement methods
 impl<Q: CanNode> Neo4gMergeStatement<Q> {
-    /// Generates a node query object
+    /// Generates a node query object. 
     /// Uses the T::Props vec to set the conditions for the MERGE.
     /// # Example
     /// ```rust
@@ -354,7 +352,7 @@ impl<Q: CanNode> Neo4gMergeStatement<Q> {
         }
         self.transition::<CreatedNode>()
     }
-    /// Provides a node alias for use in a query string
+    /// Provides a node alias for use in a query string. 
     /// Uses all of the properties of the node object as properties of the node in the database.
     /// # Example
     /// ```rust
@@ -371,6 +369,17 @@ impl<Q: CanNode> Neo4gMergeStatement<Q> {
     }
 }
 impl Neo4gMergeStatement<CreatedNode> {
+    /// Generates a relation query object with a minimum number of relations traversed. 
+    /// Uses the T::Props vec to set the conditions for the MERGE.
+    /// # Example
+    /// ```rust
+    /// .relation(0, &mut relation, &[RelationProps::Prop1(123), RelationProps::Prop1(456)])
+    /// ```
+    /// The example above generates the following query:
+    /// ```rust
+    /// [realtionalias:REL_TYPE*0 {prop1: $relation1_prop1, prop2: $relation1_prop2}]->
+    /// ```
+    /// and asociated params.
     pub fn relations<T: Neo4gEntity>(mut self, min_hops: u32, entity: &mut T, props: &[T::Props]) -> Neo4gMergeStatement<CreatedRelation>
     where EntityWrapper: From<T>, T: Clone {
         self.relation_number += 1;
@@ -384,6 +393,17 @@ impl Neo4gMergeStatement<CreatedNode> {
         self.params.extend(params);
         self.transition::<CreatedRelation>()
     }
+    /// Generates a relation query object. 
+    /// Uses the T::Props vec to set the conditions for the MERGE.
+    /// # Example
+    /// ```rust
+    /// .relation(&mut relation, &[RelationProps::Prop1(123), RelationProps::Prop1(456)])
+    /// ```
+    /// The example above generates the following query:
+    /// ```rust
+    /// [realtionalias:REL_TYPE {prop1: $relation1_prop1, prop2: $relation1_prop2}]->
+    /// ```
+    /// and asociated params.
     pub fn relation<T: Neo4gEntity>(mut self, entity: &mut T, props: &[T::Props]) -> Neo4gMergeStatement<CreatedRelation>
     where EntityWrapper: From<T>, T: Clone {
         self.relation_number += 1;
@@ -397,6 +417,17 @@ impl Neo4gMergeStatement<CreatedNode> {
         self.params.extend(params);
         self.transition::<CreatedRelation>()
     }
+    /// Generates a relation query object with the arrow going right to left. 
+    /// Uses the T::Props vec to set the conditions for the MERGE.
+    /// # Example
+    /// ```rust
+    /// .relation(&mut relation, &[RelationProps::Prop1(123), RelationProps::Prop1(456)])
+    /// ```
+    /// The example above generates the following query:
+    /// ```rust
+    /// <-[realtionalias:REL_TYPE {prop1: $relation1_prop1, prop2: $relation1_prop2}]-
+    /// ```
+    /// and asociated params.
     pub fn relation_flipped<T: Neo4gEntity>(mut self, entity: &mut T) -> Neo4gMergeStatement<CreatedRelation>
     where EntityWrapper: From<T>, T: Clone {
         self.relation_number += 1;
@@ -428,6 +459,15 @@ impl Neo4gMergeStatement<CreatedNode> {
         self.query.push_str(&format!("-[{}]->", relation_ref));
         self.transition::<CreatedRelation>()
     }
+    /// Appends Labels to the node object that was created before calling this. 
+    /// This can only be called once per node!
+    /// Two default labels are included in the Label enum.
+    /// Labels are automatically added to the enum by generate_entity_wrappers!
+    /// # Example
+    /// ```rust
+    /// .set_additional_labels(&[Label::Any, Label::SysObj])
+    /// ```
+    /// The example above inserts the labels within a node object, eg. (node1:Node) becomes (node1:Node:Any:SysObj):
     pub fn set_additional_labels(mut self, labels: &[Label]) -> Self {
         let additional_lables: Vec<String> = labels.iter().map(|l| l.to_string()).collect();
         self.query = self.query.replace(":AdditionalLabels", &additional_lables.join(":"));
@@ -525,6 +565,17 @@ impl <Q: PossibleStatementEnd> Neo4gMergeStatement<Q> {
 
 //Match statement methods
 impl<Q: CanNode> Neo4gMatchStatement<Q> {
+    /// Generates a node query object. 
+    /// Uses the T::Props vec to set the conditions for the MATCH.
+    /// # Example
+    /// ```rust
+    /// .node(&mut node, &[NodeProps::Prop1(123), NodeProps::Prop2(456)])
+    /// ```
+    /// The example above generates the following query:
+    /// ```rust
+    /// (nodealias:NodeLabel {prop1: $node1_prop1, prop2: $node1_prop2})
+    /// ```
+    /// and asociated params.
     pub fn node<T: Neo4gEntity>(mut self, entity: &mut T, props: &[T::Props]) -> Neo4gMatchStatement<MatchedNode>
     where EntityWrapper: From<T>, T: Clone {
         self.node_number += 1;
@@ -542,7 +593,7 @@ impl<Q: CanNode> Neo4gMatchStatement<Q> {
         }
         self.transition::<MatchedNode>()
     }
-    /// Provides a node alias for use in a query string
+    /// Provides a node alias for use in a query string. 
     /// Uses all of the properties of the node object as properties of the node in the database.
     /// # Example
     /// ```rust
@@ -559,6 +610,17 @@ impl<Q: CanNode> Neo4gMatchStatement<Q> {
     }
 }
 impl Neo4gMatchStatement<MatchedNode> {
+    /// Generates a relation query object with a minimum number of relations traversed. 
+    /// Uses the T::Props vec to set the conditions for the MATCH.
+    /// # Example
+    /// ```rust
+    /// .relation(0, &mut relation, &[RelationProps::Prop1(123), RelationProps::Prop1(456)])
+    /// ```
+    /// The example above generates the following query:
+    /// ```rust
+    /// [realtionalias:REL_TYPE*0 {prop1: $relation1_prop1, prop2: $relation1_prop2}]->
+    /// ```
+    /// and asociated params.
     pub fn relations<T: Neo4gEntity>(mut self, min_hops: u32, entity: &mut T, props: &[T::Props]) -> Neo4gMatchStatement<CreatedRelation>
     where EntityWrapper: From<T>, T: Clone {
         self.relation_number += 1;
@@ -572,6 +634,17 @@ impl Neo4gMatchStatement<MatchedNode> {
         self.params.extend(params);
         self.transition::<CreatedRelation>()
     }
+    /// Generates a relation query object. 
+    /// Uses the T::Props vec to set the conditions for the MATCH.
+    /// # Example
+    /// ```rust
+    /// .relation(&mut relation, &[RelationProps::Prop1(123), RelationProps::Prop1(456)])
+    /// ```
+    /// The example above generates the following query:
+    /// ```rust
+    /// [realtionalias:REL_TYPE {prop1: $relation1_prop1, prop2: $relation1_prop2}]->
+    /// ```
+    /// and asociated params.
     pub fn relation<T: Neo4gEntity>(mut self, entity: &mut T, props: &[T::Props]) -> Neo4gMatchStatement<MatchedRelation>
     where EntityWrapper: From<T>, T: Clone {
         self.relation_number += 1;
@@ -585,6 +658,17 @@ impl Neo4gMatchStatement<MatchedNode> {
         self.params.extend(params);
         self.transition::<MatchedRelation>()
     }
+    /// Generates a relation query object with the arrow going right to left. 
+    /// Uses the T::Props vec to set the conditions for the MATCH.
+    /// # Example
+    /// ```rust
+    /// .relation(&mut relation, &[RelationProps::Prop1(123), RelationProps::Prop1(456)])
+    /// ```
+    /// The example above generates the following query:
+    /// ```rust
+    /// <-[realtionalias:REL_TYPE {prop1: $relation1_prop1, prop2: $relation1_prop2}]-
+    /// ```
+    /// and asociated params.
     pub fn relation_flipped<T: Neo4gEntity>(mut self, entity: &mut T) -> Neo4gMatchStatement<CreatedRelation>
     where EntityWrapper: From<T>, T: Clone {
         self.relation_number += 1;
@@ -597,6 +681,7 @@ impl Neo4gMatchStatement<MatchedNode> {
         self.params.extend(params);
         self.transition::<CreatedRelation>()
     }
+    /// Provides an empty relation with no direction, simply -- . 
     pub fn relation_undirected(mut self) -> Neo4gMatchStatement<CreatedRelation> {
         self.query.push_str("--");
         self.transition::<CreatedRelation>()
@@ -616,6 +701,15 @@ impl Neo4gMatchStatement<MatchedNode> {
         self.query.push_str(&format!("-[{}]->", relation_ref));
         self.transition::<MatchedRelation>()
     }
+    /// Appends Labels to the node object that was created before calling this. 
+    /// This can only be called once per node!
+    /// Two default labels are included in the Label enum.
+    /// Labels are automatically added to the enum by generate_entity_wrappers!
+    /// # Example
+    /// ```rust
+    /// .set_additional_labels(&[Label::Any, Label::SysObj])
+    /// ```
+    /// The example above inserts the labels within a node object, eg. (node1:Node) becomes (node1:Node:Any:SysObj):
     pub fn set_additional_labels(mut self, labels: &[Label]) -> Self {
         let additional_lables: Vec<String> = labels.iter().map(|l| l.to_string()).collect();
         self.query = self.query.replace(":AdditionalLabels", &additional_lables.join(":"));
@@ -781,28 +875,43 @@ impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
         self.params.extend(params);
         self.transition::<Called>()
     }
-
-    // pub fn nest<F, B>(mut self, parent_closure: F, inner_builder: Where<Condition>) -> Where<Condition>
-    // where F: FnOnce(&Self) -> &Where<B> {
-    //     let parent = parent_closure(&self);
-    //     self.condition_number = parent.condition_number;
-    //     let (query, params) = inner_builder.build(); // Assuming build() consumes the nested builder into (query, params)
-    //     self.string.push_str(&format!("({})", query));
-    //     self.params.extend(params);
-    //     self.transition::<Condition>()
-    // }
-
+    /// Generates a SKIP call. 
+    /// # Example
+    /// ```rust
+    /// .skip(5)
+    /// ```
+    /// The example above generates the following text:
+    /// ```rust
+    /// SKIP 5
+    /// ```
     pub fn skip(mut self, skip: u32) -> Self {
         self.query.push_str(&format!("SKIP {}\n", skip));
         self
     }
-
+    /// Generates a LIMIT call. 
+    /// # Example
+    /// ```rust
+    /// .limit(5)
+    /// ```
+    /// The example above generates the following text:
+    /// ```rust
+    /// LIMIT 5
+    /// ```
     pub fn limit(mut self, limit: u32) -> Self {
         self.query.push_str(&format!("LIMIT {}\n", limit));
         self
     }
-
-    pub fn order_by<T: Neo4gEntity>(mut self, entity_to_alias: &mut T, prop: PropsWrapper, order: Order) -> Self {
+    /// Generates an ORDER BY call
+    /// # Example
+    /// ```rust
+    /// .order_by(&mut entity, EntityProps::Prop1(123), Order::Asc)
+    /// ```
+    /// The example above generates the following query:
+    /// ```rust
+    /// ORDER BY entityalias.prop1
+    /// ```
+    /// and asociated params for the inner builder.
+    pub fn order_by<T: Neo4gEntity>(mut self, entity_to_alias: &mut T, prop: T::Props, order: Order) -> Self {
         if self.order_by_str.is_empty() {
             self.order_by_str = "\nORDER BY ".to_string();
         }
@@ -811,7 +920,7 @@ impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
         self.order_by_str.push_str(&format!("{}.{} {}", alias, &name, order.to_string()));
         self
     }
-
+    /// Runs the query against a provided Graph and returns the registered return objects.
     pub async fn run_query(mut self, graph: Graph) -> anyhow::Result<Vec<EntityWrapper>> {
         if !self.return_refs.is_empty() {
             self.query.push_str("\nRETURN ");
@@ -1384,7 +1493,17 @@ impl Where<Empty> {
 }
 
 impl<Q: CanCondition> Where<Q> {
-    pub fn condition<T: Neo4gEntity>(mut self, entity_to_alias: &T, prop: PropsWrapper, operator: CompareOperator) -> Where<Condition> {
+    /// Generates a condition string.
+    /// # Example
+    /// ```rust
+    /// .condition(&entity, EntityProps::Prop1(123), CompareOperator::Eq)
+    /// ```
+    /// The example above generates the following string:
+    /// ```rust
+    /// entityalias.prop1 = $where_prop11
+    /// ```
+    /// and asociated params.
+    pub fn condition<T: Neo4gEntity>(mut self, entity_to_alias: &T, prop: T::Props, operator: CompareOperator) -> Where<Condition> {
         self.condition_number += 1;
         let (name, value) = prop.to_query_param();
         let param_name = format!("where_{}{}", name, self.condition_number);
@@ -1394,7 +1513,17 @@ impl<Q: CanCondition> Where<Q> {
         println!("{:?}", self.params);
         self.transition::<Condition>()
     }
-    pub fn coalesce<T: Neo4gEntity>(mut self, entity_to_alias: &T, prop: PropsWrapper) -> Where<Condition> {
+    /// Generates a condition string with the neo4j coalesce function included.
+    /// # Example
+    /// ```rust
+    /// .coalesce(&entity, EntityProps::Prop1(123), CompareOperator::Eq)
+    /// ```
+    /// The example above generates the following string:
+    /// ```rust
+    /// entityalias.prop1 = coalesce($where_prop11, entityalias.prop1)
+    /// ```
+    /// and asociated params.
+    pub fn coalesce<T: Neo4gEntity>(mut self, entity_to_alias: &T, prop: T::Props) -> Where<Condition> {
         let (name, value) = prop.to_query_param();
         let param_name = format!("where_{}{}", name, self.condition_number);
         let alias = entity_to_alias.get_alias();
@@ -1435,6 +1564,11 @@ impl<Q: CanCondition> Where<Q> {
 }
 
 impl<Q: CanJoin> Where<Q> {
+    /// Appends the joiner to the filter string.
+    /// # Example
+    /// ```rust
+    /// .join(CompareJoiner::And)
+    /// ```
     pub fn join(mut self, joiner: CompareJoiner) -> Where<Joined> {
         self.string.push_str(&format!(" {} ", joiner.to_string()));
         self.transition::<Joined>()
@@ -1442,6 +1576,8 @@ impl<Q: CanJoin> Where<Q> {
 }
 
 impl Where<Condition> {
+    /// Builds the filter and params. This is used by .filter(), and should otherwise not be used unless you know what you're doing. 
+    /// It has to be a pub fn to allow .filter() to work as intended, but is not intended for use by API consumers.
     pub fn build(self) -> (String, HashMap<String, BoltType>) {
         (self.string, self.params)
     }
@@ -1497,6 +1633,8 @@ impl Unwinder {
             list: list.to_owned(),
         }
     }
+    /// Builds the query and params. This is used by .unwind(), and should otherwise not be used unless you know what you're doing. 
+    /// It has to be a pub fn to allow .unwind() to work as intended, but is not intended for use by API consumers.
     pub fn unwind(self) -> (String, HashMap<String, BoltType>) {
         let bolt_vec: Vec<BoltType> = self.list.iter().map(|props_wrapper| {
             let (_, bolt) = props_wrapper.to_query_param();
