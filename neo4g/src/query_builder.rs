@@ -1442,6 +1442,12 @@ pub enum CompareJoiner {
     Not,
 }
 
+#[derive(Debug, Clone)]
+pub enum DbEntityWrapper {
+    Node(Node),
+    Relation(Relation),
+}
+
 impl fmt::Display for CompareJoiner {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {

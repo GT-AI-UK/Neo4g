@@ -26,13 +26,14 @@ use neo4rs::{
     BoltDateTimeZoneId,
 };
 use crate::query_builder::EntityType;
-use crate::entity_wrapper::EntityWrapper;
+use crate::entity_wrapper::{EntityWrapper, Nothing};
 use neo4g_derive::{Neo4gNode, Neo4gRelation, not_query_param};
 use crate::traits::Neo4gEntity;
 use heck::ToShoutySnakeCase;
 use serde::{Serialize, Deserialize};
 use crate::traits::QueryParam;
 use crate::traits::Aliasable;
+use crate::query_builder::DbEntityWrapper;
 
 #[derive(Neo4gNode, Serialize, Deserialize, Debug, Clone)]
 pub struct GroupTemplate {

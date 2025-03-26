@@ -25,6 +25,8 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
     let mut from_relation_checks = Vec::new();
     let mut eq_checks = Vec::new();
     let mut call_get_alias_arms = Vec::new();
+    let mut db_from_node_checks = Vec::new();
+    let mut db_from_relation_checks = Vec::new();
 
     for variant in data_enum.variants.iter() {
         let var_name = &variant.ident;
@@ -82,6 +84,19 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
             #enum_name::#var_name(inner) => inner.get_alias(),
         };
         call_get_alias_arms.push(call_get_alias_arm);
+
+        let dbcheck = quote! {
+            if labels.contains(&#var_name_str) {
+                return #enum_name::#var_name(#var_name::from_db_entity(entity));
+            }
+        };
+        db_from_node_checks.push(dbcheck);
+        let dbrcheck = quote! {
+            if &labels.to_string().to_pascal_case() == &#var_name_str {
+                return #enum_name::#var_name(#var_name::from_db_entity(entity));
+            }
+        };
+        db_from_relation_checks.push(dbrcheck);
     }
 
     // You can keep your existing inner_test function if needed.
@@ -100,6 +115,24 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
                 #(#call_get_alias_arms)*
                 _ => String::new()
             }
+        }
+    };
+
+    let from_db_entity_fn = quote! {
+        pub fn from_db_entity(entity: DbEntityWrapper, entity_type: EntityType) -> Self {
+            match entity_type {
+                EntityType::Node => {
+                    #(#db_from_node_checks)*
+                    return #enum_name::Nothing(Nothing::new(true));
+                },
+                EntityType::Relation => {
+                    #(#db_from_relation_checks)*
+                    return #enum_name::Nothing(Nothing::new(true));
+                },
+                _ => return #enum_name::Nothing(Nothing::new(true));
+            }
+            // Fallback: if no label matched, return the Nothing variant.
+            #enum_name::Nothing(Nothing::new(true))
         }
     };
 

@@ -450,7 +450,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
                 // Generate extraction expression based on the type.
                 let extraction = if field_type_str == "String" {
                     quote! {
-                        relation.get(#key).unwrap_or_default()
+                        entity.get(#key).unwrap_or_default()
                     }
                 } else if ["i8", "i16", "i32", "i64", "i128",
                           "u8", "u16", "u32", "u64", "u128"]
@@ -458,24 +458,24 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
                 {
                     quote! {
                         {
-                            let tmp: u64 = relation.get(#key).unwrap_or_default();
+                            let tmp: u64 = entity.get(#key).unwrap_or_default();
                             tmp as #field_type
                         }
                     }
                 } else if field_type_str == "bool" {
                     quote! {
-                        relation.get(#key).unwrap_or_default()
+                        entity.get(#key).unwrap_or_default()
                     }
                 } else if field_type_str == "f32" || field_type_str == "f64" {
                     quote! {
                         {
-                            let tmp: f64 = relation.get(#key).unwrap_or_default();
+                            let tmp: f64 = entity.get(#key).unwrap_or_default();
                             tmp as #field_type
                         }
                     }
                 } else {
                     quote! {
-                        relation.get(#key).unwrap_or_default()
+                        entity.get(#key).unwrap_or_default()
                     }
                 };
         
@@ -488,11 +488,26 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
         // Generate the complete From<relation> implementation for the struct.
         let from_impl = quote! {
             impl From<Relation> for #new_struct_name {
-                fn from(relation: Relation) -> Self {
+                fn from(entity: Relation) -> Self {
                     Self {
                         alias: String::new(),
                         #(#field_inits),*
                     }
+                }
+            }
+        };
+
+        let from_db_entity_fn = quote! {
+            pub fn from_db_entity(db_entity: DbEntityWrapper) -> EntityWrapper {
+                if let DbEntityWrapper::Relation(db_entity) = entity {
+                    EntityWrapper::#new_struct_name(
+                        #new_struct_name {
+                            alias: String::new(),
+                            #(#field_inits),*
+                        }
+                    )
+                } else {
+                    EntityWrapper::Nothing(Nothing::default())
                 }
             }
         };
@@ -547,7 +562,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
 
         let silly_from_impl = quote! {
             impl From<Node> for #new_struct_name {
-                fn from(relation: Node) -> Self {
+                fn from(entity: Node) -> Self {
                     Self {
                         alias: String::new(),
                         #(#field_inits),*
@@ -636,6 +651,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
             #set_alias_fn
             #get_alias_fn
             #self_to_props_fn
+            #from_db_entity_fn
         }
 
         // Constructor for the generated struct.
@@ -644,7 +660,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
 
         // New() method for the template struct that forwards to the generated struct's new().
         #template_new_method
-
+        
         #from_impl
         #silly_from_impl // could have a different trait to handle the from impl maybe? can functions take two traits?
         #to_template_impl
