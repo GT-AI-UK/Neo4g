@@ -968,6 +968,7 @@ impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
                                 println!("error getting {} from db result", alias);
                             }
                         },
+                        _ => {println!("You've done something strange here...")}
                     }
                 }
             }
@@ -980,6 +981,7 @@ impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
 pub enum EntityType {
     Node,
     Relation,
+    Unwinder,
 }
 
 #[derive(Clone, Debug)]
@@ -1668,8 +1670,8 @@ impl Neo4gEntity for Unwinder {
     fn create_from_self(&self) -> (String, std::collections::HashMap<String, BoltType>) {
         (String::new(), HashMap::new())
     }
-    fn get_entity_type(&self) -> String {
-        String::from("unwinder")
+    fn get_entity_type(&self) -> EntityType {
+        EntityType::Unwinder
     }
     fn get_label(&self) -> String {
         String::new()

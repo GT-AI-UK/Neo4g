@@ -25,6 +25,7 @@ use neo4rs::{
     BoltLocalDateTime,
     BoltDateTimeZoneId,
 };
+use crate::query_builder::EntityType;
 use crate::entity_wrapper::EntityWrapper;
 use neo4g_derive::{Neo4gNode, Neo4gRelation, not_query_param};
 use crate::traits::Neo4gEntity;

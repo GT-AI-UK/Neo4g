@@ -596,7 +596,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
         impl Neo4gEntity for #new_struct_name {
             type Props = #props_enum_name;
 
-            fn get_entity_type(&self) -> String {
+            fn get_entity_type(&self) -> EntityType {
                 Self::get_relation_entity_type()
             }
 

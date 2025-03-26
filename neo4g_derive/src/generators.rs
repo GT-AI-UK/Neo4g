@@ -3,8 +3,8 @@ use syn::Ident;
 
 pub fn generate_get_node_entity_type() -> proc_macro2::TokenStream {
     quote! {
-        pub fn get_node_entity_type() -> String {
-            String::from("node")
+        pub fn get_node_entity_type() -> EntityType {
+            EntityType::Node
         }
     }
 }
@@ -86,8 +86,8 @@ pub fn generate_node_by(struct_name: &Ident, struct_name_str: &str, props_enum_n
 
 pub fn generate_get_relation_entity_type() -> proc_macro2::TokenStream {
     quote! {
-        pub fn get_relation_entity_type() -> String {
-            String::from("relation")
+        pub fn get_relation_entity_type() -> EntityType {
+            EntityType::Relation
         }
     }
 }

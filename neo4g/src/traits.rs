@@ -1,15 +1,25 @@
 use std::collections::HashMap;
 
-use neo4rs::BoltType;
+use neo4rs::{BoltType, Node, Relation};
+
+use crate::{entity_wrapper::EntityWrapper, query_builder::EntityType};
 
 pub trait Neo4gEntity {
     type Props: QueryParam;
-    fn get_entity_type(&self) -> String;
+    fn get_entity_type(&self) -> EntityType;
     fn get_label(&self) -> String;
     fn set_alias(&mut self, alias: &str) -> ();
     fn get_alias(&self) -> String;
     fn entity_by(&self, alias: &str, props: &[Self::Props]) -> (String, std::collections::HashMap<String, BoltType>);
     fn create_from_self(&self) -> (String, std::collections::HashMap<String, BoltType>);
+}
+
+pub trait Neo4gNodeEntity: Neo4gEntity {
+    fn from_node(node: Node) -> EntityWrapper;
+}
+
+pub trait Neo4gRelationEntity: Neo4gEntity {
+    fn from_relation(relation: Relation) -> EntityWrapper;
 }
 
 pub trait QueryParam {

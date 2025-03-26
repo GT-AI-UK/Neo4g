@@ -5,6 +5,7 @@ use neo4g_derive::{Neo4gEntityWrapper, Neo4gPropsWrapper, Neo4gLabels, Neo4gNode
 use heck::ToPascalCase;
 use crate::traits::{Neo4gEntity, QueryParam};
 use serde::{Serialize, Deserialize};
+use crate::query_builder::EntityType;
 use neo4rs::{
     Node,
     Relation,
