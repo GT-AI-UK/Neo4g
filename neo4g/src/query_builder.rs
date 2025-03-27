@@ -24,9 +24,6 @@ pub struct Neo4gBuilder<State> {
 }
 
 // A few things to do:
-// New Traits for:
-//  1. Neo4gNode - to remove silly from impl in the macro
-//  2. Neo4gRelation - as above.
 // After sorting traits:
 //  1. Restructure macros to remove duplicate code and confusion.
 //  2. Document macros.
@@ -952,7 +949,8 @@ impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
                         EntityType::Node => {
                             if let Ok(node) = row.get::<Node>(&alias) {
                                 println!("got node for: {}", &alias);
-                                let wrapped_entity = EntityWrapper::from_node(node.clone());
+                                //let wrapped_entity = EntityWrapper::from_node(node.clone());
+                                let wrapped_entity = EntityWrapper::from_db_entity(DbEntityWrapper::Node(node.clone()), entity_type);
                                 return_vec.push(wrapped_entity);
                             } else {
                                 println!("error getting {} from db result", alias);
@@ -962,7 +960,8 @@ impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
                             if let Ok(relation) = row.get::<Relation>(&alias) {
                                 println!("got relation for: {}", &alias);
                                 let label = relation.typ();
-                                let wrapped_entity = EntityWrapper::from_relation(relation.clone());
+                                //let wrapped_entity = EntityWrapper::from_relation(relation.clone());
+                                let wrapped_entity = EntityWrapper::from_db_entity(DbEntityWrapper::Relation(relation.clone()), entity_type);
                                 println!("wrapped relation: {:?}", wrapped_entity);
                                 return_vec.push(wrapped_entity);
                             } else {

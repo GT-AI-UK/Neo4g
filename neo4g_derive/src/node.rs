@@ -464,16 +464,16 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
         }).collect();
 
         // Generate the complete From<Node> implementation for the struct.
-        let from_impl = quote! {
-            impl From<Node> for #new_struct_name {
-                fn from(entity: Node) -> Self {
-                    Self {
-                        alias: String::new(),
-                        #(#field_inits),*
-                    }
-                }
-            }
-        };
+        // let from_impl = quote! {
+        //     impl From<Node> for #new_struct_name {
+        //         fn from(entity: Node) -> Self {
+        //             Self {
+        //                 alias: String::new(),
+        //                 #(#field_inits),*
+        //             }
+        //         }
+        //     }
+        // };
 
         let from_db_entity_fn = quote! {
             pub fn from_db_entity(db_entity: DbEntityWrapper) -> EntityWrapper {
@@ -538,16 +538,16 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
             }
         };
 
-        let silly_from_impl = quote! {
-            impl From<Relation> for #new_struct_name {
-                fn from(entity: Relation) -> Self {
-                    Self {
-                        alias: String::new(),
-                        #(#field_inits),*
-                    }
-                }
-            }
-        };
+        // let silly_from_impl = quote! {
+        //     impl From<Relation> for #new_struct_name {
+        //         fn from(entity: Relation) -> Self {
+        //             Self {
+        //                 alias: String::new(),
+        //                 #(#field_inits),*
+        //             }
+        //         }
+        //     }
+        // };
 
         // Generate query functions using the generated Props enum.
         let get_node_entity_type_fn = generators::generate_get_node_entity_type();
@@ -641,8 +641,8 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
         // New() method for the template struct that forwards to the generated struct's new().
         #template_new_method
         
-        #from_impl
-        #silly_from_impl // could have a different trait to handle the from impl maybe? can functions take two traits?
+        // #from_impl
+        // #silly_from_impl // could have a different trait to handle the from impl maybe? can functions take two traits?
         #to_template_impl
         #from_template_impl
         // Accessor methods for the generated struct.

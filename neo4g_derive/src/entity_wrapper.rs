@@ -87,13 +87,13 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
 
         let dbcheck = quote! {
             if labels.contains(&#var_name_str) {
-                return #enum_name::#var_name(#var_name::from_db_entity(entity));
+                return #var_name::from_db_entity(db_entity);
             }
         };
         db_from_node_checks.push(dbcheck);
         let dbrcheck = quote! {
             if &labels.to_string().to_pascal_case() == &#var_name_str {
-                return #enum_name::#var_name(#var_name::from_db_entity(entity));
+                return #var_name::from_db_entity(db_entity);
             }
         };
         db_from_relation_checks.push(dbrcheck);
@@ -119,17 +119,29 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
     };
 
     let from_db_entity_fn = quote! {
-        pub fn from_db_entity(entity: DbEntityWrapper, entity_type: EntityType) -> Self {
+        pub fn from_db_entity(db_entity: DbEntityWrapper, entity_type: EntityType) -> Self {
             match entity_type {
                 EntityType::Node => {
-                    #(#db_from_node_checks)*
-                    return #enum_name::Nothing(Nothing::new(true));
+                    if let DbEntityWrapper::Node(entity) = db_entity.clone() {
+                        let labels = entity.labels();
+                        #(#db_from_node_checks)*
+                        return #enum_name::Nothing(Nothing::new(true));
+                    } else {
+                        return #enum_name::Nothing(Nothing::new(true));
+                    }
                 },
                 EntityType::Relation => {
-                    #(#db_from_relation_checks)*
-                    return #enum_name::Nothing(Nothing::new(true));
+                    if let DbEntityWrapper::Relation(entity) = db_entity.clone() {
+                        let labels = entity.typ();
+                        #(#db_from_relation_checks)*
+                        return #enum_name::Nothing(Nothing::new(true));
+                    } else {
+                        return #enum_name::Nothing(Nothing::new(true));
+                    }
                 },
-                _ => return #enum_name::Nothing(Nothing::new(true));
+                _ => {
+                    return #enum_name::Nothing(Nothing::new(true));
+                }
             }
             // Fallback: if no label matched, return the Nothing variant.
             #enum_name::Nothing(Nothing::new(true))
@@ -137,32 +149,33 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
     };
 
     // Generate the from_node function.
-    let from_node_fn = quote! {
-        pub fn from_node(node: Node) -> Self {
-            let labels = node.labels();
-            #(#from_node_checks)*
-            // Fallback: if no label matched, return the Nothing variant.
-            #enum_name::Nothing(Nothing::new(true))
-        }
-    };
+    // let from_node_fn = quote! {
+    //     pub fn from_node(node: Node) -> Self {
+    //         let labels = node.labels();
+    //         #(#from_node_checks)*
+    //         // Fallback: if no label matched, return the Nothing variant.
+    //         #enum_name::Nothing(Nothing::new(true))
+    //     }
+    // };
 
-    let from_relation_fn = quote! {
-        pub fn from_relation(relation: Relation) -> Self {
-            let labels = relation.typ();
-            #(#from_relation_checks)*
-            // Fallback: if no label matched, return the Nothing variant.
-            #enum_name::Nothing(Nothing::new(true))
-        }
-    };
+    // let from_relation_fn = quote! {
+    //     pub fn from_relation(relation: Relation) -> Self {
+    //         let labels = relation.typ();
+    //         #(#from_relation_checks)*
+    //         // Fallback: if no label matched, return the Nothing variant.
+    //         #enum_name::Nothing(Nothing::new(true))
+    //     }
+    // };
 
     let gen = quote! {
         #(#accessors)*
 
         impl #enum_name {
             #inner_fn
-            #from_node_fn
-            #from_relation_fn
+            // #from_node_fn
+            // #from_relation_fn
             #get_alias_fn
+            #from_db_entity_fn
         }
         
         impl PartialEq for #enum_name {
