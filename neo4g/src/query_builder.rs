@@ -1,10 +1,8 @@
 use crate::entity_wrapper::{EntityWrapper, PropsWrapper, Label};
-use crate::traits::{Neo4gEntity, QueryParam};
 use neo4rs::{query, BoltNull, BoltType, Graph, Node, Query, Relation};
 use std::marker::PhantomData;
 use std::fmt;
-
-use crate::traits::Aliasable;
+use crate::traits::*;
 
 use std::collections::HashMap;
 
@@ -560,7 +558,7 @@ impl <Q: PossibleStatementEnd> Neo4gMergeStatement<Q> {
     /// Finalises the current statement, tidies up placeholders, and changes the state of the builder so that new statements can be added.
     pub fn end_statement(mut self) -> Neo4gBuilder<CreatedNode> {
         self.query = self.query.replace(":AdditionalLabels", "");
-        println!("INSIDE MERGE! Query: {}", &self.query);
+        //println!("INSIDE MERGE! Query: {}", &self.query);
         self.query.push_str(&format!("{}{}", self.on_match_str, self.on_create_str));
         Neo4gBuilder::from(self)
     }
@@ -824,7 +822,7 @@ impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
     /// ```
     pub fn set_returns(mut self, returns: &[(EntityType, EntityWrapper)]) -> Self {
         if returns.is_empty() && self.return_refs.is_empty() {
-            println!("Nothing will be returned from this query...");
+            //println!("Nothing will be returned from this query...");
         } else {
             
         }
@@ -936,39 +934,39 @@ impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
             self.query.push_str(&aliases.join(", "));
         }
         self.query.push_str(&self.order_by_str);
-        println!("query: {}", self.query.clone());
-        println!("params: {:?}", self.params.clone());
+        // println!("query: {}", self.query.clone());
+        // println!("params: {:?}", self.params.clone());
         let query = Query::new(self.query).params(self.params);
         let mut return_vec: Vec<EntityWrapper> = Vec::new();
         if let Ok(mut result) = graph.execute(query).await {
-            println!("query ran");
+            //println!("query ran");
             while let Ok(Some(row)) = result.next().await {
                 for (alias, entity_type, ret_obj) in self.return_refs.clone() {
-                    println!("attemping to get {} from database. {:?}, {:?}", alias, &entity_type, &ret_obj);
+                    //println!("attemping to get {} from database. {:?}, {:?}", alias, &entity_type, &ret_obj);
                     match entity_type {
                         EntityType::Node => {
                             if let Ok(node) = row.get::<Node>(&alias) {
-                                println!("got node for: {}", &alias);
+                                //println!("got node for: {}", &alias);
                                 //let wrapped_entity = EntityWrapper::from_node(node.clone());
                                 let wrapped_entity = EntityWrapper::from_db_entity(DbEntityWrapper::Node(node.clone()));
                                 return_vec.push(wrapped_entity);
                             } else {
-                                println!("error getting {} from db result", alias);
+                                //println!("error getting {} from db result", alias);
                             }
                         },
                         EntityType::Relation => {
                             if let Ok(relation) = row.get::<Relation>(&alias) {
-                                println!("got relation for: {}", &alias);
+                                //println!("got relation for: {}", &alias);
                                 let label = relation.typ();
                                 //let wrapped_entity = EntityWrapper::from_relation(relation.clone());
                                 let wrapped_entity = EntityWrapper::from_db_entity(DbEntityWrapper::Relation(relation.clone()));
-                                println!("wrapped relation: {:?}", wrapped_entity);
+                                //println!("wrapped relation: {:?}", wrapped_entity);
                                 return_vec.push(wrapped_entity);
                             } else {
-                                println!("error getting {} from db result", alias);
+                                //println!("error getting {} from db result", alias);
                             }
                         },
-                        _ => {println!("You've done something strange here...")}
+                        _ => {}//println!("You've done something strange here...")}
                     }
                 }
             }
@@ -992,81 +990,6 @@ pub enum Clause {
     Delete,
     None,
 }
-
-pub trait CanMatch {}
-pub trait CanCreate {}
-pub trait CanNode {}
-pub trait PossibleStatementEnd {}
-pub trait CanWith {}
-pub trait PossibleQueryEnd {}
-pub trait CanAddReturn {}
-pub trait CanDelete {}
-pub trait CanWhere {}
-
-#[derive(Debug, Clone)]
-pub struct Empty;
-
-#[derive(Debug, Clone)]
-pub struct Statement;
-
-#[derive(Debug, Clone)]
-pub struct CreatedNode;
-
-#[derive(Debug, Clone)]
-pub struct MatchedNode;
-
-#[derive(Debug, Clone)]
-pub struct CreatedRelation;
-
-#[derive(Debug, Clone)]
-pub struct MatchedRelation;
-
-#[derive(Debug, Clone)]
-pub struct ReturnSet;
-
-#[derive(Debug, Clone)]
-pub struct Called;
-
-#[derive(Debug, Clone)]
-pub struct DeletedEntity;
-
-#[derive(Debug, Clone)]
-pub struct Withed;
-
-impl CanMatch for Empty {}
-impl CanCreate for Empty {}
-impl CanDelete for MatchedNode {}
-impl CanMatch for Withed {}
-impl CanCreate for Withed {}
-impl CanDelete for Withed {}
-impl CanAddReturn for Withed {}
-impl CanWhere for Withed {}
-
-impl CanWith for MatchedNode {}
-impl CanWith for CreatedNode {}
-impl CanWith for ReturnSet {}
-impl CanWith for Called {}
-impl CanWith for Empty {}
-
-impl PossibleStatementEnd for MatchedNode {}
-impl PossibleStatementEnd for CreatedNode {}
-impl PossibleStatementEnd for ReturnSet {}
-
-impl PossibleQueryEnd for MatchedNode {}
-impl PossibleQueryEnd for CreatedNode {}
-impl PossibleQueryEnd for Withed {}
-impl PossibleQueryEnd for Called {}
-
-impl CanMatch for MatchedNode {}
-impl CanCreate for MatchedNode {}
-impl CanNode for CreatedRelation {}
-impl CanNode for Empty {}
-impl CanNode for MatchedRelation {}
-
-impl CanAddReturn for CreatedNode {}
-impl CanAddReturn for MatchedNode {}
-impl CanAddReturn for CreatedRelation {}
-impl CanAddReturn for MatchedRelation {}
 
 #[derive(Debug, Clone)]
 pub struct Neo4gMatchStatement<State> {
@@ -1477,21 +1400,6 @@ pub struct Where<State> {
     _state: PhantomData<State>,
 }
 
-pub trait CanCondition {}
-pub trait CanJoin {}
-pub trait CanBuild {}
-
-#[derive(Debug, Clone)]
-pub struct Condition;
-
-#[derive(Debug, Clone)]
-pub struct Joined;
-
-impl CanCondition for Empty {}
-impl CanJoin for Condition {}
-impl CanBuild for Condition {}
-impl CanCondition for Joined {}
-
 impl<S> Where<S> {
     fn transition<NewState>(self) -> Where<NewState> {
         let Where {string, params, condition_number, ..} = self;
@@ -1528,7 +1436,7 @@ impl<Q: CanCondition> Where<Q> {
         let alias = entity_to_alias.get_alias();
         self.string.push_str(&format!("{}.{} {} ${}", alias, name, operator.to_string(), &param_name));
         self.params.insert(param_name, value);
-        println!("{:?}", self.params);
+        //println!("{:?}", self.params);
         self.transition::<Condition>()
     }
     /// Generates a condition string with the neo4j coalesce function included.

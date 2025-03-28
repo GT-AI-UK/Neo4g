@@ -95,6 +95,17 @@ impl From<ComponentType> for BoltType {
     }
 }
 
+impl From<String> for ComponentType {
+    fn from(value: String) -> Self {
+        let v = value.to_lowercase();
+        match v.as_ref() {
+            "type1" => Self::Type1,
+            "type2" => Self::Type2,
+            _ => Self::Type1,
+        }
+    }
+}
+
 impl Default for ComponentType {
     fn default() -> Self {
         Self::Type1
