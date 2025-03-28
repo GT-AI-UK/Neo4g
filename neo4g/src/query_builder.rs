@@ -23,12 +23,6 @@ pub struct Neo4gBuilder<State> {
     _state: PhantomData<State>,
 }
 
-// A few things to do:
-// After sorting traits:
-//  1. Restructure macros to remove duplicate code and confusion.
-//  2. Document macros.
-//  3. Test EVERYTHING - write tests, or test manually?
-
 impl Neo4gBuilder<Empty> {
     pub fn new() -> Self {
         Self {
