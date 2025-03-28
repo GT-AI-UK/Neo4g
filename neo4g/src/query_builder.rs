@@ -70,21 +70,21 @@ impl<Q: CanCreate> Neo4gBuilder<Q> {
     /// # Example
     /// ```rust
     /// .merge()
-    ///     .node(&mut node1, &[Node1Props::Prop(123)]).add_to_return()
+    ///     .node(&mut node1, &[&Node1Props::Prop(123)]).add_to_return()
     ///     .relation(&mut rel, &[]).add_to_return()
-    ///     .node(&mut node2, &[Node2Props::Prop(456))]).add_to_return()
+    ///     .node(&mut node2, &[&node2.prop]).add_to_return()
     ///     .on_create()
-    ///         .set(node1, &[Node1Props::Eg(987)]))
-    ///         .set(node2, &[Node1Props::Eg(654)]))
+    ///         .set(node1, &[&Node1Props::Eg(987)]))
+    ///         .set(node2, &[&node2.eg]))
     ///     .on_match()
-    ///         .set(node1, &[Node1Props::Eg(321)]))
+    ///         .set(node1, &[&Node1Props::Eg(321)]))
     /// .end_statement()
     /// ```
     /// The example above generates the following query:
     /// ```rust
     /// MERGE (node1alias:Node1Label {prop: $node1_prop1)-[relalias:REL_TYPE]->(node2alias: Node2Label {prop: $node2_prop2})
-    /// ON CREATE SET node1alias.eg = $node1alias.eg1, node2alias.eg = $node2alias.eg2
-    /// ON MATCH SET node1alias.eg = $node1alias.eg1
+    /// ON CREATE SET node1alias.eg = $node1alias_eg1, node2alias.eg = $node2alias_eg2
+    /// ON MATCH SET node1alias.eg = $node1alias_eg1
     /// RETURN node1alias, relalias, node2alias
     /// ```
     /// and asociated params.
@@ -103,11 +103,11 @@ impl<Q: CanMatch> Neo4gBuilder<Q> {
     /// # Example
     /// ```rust
     /// .get()
-    ///     .node(&mut node1, &[Node1Props::Prop(123)]).add_to_return()
+    ///     .node(&mut node1, &[&node1.prop1]).add_to_return()
     ///     .relation(&mut rel, &[]).add_to_return()
-    ///     .node(&mut node2, &[Node2Props::Prop(123)]).add_to_return()
+    ///     .node(&mut node2, &[&Node2Props::Prop(123)]).add_to_return()
     ///     .filter(Where::new()
-    ///         .condition(&node1, Node1Props::Prop2(123), CompareOperator::Gt)         
+    ///         .condition(&node1, &Node1Props::Prop2(123), CompareOperator::Gt)         
     ///     )
     /// .end_statement()
     /// ```
@@ -130,11 +130,11 @@ impl<Q: CanMatch> Neo4gBuilder<Q> {
     /// # Example
     /// ```rust
     /// .optional_match()
-    ///     .node(&mut node1, &[Node1Props::Prop(123)]).add_to_return()
+    ///     .node(&mut node1, &[&node1.prop1]).add_to_return()
     ///     .relation(&mut rel, &[]).add_to_return()
-    ///     .node(&mut node2, &[Node2Props::Prop(123)]).add_to_return()
+    ///     .node(&mut node2, &[&Node2Props::Prop(123)]).add_to_return()
     ///     .filter(Where::new()
-    ///         .condition(&node1, Node1Props::Prop2(123), CompareOperator::Gt)         
+    ///         .condition(&node1, &Node1Props::Prop2(123), CompareOperator::Gt)         
     ///     )
     /// .end_statement()
     /// ```
@@ -179,7 +179,7 @@ impl<Q: CanWith> Neo4gBuilder<Q> {
     /// Generates a WITH call. 
     /// # Example
     /// ```rust
-    /// .with(&[EntityWrapper::Entity(Entity1), EntityWrapper::Entity2(Entity2)])
+    /// .with(&[&EntityWrapper::Entity(Entity1), &EntityWrapper::Entity2(Entity2)])
     /// ```
     /// The example above generates the following query:
     /// ```rust
@@ -330,7 +330,7 @@ impl<Q: CanNode> Neo4gMergeStatement<Q> {
     /// Uses the T::Props vec to set the conditions for the MERGE.
     /// # Example
     /// ```rust
-    /// .node(&mut node, &[NodeProps::Prop1(123), NodeProps::Prop2(456)])
+    /// .node(&mut node, &[&node.prop1, &NodeProps::Prop2(456)])
     /// ```
     /// The example above generates the following query:
     /// ```rust
@@ -375,7 +375,7 @@ impl Neo4gMergeStatement<CreatedNode> {
     /// Uses the T::Props vec to set the conditions for the MERGE.
     /// # Example
     /// ```rust
-    /// .relation(0, &mut relation, &[RelationProps::Prop1(123), RelationProps::Prop1(456)])
+    /// .relation(0, &mut relation, &[&relation.prop1, &RelationProps::Prop2(456)])
     /// ```
     /// The example above generates the following query:
     /// ```rust
@@ -399,7 +399,7 @@ impl Neo4gMergeStatement<CreatedNode> {
     /// Uses the T::Props vec to set the conditions for the MERGE.
     /// # Example
     /// ```rust
-    /// .relation(&mut relation, &[RelationProps::Prop1(123), RelationProps::Prop1(456)])
+    /// .relation(&mut relation, &[&relation.prop1, &RelationProps::Prop2(456)])
     /// ```
     /// The example above generates the following query:
     /// ```rust
@@ -423,7 +423,7 @@ impl Neo4gMergeStatement<CreatedNode> {
     /// Uses the T::Props vec to set the conditions for the MERGE.
     /// # Example
     /// ```rust
-    /// .relation(&mut relation, &[RelationProps::Prop1(123), RelationProps::Prop1(456)])
+    /// .relation(&mut relation, &[&relation.prop1, RelationProps::Prop2(456)])
     /// ```
     /// The example above generates the following query:
     /// ```rust
@@ -518,22 +518,23 @@ impl <Q: PossibleStatementEnd> Neo4gMergeStatement<Q> {
     /// Generates a SET call
     /// # Example
     /// ```rust
-    /// .set(Entity, &[Entity1Props::Prop1(123), Entity1Props::Prop2(456)])
-    /// .set(Entity2, &[Entity2Props::Prop1(987), Entity2Props::Prop2(654)])
+    /// .set(&Entity, &[&Entity1Props::Prop1(123), &Entity1Props::Prop2(456)])
+    /// .set(&Entity2, &[&Entity2Props::Prop1(987), &Entity2Props::Prop2(654)])
     /// ```
     /// The example above generates the following query:
     /// ```rust
     /// SET entity1alias.prop1 = $set1_prop1, entity1alias.prop2 = $set1_prop2, entity2alias.prop1 = $set2_prop1, entity2alias.prop2 = $set2_prop2
     /// ```
     /// and asociated params for the inner builder.
-    pub fn set<T: Neo4gEntity>(mut self, entity_to_alias: T, props: &[T::Props]) -> Self
+    pub fn set<T: Neo4gEntity>(mut self, entity_to_alias: &T, props: &[&T::Props]) -> Self
         where T::Props: Clone, PropsWrapper: From<<T as Neo4gEntity>::Props> {
         self.set_number += 1;
         let wrapped_props: Vec<PropsWrapper> = props.iter().map(|p| {
-            PropsWrapper::from(p.clone())
+            PropsWrapper::from(p.to_owned().clone())
         }).collect();
+        let refed_props: Vec<&PropsWrapper> = wrapped_props.iter().map(|prop| prop).collect();
         let alias = entity_to_alias.get_alias();
-        let (query, params) = PropsWrapper::set_by(&alias, self.set_number, &wrapped_props);
+        let (query, params) = PropsWrapper::set_by(&alias, self.set_number, &refed_props);
         self.params.extend(params);
         match self.current_on_str {
             OnString::Create => {
@@ -571,7 +572,7 @@ impl<Q: CanNode> Neo4gMatchStatement<Q> {
     /// Uses the T::Props vec to set the conditions for the MATCH.
     /// # Example
     /// ```rust
-    /// .node(&mut node, &[NodeProps::Prop1(123), NodeProps::Prop2(456)])
+    /// .node(&mut node, &[&node.prop1, &NodeProps::Prop2(456)])
     /// ```
     /// The example above generates the following query:
     /// ```rust
@@ -616,7 +617,7 @@ impl Neo4gMatchStatement<MatchedNode> {
     /// Uses the T::Props vec to set the conditions for the MATCH.
     /// # Example
     /// ```rust
-    /// .relation(0, &mut relation, &[RelationProps::Prop1(123), RelationProps::Prop1(456)])
+    /// .relation(0, &mut relation, &[&relation.prop1, &RelationProps::Prop2(456)])
     /// ```
     /// The example above generates the following query:
     /// ```rust
@@ -640,7 +641,7 @@ impl Neo4gMatchStatement<MatchedNode> {
     /// Uses the T::Props vec to set the conditions for the MATCH.
     /// # Example
     /// ```rust
-    /// .relation(&mut relation, &[RelationProps::Prop1(123), RelationProps::Prop1(456)])
+    /// .relation(&mut relation, &[&relation.prop1, &RelationProps::Prop2(456)])
     /// ```
     /// The example above generates the following query:
     /// ```rust
@@ -664,7 +665,7 @@ impl Neo4gMatchStatement<MatchedNode> {
     /// Uses the T::Props vec to set the conditions for the MATCH.
     /// # Example
     /// ```rust
-    /// .relation(&mut relation, &[RelationProps::Prop1(123), RelationProps::Prop1(456)])
+    /// .relation(&mut relation, &[&relation.prop1, &RelationProps::Prop2(456)])
     /// ```
     /// The example above generates the following query:
     /// ```rust
@@ -737,9 +738,9 @@ impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> {
     /// # Example
     /// ```rust
     /// .filter(Where::new()
-    ///     .condition(&node1, Node1Props::Prop1(123), CompareOperator::Eq)
+    ///     .condition(&node1, &node1.prop1, CompareOperator::Eq)
     ///     .join(CompareJoiner::And)
-    ///     .condition(&node1, Node1Props::Prop2(456), CompareOperator::Gt)       
+    ///     .condition(&node1, &Node1Props::Prop2(456), CompareOperator::Gt)       
     /// )
     /// ```
     /// The example above generates the following query:
@@ -759,18 +760,23 @@ impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> {
     /// Generates a SET call
     /// # Example
     /// ```rust
-    /// .set(Entity, &[Entity1Props::Prop1(123), Entity1Props::Prop2(456)])
-    /// .set(Entity2, &[Entity2Props::Prop1(987), Entity2Props::Prop2(654)])
+    /// .set(Entity, &[&Entity1Props::Prop1(123), &Entity1Props::Prop2(456)])
+    /// .set(Entity2, &[&Entity2Props::Prop1(987), &Entity2Props::Prop2(654)])
     /// ```
     /// The example above generates the following query:
     /// ```rust
     /// SET entity1alias.prop1 = $set1_prop1, entity1alias.prop2 = $set1_prop2, entity2alias.prop1 = $set2_prop1, entity2alias.prop2 = $set2_prop2
     /// ```
     /// and asociated params for the inner builder.
-    pub fn set<T: Neo4gEntity>(mut self, entity_to_alias: T, props: &[PropsWrapper]) -> Self {
+    pub fn set<T: Neo4gEntity>(mut self, entity_to_alias: T, props: &[&T::Props]) -> Self
+        where T::Props: Clone, PropsWrapper: From<<T as Neo4gEntity>::Props> {
         self.set_number += 1;
         let alias = entity_to_alias.get_alias();
-        let (query, params) = PropsWrapper::set_by(&alias, self.set_number, props);
+        let wrapped_props: Vec<PropsWrapper> = props.iter().map(|p| {
+            PropsWrapper::from(p.to_owned().clone())
+        }).collect();
+        let refed_props: Vec<&PropsWrapper> = wrapped_props.iter().map(|prop| prop).collect();
+        let (query, params) = PropsWrapper::set_by(&alias, self.set_number, &refed_props);
         self.params.extend(params);
         if self.set_str.is_empty() {
             self.set_str = "\nSET ".to_string();
@@ -906,14 +912,14 @@ impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
     /// Generates an ORDER BY call
     /// # Example
     /// ```rust
-    /// .order_by(&mut entity, EntityProps::Prop1(123), Order::Asc)
+    /// .order_by(&mut entity, &entity.prop, Order::Asc)
     /// ```
     /// The example above generates the following query:
     /// ```rust
     /// ORDER BY entityalias.prop1
     /// ```
     /// and asociated params for the inner builder.
-    pub fn order_by<T: Neo4gEntity>(mut self, entity_to_alias: &mut T, prop: T::Props, order: Order) -> Self {
+    pub fn order_by<T: Neo4gEntity>(mut self, entity_to_alias: &mut T, prop: &T::Props, order: Order) -> Self {
         if self.order_by_str.is_empty() {
             self.order_by_str = "\nORDER BY ".to_string();
         }

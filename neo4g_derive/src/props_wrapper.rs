@@ -93,7 +93,7 @@ pub fn generate_props_wrapper(input: TokenStream) -> TokenStream {
                     #(#to_query_param_match_arms),*
                 }
             }
-            pub fn set_by(alias: &str, set_number: u32, props: &[#enum_name]) -> (String, std::collections::HashMap<String, BoltType>) {
+            pub fn set_by(alias: &str, set_number: u32, props: &[&#enum_name]) -> (String, std::collections::HashMap<String, BoltType>) {
                 let mut query = String::new();
                 let mut params = std::collections::HashMap::new();
     
