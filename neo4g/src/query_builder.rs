@@ -1508,7 +1508,7 @@ impl<Q: CanCondition> Where<Q> {
     /// Generates a condition string.
     /// # Example
     /// ```rust
-    /// .condition(&entity, EntityProps::Prop1(123), CompareOperator::Eq)
+    /// .condition(&entity, &entity.prop1, CompareOperator::Eq)
     /// ```
     /// The example above generates the following string:
     /// ```rust
@@ -1528,7 +1528,7 @@ impl<Q: CanCondition> Where<Q> {
     /// Generates a condition string with the neo4j coalesce function included.
     /// # Example
     /// ```rust
-    /// .coalesce(&entity, EntityProps::Prop1(123), CompareOperator::Eq)
+    /// .coalesce(&entity, &EntityProps::Prop1(123), CompareOperator::Eq)
     /// ```
     /// The example above generates the following string:
     /// ```rust
