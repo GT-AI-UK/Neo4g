@@ -119,32 +119,19 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
     };
 
     let from_db_entity_fn = quote! {
-        pub fn from_db_entity(db_entity: DbEntityWrapper, entity_type: EntityType) -> Self {
-            match entity_type {
-                EntityType::Node => {
-                    if let DbEntityWrapper::Node(entity) = db_entity.clone() {
-                        let labels = entity.labels();
-                        #(#db_from_node_checks)*
-                        return #enum_name::Nothing(Nothing::new(true));
-                    } else {
-                        return #enum_name::Nothing(Nothing::new(true));
-                    }
-                },
-                EntityType::Relation => {
-                    if let DbEntityWrapper::Relation(entity) = db_entity.clone() {
-                        let labels = entity.typ();
-                        #(#db_from_relation_checks)*
-                        return #enum_name::Nothing(Nothing::new(true));
-                    } else {
-                        return #enum_name::Nothing(Nothing::new(true));
-                    }
-                },
-                _ => {
+        pub fn from_db_entity(db_entity: DbEntityWrapper) -> Self {
+            match db_entity.clone() {
+                DbEntityWrapper::Node(entity) => {
+                    let labels = entity.labels();
+                    #(#db_from_node_checks)*
                     return #enum_name::Nothing(Nothing::new(true));
-                }
+                },
+                DbEntityWrapper::Relation(entity) => {
+                    let labels = entity.typ();
+                    #(#db_from_relation_checks)*
+                    return #enum_name::Nothing(Nothing::new(true));
+               },
             }
-            // Fallback: if no label matched, return the Nothing variant.
-            #enum_name::Nothing(Nothing::new(true))
         }
     };
 
