@@ -63,7 +63,7 @@ pub fn generate_create_node_from_self(struct_name: &Ident, struct_name_str: &str
 
 pub fn generate_node_by(struct_name: &Ident, struct_name_str: &str, props_enum_name: &Ident) -> proc_macro2::TokenStream {
     quote! {
-        pub fn node_by(alias: &str, props: &[#props_enum_name]) -> (String, std::collections::HashMap<String, BoltType>) {
+        pub fn node_by(alias: &str, props: &[&#props_enum_name]) -> (String, std::collections::HashMap<String, BoltType>) {
             let mut query = format!("({}:{} {{", alias, #struct_name_str);
             let mut params = std::collections::HashMap::new();
 
@@ -140,7 +140,7 @@ pub fn generate_get_relation_label(struct_name_str: &str) -> proc_macro2::TokenS
 
 pub fn generate_relation_by(struct_name: &Ident, struct_name_str: &str, props_enum_name: &Ident) -> proc_macro2::TokenStream {
     quote! {
-        pub fn relation_by(alias: &str, props: &[#props_enum_name]) -> (String, std::collections::HashMap<String, BoltType>) {
+        pub fn relation_by(alias: &str, props: &[&#props_enum_name]) -> (String, std::collections::HashMap<String, BoltType>) {
             let mut query = format!("-[{}:{}", alias, #struct_name_str.to_shouty_snake_case());
             let mut params = std::collections::HashMap::new();
             if !props.is_empty() {
