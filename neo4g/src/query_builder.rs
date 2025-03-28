@@ -1515,7 +1515,7 @@ impl<Q: CanCondition> Where<Q> {
     /// entityalias.prop1 = $where_prop11
     /// ```
     /// and asociated params.
-    pub fn condition<T: Neo4gEntity>(mut self, entity_to_alias: &T, prop: T::Props, operator: CompareOperator) -> Where<Condition> {
+    pub fn condition<T: Neo4gEntity>(mut self, entity_to_alias: &T, prop: &T::Props, operator: CompareOperator) -> Where<Condition> {
         self.condition_number += 1;
         let (name, value) = prop.to_query_param();
         let param_name = format!("where_{}{}", name, self.condition_number);
@@ -1535,7 +1535,7 @@ impl<Q: CanCondition> Where<Q> {
     /// entityalias.prop1 = coalesce($where_prop11, entityalias.prop1)
     /// ```
     /// and asociated params.
-    pub fn coalesce<T: Neo4gEntity>(mut self, entity_to_alias: &T, prop: T::Props) -> Where<Condition> {
+    pub fn coalesce<T: Neo4gEntity>(mut self, entity_to_alias: &T, prop: &T::Props) -> Where<Condition> {
         let (name, value) = prop.to_query_param();
         let param_name = format!("where_{}{}", name, self.condition_number);
         let alias = entity_to_alias.get_alias();

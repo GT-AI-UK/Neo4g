@@ -43,12 +43,12 @@ async fn main() {
             .relation(&mut hcrel2, &[]).add_to_return()
             .node(&mut component2, &[ComponentProps::Id("cid73".to_string())]).add_to_return()
             .filter(Where::new()
-                .condition(&page1, PageProps::Id("pid99".into()).into(), CompareOperator::Eq)
+                .condition(&page1, &PageProps::Id("pid99".into()).into(), CompareOperator::Eq)
                 .join(CompareJoiner::And)
                 .nest(|parent_filter| parent_filter, Where::new()
-                    .condition(&component1, ComponentProps::Id("pid99".into()).into(), CompareOperator::Ne)
+                    .condition(&component1, &ComponentProps::Id("pid99".into()).into(), CompareOperator::Ne)
                     .join(CompareJoiner::And)
-                    .condition(&component2, ComponentProps::Id("pid99".into()).into(), CompareOperator::Ne)
+                    .condition(&component2, &ComponentProps::Id("pid99".into()).into(), CompareOperator::Ne)
                 )          
             )
             .end_statement()
@@ -56,9 +56,9 @@ async fn main() {
     println!("{:?}", result);
 
     let test_filter = Where::new()
-        .condition(&page1, PageProps::Id("pid99".into()).into(), CompareOperator::Eq)
+        .condition(&page1, &page1.id, CompareOperator::Eq)
         .join(CompareJoiner::And)
-        .nest(|p| p, Where::new().condition(&page1, PageProps::Id("pid99".into()).into(), CompareOperator::Eq));
+        .nest(|p| p, Where::new().condition(&page1, &PageProps::Id("pid99".into()).into(), CompareOperator::Eq));
 
     // !! Functional MERGE Query:
     // let result = Neo4gBuilder::new()
