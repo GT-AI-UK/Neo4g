@@ -1598,7 +1598,7 @@ impl ParamString {
 #[derive(Debug, Clone)]
 pub struct Unwinder {
     alias: String,
-    list: Vec<String>
+    list: Vec<String> // need to take a trait maybe? erm... simpler to just take a list of bolttypes?
 }
 
 impl Unwinder {

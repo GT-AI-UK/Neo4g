@@ -6,6 +6,7 @@ use dotenv::dotenv;
 use std::{env, result};
 use heck::ToShoutySnakeCase;
 use neo4g::traits::WrappedNeo4gEntity;
+use neo4g_macro_rules::returns;
 
 pub async fn connect_neo4j() -> Graph { //return db object, run on startup, bind to state var
     let test = "CamalCase".to_shouty_snake_case();
@@ -53,7 +54,8 @@ async fn main() {
                 )          
             )
             .end_statement()
-        .run_query(graph, &[EntityWrapper::from(page1), EntityWrapper::from(hcrel1), EntityWrapper::from(component1), EntityWrapper::from(hcrel2), EntityWrapper::from(component2)], EntityWrapper::from_db_entity).await;
+        //.run_query(graph, &[EntityWrapper::from(page1), EntityWrapper::from(hcrel1), EntityWrapper::from(component1), EntityWrapper::from(hcrel2), EntityWrapper::from(component2)], EntityWrapper::from_db_entity).await;
+        .run_query(graph, returns!(page1, hcrel1, component1, hcrel2, component2), EntityWrapper::from_db_entity).await;
     println!("{:?}", result);
 
     // !! Functional MERGE Query:
