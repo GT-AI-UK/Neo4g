@@ -524,15 +524,27 @@ impl <Q: PossibleStatementEnd> Neo4gMergeStatement<Q> {
     /// SET entity1alias.prop1 = $set1_prop1, entity1alias.prop2 = $set1_prop2, entity2alias.prop1 = $set2_prop1, entity2alias.prop2 = $set2_prop2
     /// ```
     /// and asociated params for the inner builder.
-    pub fn set<T: Neo4gEntity>(mut self, entity_to_alias: &T, props: &[&T::Props]) -> Self
-        where T::Props: Clone, PropsWrapper: From<<T as Neo4gEntity>::Props> {
+    pub fn set<T: Neo4gEntity>(mut self, entity_to_alias: T, props: &[&T::Props]) -> Self {
+        //where T::Props: Clone, PropsWrapper: From<<T as Neo4gEntity>::Props> {
         self.set_number += 1;
-        let wrapped_props: Vec<PropsWrapper> = props.iter().map(|p| {
-            PropsWrapper::from(p.to_owned().clone())
-        }).collect();
-        let refed_props: Vec<&PropsWrapper> = wrapped_props.iter().map(|prop| prop).collect();
         let alias = entity_to_alias.get_alias();
-        let (query, params) = PropsWrapper::set_by(&alias, self.set_number, &refed_props);
+        // let wrapped_props: Vec<PropsWrapper> = props.iter().map(|p| {
+        //     PropsWrapper::from(p.to_owned().clone())
+        // }).collect();
+        // let refed_props: Vec<&PropsWrapper> = wrapped_props.iter().map(|prop| prop).collect();
+        // let (query, params) = PropsWrapper::set_by(&alias, self.set_number, &refed_props);
+        let mut query = String::new();
+        let mut params = std::collections::HashMap::new();
+        let props_str: Vec<String> = props
+            .iter()
+            .map(|prop| {
+                let (key, value) = prop.to_query_param();
+                params.insert(format!("set_{}{}", key.to_string(), self.set_number), value);
+                format!("{}.{} = $set_{}{}\n", alias, key, key, self.set_number)
+            })
+            .collect();
+
+        query.push_str(&props_str.join(", "));
         self.params.extend(params);
         match self.current_on_str {
             OnString::Create => {
@@ -555,6 +567,37 @@ impl <Q: PossibleStatementEnd> Neo4gMergeStatement<Q> {
         }
         self
     }
+    // pub fn set<T: Neo4gEntity>(mut self, entity_to_alias: &T, props: &[&T::Props]) -> Self
+    //     where T::Props: Clone, PropsWrapper: From<<T as Neo4gEntity>::Props> {
+    //     self.set_number += 1;
+    //     let wrapped_props: Vec<PropsWrapper> = props.iter().map(|p| {
+    //         PropsWrapper::from(p.to_owned().clone())
+    //     }).collect();
+    //     let refed_props: Vec<&PropsWrapper> = wrapped_props.iter().map(|prop| prop).collect();
+    //     let alias = entity_to_alias.get_alias();
+    //     let (query, params) = PropsWrapper::set_by(&alias, self.set_number, &refed_props);
+    //     self.params.extend(params);
+    //     match self.current_on_str {
+    //         OnString::Create => {
+    //             if self.on_create_str == "\nON CREATE".to_string() {
+    //                 self.on_create_str.push_str("\nSET ");
+    //             } else {
+    //                 self.on_create_str.push_str(", ");
+    //             }
+    //             self.on_create_str.push_str(&query)
+    //         },
+    //         OnString::Match => {
+    //             if self.on_match_str == "\nON MATCH".to_string() {
+    //                 self.on_match_str.push_str("\nSET ");
+    //             } else {
+    //                 self.on_match_str.push_str(", ");
+    //             }
+    //             self.on_match_str.push_str(&query)
+    //         },
+    //         OnString::None => (),
+    //     }
+    //     self
+    // }
     /// Finalises the current statement, tidies up placeholders, and changes the state of the builder so that new statements can be added.
     pub fn end_statement(mut self) -> Neo4gBuilder<CreatedNode> {
         self.query = self.query.replace(":AdditionalLabels", "");
@@ -766,15 +809,27 @@ impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> {
     /// SET entity1alias.prop1 = $set1_prop1, entity1alias.prop2 = $set1_prop2, entity2alias.prop1 = $set2_prop1, entity2alias.prop2 = $set2_prop2
     /// ```
     /// and asociated params for the inner builder.
-    pub fn set<T: Neo4gEntity>(mut self, entity_to_alias: T, props: &[&T::Props]) -> Self
-        where T::Props: Clone, PropsWrapper: From<<T as Neo4gEntity>::Props> {
+    pub fn set<T: Neo4gEntity>(mut self, entity_to_alias: T, props: &[&T::Props]) -> Self {
+        //where T::Props: Clone, PropsWrapper: From<<T as Neo4gEntity>::Props> {
         self.set_number += 1;
         let alias = entity_to_alias.get_alias();
-        let wrapped_props: Vec<PropsWrapper> = props.iter().map(|p| {
-            PropsWrapper::from(p.to_owned().clone())
-        }).collect();
-        let refed_props: Vec<&PropsWrapper> = wrapped_props.iter().map(|prop| prop).collect();
-        let (query, params) = PropsWrapper::set_by(&alias, self.set_number, &refed_props);
+        // let wrapped_props: Vec<PropsWrapper> = props.iter().map(|p| {
+        //     PropsWrapper::from(p.to_owned().clone())
+        // }).collect();
+        // let refed_props: Vec<&PropsWrapper> = wrapped_props.iter().map(|prop| prop).collect();
+        // let (query, params) = PropsWrapper::set_by(&alias, self.set_number, &refed_props);
+        let mut query = String::new();
+        let mut params = std::collections::HashMap::new();
+        let props_str: Vec<String> = props
+            .iter()
+            .map(|prop| {
+                let (key, value) = prop.to_query_param();
+                params.insert(format!("set_{}{}", key.to_string(), self.set_number), value);
+                format!("{}.{} = $set_{}{}\n", alias, key, key, self.set_number)
+            })
+            .collect();
+
+        query.push_str(&props_str.join(", "));
         self.params.extend(params);
         if self.set_str.is_empty() {
             self.set_str = "\nSET ".to_string();

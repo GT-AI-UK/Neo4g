@@ -93,22 +93,22 @@ pub fn generate_props_wrapper(input: TokenStream) -> TokenStream {
                     #(#to_query_param_match_arms),*
                 }
             }
-            pub fn set_by(alias: &str, set_number: u32, props: &[&#enum_name]) -> (String, std::collections::HashMap<String, BoltType>) {
-                let mut query = String::new();
-                let mut params = std::collections::HashMap::new();
+            // pub fn set_by(alias: &str, set_number: u32, props: &[&#enum_name]) -> (String, std::collections::HashMap<String, BoltType>) {
+            //     let mut query = String::new();
+            //     let mut params = std::collections::HashMap::new();
     
-                let props_str: Vec<String> = props
-                    .iter()
-                    .map(|prop| {
-                        let (key, value) = prop.to_query_param();
-                        params.insert(format!("set_{}{}", key.to_string(), set_number), value);
-                        format!("{}.{} = $set_{}{}\n", alias, key, key, set_number)
-                    })
-                    .collect();
+            //     let props_str: Vec<String> = props
+            //         .iter()
+            //         .map(|prop| {
+            //             let (key, value) = prop.to_query_param();
+            //             params.insert(format!("set_{}{}", key.to_string(), set_number), value);
+            //             format!("{}.{} = $set_{}{}\n", alias, key, key, set_number)
+            //         })
+            //         .collect();
     
-                query.push_str(&props_str.join(", "));
-                (query, params)
-            }
+            //     query.push_str(&props_str.join(", "));
+            //     (query, params)
+            // }
         }
         
         impl PartialEq for #enum_name {
