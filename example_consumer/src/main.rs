@@ -1,5 +1,5 @@
-use neo4g::entity_wrapper::{EntityWrapper, Label};
-use neo4g::objects::{Group, GroupProps, MemberOf, MemberOfProps, User, UserProps, UserTemplate, Page, PageProps, PageTemplate, Component, ComponentProps, ComponentTemplate, ComponentType, HasComponent, HasComponentTemplate, HasComponentProps};
+use example_consumer::entity_wrapper::{EntityWrapper, Label};
+use example_consumer::objects::{Group, GroupProps, MemberOf, MemberOfProps, User, UserProps, UserTemplate, Page, PageProps, PageTemplate, Component, ComponentProps, ComponentTemplate, ComponentType, HasComponent, HasComponentTemplate, HasComponentProps};
 use neo4g::query_builder::{self, CompareJoiner, CompareOperator, Neo4gBuilder, Where};
 use neo4rs::Graph;
 use dotenv::dotenv;

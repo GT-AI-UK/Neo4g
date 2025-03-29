@@ -3,10 +3,10 @@ use heck::ToShoutySnakeCase;
 use dotenv::dotenv;
 use std::env;
 use criterion::{BenchmarkId, criterion_group, criterion_main, Criterion};
-use neo4g::benches::query_builder_string::query_builder_string_bench;
-use neo4g::benches::static_string::static_string_bench;
-use neo4g::benches::query_builder_query::query_builder_query_bench;
-use neo4g::benches::static_query::static_query_bench;
+use example_consumer::benches::query_builder_string::query_builder_string_bench;
+use example_consumer::benches::static_string::static_string_bench;
+use example_consumer::benches::query_builder_query::query_builder_query_bench;
+use example_consumer::benches::static_query::static_query_bench;
 
 pub fn criterion_benchmark(c: &mut Criterion) {
     let rt = tokio::runtime::Runtime::new().unwrap();

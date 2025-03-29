@@ -3,12 +3,12 @@ use paste::paste;
 use crate::objects::{User, Group, UserProps, GroupProps, MemberOf, MemberOfProps, Page, Component, HasComponent, HasComponentProps, PageProps, ComponentProps};
 use neo4g_derive::{Neo4gEntityWrapper, Neo4gPropsWrapper, Neo4gLabels, Neo4gNode};
 use heck::ToPascalCase;
-use crate::traits::{Neo4gEntity, QueryParam};
-use crate::traits::Aliasable;
+use neo4g::traits::{Neo4gEntity, QueryParam};
+use neo4g::traits::Aliasable;
 use serde::{Serialize, Deserialize};
-use crate::query_builder::EntityType;
-use crate::query_builder::DbEntityWrapper;
-use crate::traits::WrappedNeo4gEntity;
+use neo4g::query_builder::EntityType;
+use neo4g::query_builder::DbEntityWrapper;
+use neo4g::traits::WrappedNeo4gEntity;
 
 use neo4rs::{
     Node,

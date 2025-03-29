@@ -1,6 +1,6 @@
 use crate::entity_wrapper::{EntityWrapper, Label};
 use crate::objects::{Group, GroupProps, MemberOf, MemberOfProps, User, UserProps, UserTemplate, Page, PageProps, PageTemplate, Component, ComponentProps, ComponentTemplate, ComponentType, HasComponent, HasComponentTemplate, HasComponentProps};
-use crate::query_builder::{self, CompareJoiner, CompareOperator, EntityType, Neo4gBuilder, Where};
+use neo4g::query_builder::{self, CompareJoiner, CompareOperator, EntityType, Neo4gBuilder, Where};
 use neo4rs::{query, Graph, BoltString, Node, Relation};
 use dotenv::dotenv;
 use std::{env, result};
