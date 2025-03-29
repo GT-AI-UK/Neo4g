@@ -25,6 +25,8 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
     let mut from_relation_checks = Vec::new();
     let mut eq_checks = Vec::new();
     let mut call_get_alias_arms = Vec::new();
+    let mut call_set_alias_arms = Vec::new();
+    let mut call_get_entity_type_arms = Vec::new();
     let mut db_from_node_checks = Vec::new();
     let mut db_from_relation_checks = Vec::new();
 
@@ -84,6 +86,14 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
             #enum_name::#var_name(inner) => inner.get_alias(),
         };
         call_get_alias_arms.push(call_get_alias_arm);
+        let call_set_alias_arm = quote! {
+            #enum_name::#var_name(inner) => inner.set_alias(alias),
+        };
+        call_set_alias_arms.push(call_set_alias_arm);
+        let call_get_entity_type_arm = quote! {
+            #enum_name::#var_name(inner) => inner.get_entity_type(),
+        };
+        call_get_entity_type_arms.push(call_get_entity_type_arm);
 
         let dbcheck = quote! {
             if labels.contains(&#var_name_str) {
@@ -110,16 +120,32 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
     };
 
     let get_alias_fn = quote! {
-        pub fn get_alias(&self) -> String {
+        fn get_alias(&self) -> String {
             match self {
                 #(#call_get_alias_arms)*
                 _ => String::new()
             }
         }
     };
+    let set_alias_fn = quote! {
+        fn set_alias(&mut self, alias: &str) {
+            match self {
+                #(#call_set_alias_arms)*
+                _ => ()
+            }
+        }
+    };
+    let get_entity_type_fn = quote! {
+        fn get_entity_type(&self) -> EntityType {
+            match self {
+                #(#call_get_entity_type_arms)*
+                _ => EntityType::Node
+            }
+        }
+    };
 
     let from_db_entity_fn = quote! {
-        pub fn from_db_entity(db_entity: DbEntityWrapper) -> Self {
+        fn from_db_entity(db_entity: DbEntityWrapper) -> Self {
             match db_entity.clone() {
                 DbEntityWrapper::Node(entity) => {
                     let labels = entity.labels();
@@ -161,8 +187,17 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
             #inner_fn
             // #from_node_fn
             // #from_relation_fn
+            
+        }
+
+        impl Aliasable for EntityWrapper {
             #get_alias_fn
+            #set_alias_fn
+        }
+
+        impl WrappedNeo4gEntity for EntityWrapper {
             #from_db_entity_fn
+            #get_entity_type_fn
         }
         
         impl PartialEq for #enum_name {

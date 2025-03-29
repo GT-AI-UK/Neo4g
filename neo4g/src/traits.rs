@@ -2,7 +2,12 @@ use std::collections::HashMap;
 
 use neo4rs::{BoltType, Node, Relation};
 
-use crate::{entity_wrapper::EntityWrapper, query_builder::EntityType};
+use crate::{entity_wrapper::EntityWrapper, query_builder::{DbEntityWrapper, EntityType}};
+
+pub trait WrappedNeo4gEntity: Sized + Aliasable {
+    fn from_db_entity(db_entity: DbEntityWrapper) -> Self;
+    fn get_entity_type(&self) -> EntityType;
+}
 
 pub trait Neo4gEntity: Aliasable {
     type Props: QueryParam;

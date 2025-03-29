@@ -5,6 +5,7 @@ use neo4rs::Graph;
 use dotenv::dotenv;
 use std::{env, result};
 use heck::ToShoutySnakeCase;
+use neo4g::traits::WrappedNeo4gEntity;
 
 pub async fn connect_neo4j() -> Graph { //return db object, run on startup, bind to state var
     let test = "CamalCase".to_shouty_snake_case();
@@ -34,14 +35,14 @@ async fn main() {
     let mut page1 = Page::new("pid4", "ppath4", vec![component1.clone(), component2.clone()]);
     let result = Neo4gBuilder::new()
         .get()
-            .node(&mut page1, &[&PageProps::Id("pid99".to_string())]).add_to_return()
-            .relation(&mut hcrel1, &[]).add_to_return()
-            .node(&mut component1, &[&ComponentProps::Id("cid3".to_string())]).add_to_return()
+            .node(&mut page1, &[&PageProps::Id("pid99".to_string())])
+            .relation(&mut hcrel1, &[])
+            .node(&mut component1, &[&ComponentProps::Id("cid3".to_string())])
         .end_statement()
         .get()
             .node_ref(&page1)
-            .relation(&mut hcrel2, &[]).add_to_return()
-            .node(&mut component2, &[&ComponentProps::Id("cid73".to_string())]).add_to_return()
+            .relation(&mut hcrel2, &[])
+            .node(&mut component2, &[&ComponentProps::Id("cid73".to_string())])
             .filter(Where::new()
                 .condition(&page1, &PageProps::Id("pid99".into()).into(), CompareOperator::Eq)
                 .join(CompareJoiner::And)
@@ -52,13 +53,8 @@ async fn main() {
                 )          
             )
             .end_statement()
-        .run_query(graph).await;
+        .run_query(graph, &[EntityWrapper::from(page1), EntityWrapper::from(hcrel1), EntityWrapper::from(component1), EntityWrapper::from(hcrel2), EntityWrapper::from(component2)], EntityWrapper::from_db_entity).await;
     println!("{:?}", result);
-
-    let test_filter = Where::new()
-        .condition(&page1, &page1.id, CompareOperator::Eq)
-        .join(CompareJoiner::And)
-        .nest(|p| p, Where::new().condition(&page1, &PageProps::Id("pid99".into()).into(), CompareOperator::Eq));
 
     // !! Functional MERGE Query:
     // let result = Neo4gBuilder::new()

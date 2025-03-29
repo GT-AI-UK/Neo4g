@@ -8,6 +8,7 @@ use crate::traits::Aliasable;
 use serde::{Serialize, Deserialize};
 use crate::query_builder::EntityType;
 use crate::query_builder::DbEntityWrapper;
+use crate::traits::WrappedNeo4gEntity;
 
 use neo4rs::{
     Node,

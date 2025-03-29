@@ -1,5 +1,7 @@
 use crate::entity_wrapper::{EntityWrapper, PropsWrapper, Label};
 use neo4rs::{query, BoltNull, BoltType, Graph, Node, Query, Relation};
+use serde::{Deserialize, Serialize};
+use std::f32::consts::TAU;
 use std::marker::PhantomData;
 use std::fmt;
 use crate::traits::*;
@@ -982,39 +984,41 @@ impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
         self
     }
     /// Runs the query against a provided Graph and returns the registered return objects.
-    pub async fn run_query(mut self, graph: Graph) -> anyhow::Result<Vec<EntityWrapper>> {
-        if !self.return_refs.is_empty() {
+    pub async fn run_query<F, T, R>(mut self, graph: Graph, returns: &[T], unpack: F) -> anyhow::Result<Vec<F::Output>> 
+    where T: WrappedNeo4gEntity, F: Fn(DbEntityWrapper) -> R {
+        if !returns.is_empty() {
             self.query.push_str("\nRETURN ");
-            let aliases: Vec<String> = self.return_refs.iter().map(|(alias, _, _)| alias.clone()).collect();
+            let aliases: Vec<String> = returns.iter().map(|entity| entity.get_alias()).collect();
             self.query.push_str(&aliases.join(", "));
         }
         self.query.push_str(&self.order_by_str);
         // println!("query: {}", self.query.clone());
         // println!("params: {:?}", self.params.clone());
         let query = Query::new(self.query).params(self.params);
-        let mut return_vec: Vec<EntityWrapper> = Vec::new();
+        let mut return_vec: Vec<R> = Vec::new();
         if let Ok(mut result) = graph.execute(query).await {
             //println!("query ran");
             while let Ok(Some(row)) = result.next().await {
-                for (alias, entity_type, ret_obj) in self.return_refs.clone() {
+                //for (alias, entity_type, ret_obj) in self.return_refs.clone() {
+                for ret_obj in returns {
                     //println!("attemping to get {} from database. {:?}, {:?}", alias, &entity_type, &ret_obj);
-                    match entity_type {
+                    match ret_obj.get_entity_type() {
                         EntityType::Node => {
-                            if let Ok(node) = row.get::<Node>(&alias) {
+                            if let Ok(node) = row.get::<Node>(&ret_obj.get_alias()) {
                                 //println!("got node for: {}", &alias);
                                 //let wrapped_entity = EntityWrapper::from_node(node.clone());
-                                let wrapped_entity = EntityWrapper::from_db_entity(DbEntityWrapper::Node(node.clone()));
+                                let wrapped_entity = unpack(DbEntityWrapper::Node(node));
                                 return_vec.push(wrapped_entity);
                             } else {
                                 //println!("error getting {} from db result", alias);
                             }
                         },
                         EntityType::Relation => {
-                            if let Ok(relation) = row.get::<Relation>(&alias) {
+                            if let Ok(relation) = row.get::<Relation>(&ret_obj.get_alias()) {
                                 //println!("got relation for: {}", &alias);
                                 let label = relation.typ();
                                 //let wrapped_entity = EntityWrapper::from_relation(relation.clone());
-                                let wrapped_entity = EntityWrapper::from_db_entity(DbEntityWrapper::Relation(relation.clone()));
+                                let wrapped_entity = unpack(DbEntityWrapper::Relation(relation));
                                 //println!("wrapped relation: {:?}", wrapped_entity);
                                 return_vec.push(wrapped_entity);
                             } else {
@@ -1030,7 +1034,7 @@ impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum EntityType {
     Node,
     Relation,

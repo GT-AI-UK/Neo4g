@@ -1,6 +1,7 @@
 use crate::entity_wrapper::{EntityWrapper, Label};
 use crate::objects::{Group, GroupProps, MemberOf, MemberOfProps, User, UserProps, UserTemplate, Page, PageProps, PageTemplate, Component, ComponentProps, ComponentTemplate, ComponentType, HasComponent, HasComponentTemplate, HasComponentProps};
 use crate::query_builder::{self, CompareJoiner, CompareOperator, Neo4gBuilder, Where};
+use crate::traits::WrappedNeo4gEntity;
 use neo4rs::Graph;
 use dotenv::dotenv;
 use std::{env, result};
@@ -48,5 +49,5 @@ pub async fn query_builder_query_bench() {
                 )          
             )
             .end_statement()
-        .run_query(graph).await;
+        .run_query(graph, &[EntityWrapper::from(page1), EntityWrapper::from(hcrel1), EntityWrapper::from(component1), EntityWrapper::from(hcrel2), EntityWrapper::from(component2)], EntityWrapper::from_db_entity).await;
 }

@@ -381,6 +381,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
             pub fn new( #(#constructor_params),* ) -> Self {
                 Self {
                     alias: String::new(),
+                    entity_type: EntityType::Relation,
                     #(#constructor_body),*
                 }
             }
@@ -392,6 +393,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
             fn default() -> Self {
                 Self {
                     alias: String::new(),
+                    entity_type: EntityType::Relation,
                     #(#default_body),*
                 }
             }
@@ -506,6 +508,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
                     EntityWrapper::#new_struct_name(
                         #new_struct_name {
                             alias: String::new(),
+                            entity_type: EntityType::Relation,
                             #(#field_inits),*
                         }
                     )
@@ -557,6 +560,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
                 fn from(template: #struct_name) -> Self {
                     Self {
                         alias: String::new(),
+                        entity_type: EntityType::Relation,
                         #(#from_template_fields),*
                     }
                 }
@@ -607,6 +611,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
         #[derive(Serialize, Deserialize, Debug, Clone)]
         pub struct #new_struct_name {
             pub alias: String,
+            pub entity_type: EntityType,
             #(#new_struct_fields),*
         }
 
@@ -615,7 +620,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
             type Props = #props_enum_name;
 
             fn get_entity_type(&self) -> EntityType {
-                Self::get_relation_entity_type()
+                self.entity_type.clone()
             }
 
             fn get_label(&self) -> String {
