@@ -32,3 +32,6 @@ macro_rules! generate_entity_wrappers {
         }
     }
 }
+
+// could do macro rules for returns!, take in the var names, and output them wrapped in EntityWrapper in a slice, with the EntityWrapper::from_db_entity() function after?
+// doesn't solve the issue, but makes everything more convenient...
