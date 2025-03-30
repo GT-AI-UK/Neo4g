@@ -30,35 +30,35 @@ pub async fn connect_neo4j() -> Graph { //return db object, run on startup, bind
 async fn main() {
     let graph = connect_neo4j().await;
     let mut component1 = Component::new("cid3", "path3", ComponentType::Type1);
-    let mut component2 = Component::new("cid73", "path16", ComponentType::Type2);
+    let mut component2 = Component::new("cid4", "path16", ComponentType::Type2);
     let mut hcrel1 = HasComponent::default();
     let mut hcrel2 = HasComponent::default();
-    let mut page1 = Page::new("p1id", "p1path", vec![component1.clone(), component2.clone()]);
+    let mut page1 = Page::new("pid4", "p1path", vec![component1.clone(), component2.clone()]);
 
     // !! Functional MATCH Query:
-    // let result = Neo4gBuilder::new()
-    //     .get()
-    //         .node(&mut page1, &[&PageProps::Id("pid99".to_string())])
-    //         .relation(&mut hcrel1, &[])
-    //         .node(&mut component1, &[&ComponentProps::Id("cid3".to_string())])
-    //     .end_statement()
-    //     .get()
-    //         .node_ref(&page1)
-    //         .relation(&mut hcrel2, &[])
-    //         .node(&mut component2, &[&ComponentProps::Id("cid73".to_string())])
-    //         .filter(Where::new()
-    //             .condition(&page1, &PageProps::Id("pid99".into()).into(), CompareOperator::Eq)
-    //             .join(CompareJoiner::And)
-    //             .nest(|parent_filter| parent_filter, Where::new()
-    //                 .condition(&component1, &ComponentProps::Id("pid99".into()).into(), CompareOperator::Ne)
-    //                 .join(CompareJoiner::And)
-    //                 .condition(&component2, &ComponentProps::Id("pid99".into()).into(), CompareOperator::Ne)
-    //             )          
-    //         )
-    //         .end_statement()
-    //     //.run_query(graph, &[EntityWrapper::from(page1), EntityWrapper::from(hcrel1), EntityWrapper::from(component1), EntityWrapper::from(hcrel2), EntityWrapper::from(component2)], EntityWrapper::from_db_entity).await;
-    //     .run_query(graph, returns!(page1, hcrel1, component1, hcrel2, component2), EntityWrapper::from_db_entity).await;
-    // println!("{:?}", result);
+    let result = Neo4gBuilder::new()
+        .get()
+            .node(&mut page1, &[PageProps::CurrentId])
+            .relation(&mut hcrel1, &[])
+            .node(&mut component1, &[ComponentProps::CurrentId])
+        .end_statement()
+        .get()
+            .node_ref(&page1)
+            .relation(&mut hcrel2, &[])
+            .node(&mut component2, &[ComponentProps::Id("cid4".to_string())])
+            .filter(Where::new()
+                .condition(&page1, &PageProps::Id("pid99".into()).into(), CompareOperator::Eq)
+                // .join(CompareJoiner::And)
+                // .nest(|parent_filter| parent_filter, Where::new()
+                //     .condition(&component1, &ComponentProps::Id("pid99".into()).into(), CompareOperator::Ne)
+                //     .join(CompareJoiner::And)
+                //     .condition(&component2, &ComponentProps::Id("pid99".into()).into(), CompareOperator::Ne)
+                // )          
+            )
+            .end_statement()
+        //.run_query(graph, &[EntityWrapper::from(page1), EntityWrapper::from(hcrel1), EntityWrapper::from(component1), EntityWrapper::from(hcrel2), EntityWrapper::from(component2)], EntityWrapper::from_db_entity).await;
+        .run_query(graph, returns!(page1, hcrel1, component1, hcrel2, component2), EntityWrapper::from_db_entity).await;
+    println!("{:?}", result);
 
     // !! Functional MERGE Query:
     // let result = Neo4gBuilder::new()

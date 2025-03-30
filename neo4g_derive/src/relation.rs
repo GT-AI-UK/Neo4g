@@ -76,7 +76,7 @@ pub fn generate_neo4g_relation(input: TokenStream) -> TokenStream {
     }).collect();
 
     let get_current_fn = quote! {
-        fn get_current(&self, prop: Self::Props) -> Self::Props {
+        fn get_current(&self, prop: &Self::Props) -> Self::Props {
             match prop {
                 #(#get_current_match_arms)*
             }
@@ -139,7 +139,7 @@ pub fn generate_neo4g_relation(input: TokenStream) -> TokenStream {
             let self_props = self.self_to_props();
             let mapped_self_props: Vec<&#props_enum_name> = self_props.iter().map(|prop| prop).collect();
             let sliced_props: &[&#props_enum_name] = &mapped_self_props;
-            Neo4gEntity::entity_by(self, &Aliasable::get_alias(self), sliced_props)
+            Neo4gEntity::entity_by(self, &Aliasable::get_alias(self), &self_props)
             // let props = self_to_props(&self);
             // let keys: Vec<String> = vec![ #(#create_query_params),* ];
             // let query = format!("(neo4g_relation:{} {{{}}})\n", #new_struct_name_str, keys.join(", "));
@@ -670,7 +670,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
             
             #get_current_fn
             
-            fn entity_by(&self, alias: &str, props: &[&Self::Props]) -> (String, std::collections::HashMap<String, BoltType>) {
+            fn entity_by(&self, alias: &str, props: &[Self::Props]) -> (String, std::collections::HashMap<String, BoltType>) {
                 Self::relation_by(alias, props)
             }
 

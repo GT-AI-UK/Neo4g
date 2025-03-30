@@ -124,7 +124,7 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
             let self_props = self.self_to_props();
             let mapped_self_props: Vec<&#props_enum_name> = self_props.iter().map(|prop| prop).collect();
             let sliced_props: &[&#props_enum_name] = &mapped_self_props;
-            Neo4gEntity::entity_by(self, &Aliasable::get_alias(self), sliced_props)
+            Neo4gEntity::entity_by(self, &Aliasable::get_alias(self), &self_props)
         }
     };
 
@@ -648,7 +648,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
             
             #get_current_fn
             
-            fn entity_by(&self, alias: &str, props: &[&Self::Props]) -> (String, std::collections::HashMap<String, BoltType>) {
+            fn entity_by(&self, alias: &str, props: &[Self::Props]) -> (String, std::collections::HashMap<String, BoltType>) {
                 Self::node_by(alias, props)
             }
 
