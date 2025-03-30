@@ -1,5 +1,5 @@
 use example_consumer::entity_wrapper::{EntityWrapper, Label};
-use example_consumer::objects::{Group, GroupProps, MemberOf, MemberOfProps, User, UserProps, UserTemplate, Page, PageProps, PageTemplate, Component, ComponentProps, ComponentTemplate, ComponentType, HasComponent, HasComponentTemplate, HasComponentProps};
+use example_consumer::objects::{Group, GroupProps, MemberOf, MemberOfProps, User, UserProps, UserTemplate, Page, PageProps, PageCurrentProps, PageTemplate, Component, ComponentProps, ComponentTemplate, ComponentType, HasComponent, HasComponentTemplate, HasComponentProps};
 use neo4g::query_builder::{self, CompareJoiner, CompareOperator, Neo4gBuilder, Where};
 use neo4rs::Graph;
 use dotenv::dotenv;
@@ -63,9 +63,9 @@ async fn main() {
     // !! Functional MERGE Query:
     let result = Neo4gBuilder::new()
     .merge()
-        .node(&mut page1, &[&page1.id])
+        .node(&mut page1, &[PageCurrentProps::Id])
         .relation(&mut hcrel1, &[])
-        .node(&mut component1, &[&component1.id])
+        .node(&mut component1, &[component1.id])
         .on_create()
             .set(&page1, &[&PageProps::Path("on_match_set page1".to_string())])
             .set(&component1, &[&ComponentProps::Path("on_match_set component1".to_string())])

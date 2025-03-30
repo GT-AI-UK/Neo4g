@@ -11,12 +11,22 @@ pub trait WrappedNeo4gEntity: Sized + Aliasable {
 
 pub trait Neo4gLabel: std::fmt::Display {}
 
+pub enum PropsType {
+    Current,
+    Static,
+}
+
+pub trait CurrentProp {
+    fn get_type(&self) -> PropsType;
+}
+
 pub trait Neo4gEntity: Aliasable {
-    type Props: QueryParam;
+    type Props: QueryParam + CurrentProp;
     fn get_entity_type(&self) -> EntityType;
     fn get_label(&self) -> String;
-    fn entity_by(&self, alias: &str, props: &[&Self::Props]) -> (String, std::collections::HashMap<String, BoltType>);
+    fn entity_by(&self, alias: &str, props: &[Self::Props]) -> (String, std::collections::HashMap<String, BoltType>);
     fn create_from_self(&self) -> (String, std::collections::HashMap<String, BoltType>);
+    fn get_current<P: CurrentProp>(&self, prop: P) -> Self::Props;
 }
 
 pub trait Aliasable {

@@ -34,7 +34,7 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
     
     // Generated Props enum (e.g. UserProps).
     let props_enum_name = syn::Ident::new(&format!("{}Props", base_name), struct_name.span());
-    //let current_props_enum_name = syn::Ident::new(&format!("{}CurrentProps", base_name), struct_name.span());
+    let current_props_enum_name = syn::Ident::new(&format!("{}CurrentProps", base_name), struct_name.span());
 
     // Generate enum variants that hold the actual field types.
     let props_enum_variants: Vec<_> = all_fields_full.iter()
@@ -54,7 +54,7 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
     .filter_map(|field| {
         if !should_ignore_field(field) {
             let field_ident = field.ident.as_ref().unwrap();
-            let variant = syn::Ident::new(&format!("Current{}", field_ident.to_string().to_pascal_case()), struct_name.span());
+            let variant = syn::Ident::new(&field_ident.to_string().to_pascal_case(), struct_name.span());
             Some(quote! { #variant })
         } else {
             None
@@ -104,6 +104,49 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
             let mapped_self_props: Vec<&#props_enum_name> = self_props.iter().map(|prop| prop).collect();
             let sliced_props: &[&#props_enum_name] = &mapped_self_props;
             Neo4gEntity::entity_by(self, &Aliasable::get_alias(self), sliced_props)
+        }
+    };
+
+    let get_current_arms: Vec<_> = all_fields_full.iter().filter_map(|(field)| {
+        let field_ident = field.ident.as_ref().unwrap();
+        let variant = syn::Ident::new(&field_ident.to_string().to_pascal_case(), field_ident.span());
+        if should_ignore_field(field) {
+            // For ignored fields, provide a match arm that essentially does nothing.
+            None
+        } else {
+            // For normal fields, return the key and the value.
+            Some(quote! {
+                #current_props_enum_name::#variant => return self.#field_ident,
+            })
+        }
+    }).collect();
+    let get_static_arms: Vec<_> = all_fields_full.iter().filter_map(|(field)| {
+        let field_ident = field.ident.as_ref().unwrap();
+        let variant = syn::Ident::new(&field_ident.to_string().to_pascal_case(), field_ident.span());
+        if should_ignore_field(field) {
+            // For ignored fields, provide a match arm that essentially does nothing.
+            None
+        } else {
+            // For normal fields, return the key and the value.
+            Some(quote! {
+                #props_enum_name::#variant(var) => return #props_enum_name::#variant(var),
+            })
+        }
+    }).collect();
+    let get_current_fn = quote! {
+        fn get_current(&self, prop: #) -> #new_struct_name::Props {
+            match prop.get_type() {
+                PropsType::Current => {
+                    match prop {
+                        #(#get_current_arms)*
+                    }
+                },
+                PropsType::Static => {
+                    match prop {
+                        #(#get_static_arms)*
+                    }
+                }
+            }
         }
     };
 
@@ -586,10 +629,9 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
     // Assemble the final output.
     let expanded = quote! {
         // Generated Props enum.
-        #[derive(Debug, Clone)]
+        #[derive(Debug, Clone, Serialize, Deserialize)]
         pub enum #props_enum_name {
-            #(#props_enum_variants),*,
-            #(#props_enum_current_variants),*
+            #(#props_enum_variants),*
         }
 
         impl QueryParam for #props_enum_name {
@@ -601,12 +643,28 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
             }
         }
 
+        #[derive(Debug, Clone)]
+        pub enum #current_props_enum_name {
+            #(#props_enum_current_variants),*
+        }
+
+        impl CurrentProp for #props_enum_name {
+            fn get_type(&self) -> PropsType {
+                PropsType::Static
+            }
+        }
+        impl CurrentProp for #current_props_enum_name {
+            fn get_type(&self) -> PropsType {
+                PropsType::Current
+            }
+        }
+
         impl #props_enum_name {
             #(#props_accessor_methods)*
         }
 
         // Generated new struct (e.g., `User` from `UserTemplate`) whose fields are wrapped in the Props enum.
-        #[derive(Debug, Clone)]
+        #[derive(Debug, Clone, Serialize, Deserialize)]
         pub struct #new_struct_name {
             pub alias: String,
             pub entity_type: EntityType,
@@ -625,11 +683,9 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
                 Self::get_node_label()
             }
             
-            // fn match_by(&self, props: &[Self::Props]) -> (String, String, std::collections::HashMap<String, BoltType>) {
-            //     Self::get_node_by(props)
-            // }
+            #get_current_fn
             
-            fn entity_by(&self, alias: &str, props: &[&Self::Props]) -> (String, std::collections::HashMap<String, BoltType>) {
+            fn entity_by(&self, alias: &str, props: &[Self::Props]) -> (String, std::collections::HashMap<String, BoltType>) {
                 Self::node_by(alias, props)
             }
 

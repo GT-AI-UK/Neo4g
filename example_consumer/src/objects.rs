@@ -29,11 +29,9 @@ use neo4g::query_builder::EntityType;
 use neo4g::traits::WrappedNeo4gEntity;
 use crate::entity_wrapper::{EntityWrapper, Nothing};
 use neo4g_derive::{Neo4gNode, Neo4gRelation, not_query_param};
-use neo4g::traits::Neo4gEntity;
+use neo4g::traits::{Neo4gEntity, Aliasable, QueryParam, CurrentProp, PropsType};
 use heck::ToShoutySnakeCase;
 use serde::{Serialize, Deserialize};
-use neo4g::traits::QueryParam;
-use neo4g::traits::Aliasable;
 use neo4g::query_builder::DbEntityWrapper;
 
 #[derive(Neo4gNode, Serialize, Deserialize, Debug, Clone)]
@@ -67,7 +65,7 @@ pub struct UserTemplate {
     surname: String,
     deleted: bool,
     #[not_query_param]
-    groups: Vec<GroupTemplate>,
+    groups: Vec<Group>,
     #[serde(skip)]
     example: String,
 }
@@ -125,7 +123,7 @@ pub struct PageTemplate {
     id: String,
     path: String,
     #[not_query_param]
-    components: Vec<ComponentTemplate>,
+    components: Vec<Component>,
 }
 
 // impl User {

@@ -332,9 +332,12 @@ impl<Q: CanNode> Neo4gMergeStatement<Q> {
     /// (nodealias:NodeLabel {prop1: $node1_prop1, prop2: $node1_prop2})
     /// ```
     /// and asociated params.
-    pub fn node<T: Neo4gEntity>(mut self, entity: &mut T, props: &[&T::Props]) -> Neo4gMergeStatement<CreatedNode>
-    { //where EntityWrapper: From<T>, T: Clone {
+    pub fn node<T: Neo4gEntity, P: CurrentProp>(mut self, entity: &mut T, filter_props: &[P]) -> Neo4gMergeStatement<CreatedNode>
+    where P: Clone {
         self.node_number += 1;
+        let props: Vec<T::Props> = filter_props.iter().map(|prop| {
+            entity.get_current(prop.clone())
+        }).collect();
         let label = entity.get_label();
         let alias = format!("{}{}", label.to_lowercase(), self.node_number);
         entity.set_alias(&alias);
@@ -343,7 +346,7 @@ impl<Q: CanNode> Neo4gMergeStatement<Q> {
         if props.is_empty() {
             self.query.push_str(&format!("({})", name));
         } else {
-            let (query_part, params) = entity.entity_by(&alias, props);
+            let (query_part, params) = entity.entity_by(&alias, &props);
             self.query.push_str(&query_part);
             self.params.extend(params);
         }
@@ -377,15 +380,18 @@ impl Neo4gMergeStatement<CreatedNode> {
     /// [realtionalias:REL_TYPE*0 {prop1: $relation1_prop1, prop2: $relation1_prop2}]->
     /// ```
     /// and asociated params.
-    pub fn relations<T: Neo4gEntity>(mut self, min_hops: u32, entity: &mut T, props: &[&T::Props]) -> Neo4gMergeStatement<CreatedRelation>
-    { //where EntityWrapper: From<T>, T: Clone {
+    pub fn relations<T: Neo4gEntity, P: CurrentProp>(mut self, min_hops: u32, entity: &mut T, filter_props: &[P]) -> Neo4gMergeStatement<CreatedRelation>
+    where P: Clone {
         self.relation_number += 1;
+        let props: Vec<T::Props> = filter_props.iter().map(|prop| {
+            entity.get_current(prop.clone())
+        }).collect();
         let label = entity.get_label();
         let alias = format!("{}{}", label.to_lowercase(), self.relation_number);
         entity.set_alias(&alias);
         let name = format!("{}{}", label.to_lowercase(), self.relation_number);
         //self.//previous_entity = Some((name.clone(), EntityType::Relation, EntityWrapper::from(entity.clone())));
-        let (query_part, params) = entity.entity_by(&alias, props);
+        let (query_part, params) = entity.entity_by(&alias, &props);
         self.query.push_str(&query_part.replace("min_hops", &format!("{}", min_hops)));
         self.params.extend(params);
         self.transition::<CreatedRelation>()
@@ -401,15 +407,18 @@ impl Neo4gMergeStatement<CreatedNode> {
     /// [realtionalias:REL_TYPE {prop1: $relation1_prop1, prop2: $relation1_prop2}]->
     /// ```
     /// and asociated params.
-    pub fn relation<T: Neo4gEntity>(mut self, entity: &mut T, props: &[&T::Props]) -> Neo4gMergeStatement<CreatedRelation>
-    { //where EntityWrapper: From<T>, T: Clone {
+    pub fn relation<T: Neo4gEntity, P: CurrentProp>(mut self, entity: &mut T, filter_props: &[P]) -> Neo4gMergeStatement<CreatedRelation>
+    where P: Clone {
         self.relation_number += 1;
+        let props: Vec<T::Props> = filter_props.iter().map(|prop| {
+            entity.get_current(prop.clone())
+        }).collect();
         let label = entity.get_label();
         let alias = format!("{}{}", label.to_lowercase(), self.relation_number);
         entity.set_alias(&alias);
         let name = format!("{}{}", label.to_lowercase(), self.relation_number);
         //self.//previous_entity = Some((name.clone(), EntityType::Relation, EntityWrapper::from(entity.clone())));
-        let (query_part, params) = entity.entity_by(&alias, props);
+        let (query_part, params) = entity.entity_by(&alias, &props);
         self.query.push_str(&query_part.replace("*min_hops..", ""));
         self.params.extend(params);
         self.transition::<CreatedRelation>()
@@ -612,9 +621,12 @@ impl<Q: CanNode> Neo4gMatchStatement<Q> {
     /// (nodealias:NodeLabel {prop1: $node1_prop1, prop2: $node1_prop2})
     /// ```
     /// and asociated params.
-    pub fn node<T: Neo4gEntity>(mut self, entity: &mut T, props: &[&T::Props]) -> Neo4gMatchStatement<MatchedNode>
-    { //where EntityWrapper: From<T>, T: Clone {
+    pub fn node<T: Neo4gEntity, P: CurrentProp>(mut self, entity: &mut T, filter_props: &[P]) -> Neo4gMatchStatement<MatchedNode>
+    where P: Clone {
         self.node_number += 1;
+        let props: Vec<T::Props> = filter_props.iter().map(|prop| {
+            entity.get_current(prop.clone())
+        }).collect();
         let label = entity.get_label();
         let alias = format!("{}{}", label.to_lowercase(), self.node_number);
         entity.set_alias(&alias);
@@ -623,7 +635,7 @@ impl<Q: CanNode> Neo4gMatchStatement<Q> {
         if props.is_empty() {
             self.query.push_str(&format!("({})", name));
         } else {
-            let (query_part, params) = entity.entity_by(&alias, props);
+            let (query_part, params) = entity.entity_by(&alias, &props);
             self.query.push_str(&query_part);
             self.params.extend(params);
         }
@@ -657,15 +669,18 @@ impl Neo4gMatchStatement<MatchedNode> {
     /// [realtionalias:REL_TYPE*0 {prop1: $relation1_prop1, prop2: $relation1_prop2}]->
     /// ```
     /// and asociated params.
-    pub fn relations<T: Neo4gEntity>(mut self, min_hops: u32, entity: &mut T, props: &[&T::Props]) -> Neo4gMatchStatement<CreatedRelation>
-    { //where EntityWrapper: From<T>, T: Clone {
+    pub fn relations<T: Neo4gEntity, P: CurrentProp>(mut self, min_hops: u32, entity: &mut T, filter_props: &[P]) -> Neo4gMatchStatement<CreatedRelation>
+    where P: Clone {
         self.relation_number += 1;
+        let props: Vec<T::Props> = filter_props.iter().map(|prop| {
+            entity.get_current(prop.clone())
+        }).collect();
         let label = entity.get_label();
         let alias = format!("{}{}", label.to_lowercase(), self.relation_number);
         entity.set_alias(&alias);
         let name = format!("{}{}", label.to_lowercase(), self.node_number);
         //self.//previous_entity = Some((name.clone(), EntityType::Relation, EntityWrapper::from(entity.clone())));
-        let (query_part, params) = entity.entity_by(&alias, props);
+        let (query_part, params) = entity.entity_by(&alias, &props);
         self.query.push_str(&query_part.replace("min_hops", &format!("{}", min_hops)));
         self.params.extend(params);
         self.transition::<CreatedRelation>()
@@ -681,15 +696,18 @@ impl Neo4gMatchStatement<MatchedNode> {
     /// [realtionalias:REL_TYPE {prop1: $relation1_prop1, prop2: $relation1_prop2}]->
     /// ```
     /// and asociated params.
-    pub fn relation<T: Neo4gEntity>(mut self, entity: &mut T, props: &[&T::Props]) -> Neo4gMatchStatement<MatchedRelation>
-    { //where EntityWrapper: From<T>, T: Clone {
+    pub fn relation<T: Neo4gEntity, P: CurrentProp>(mut self, entity: &mut T, filter_props: &[P]) -> Neo4gMatchStatement<MatchedRelation>
+    where P: Clone {
         self.relation_number += 1;
+        let props: Vec<T::Props> = filter_props.iter().map(|prop| {
+            entity.get_current(prop.clone())
+        }).collect();
         let label = entity.get_label();
         let alias = format!("{}{}", label.to_lowercase(), self.relation_number);
         entity.set_alias(&alias);
         let name = format!("{}{}", label.to_lowercase(), self.node_number);
         //self.//previous_entity = Some((name.clone(), EntityType::Relation, EntityWrapper::from(entity.clone())));
-        let (query_part, params) = entity.entity_by(&alias, props);
+        let (query_part, params) = entity.entity_by(&alias, &props);
         self.query.push_str(&query_part.replace("*min_hops..", ""));
         self.params.extend(params);
         self.transition::<MatchedRelation>()
