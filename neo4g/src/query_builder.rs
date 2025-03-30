@@ -1545,7 +1545,7 @@ impl<Q: CanCondition> Where<Q> {
     pub fn nest<F, S>(mut self, parent_closure: F, inner_builder: Where<Condition>) -> Where<Condition>
     where F: FnOnce(&Self) -> &Where<S> {
         let parent = parent_closure(&self);
-        self.condition_number = parent.condition_number;
+        self.condition_number = parent.condition_number + 1;
         let (query, params) = inner_builder.build(); // Assuming build() consumes the nested builder into (query, params)
         self.string.push_str(&format!("({})", query));
         self.params.extend(params);
