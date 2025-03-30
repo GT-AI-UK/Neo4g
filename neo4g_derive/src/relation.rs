@@ -518,6 +518,12 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
             }
         };
 
+        let wrap_fn = quote! {
+            pub fn wrap(self) -> EntityWrapper {
+                EntityWrapper::#new_struct_name(self.clone())
+            }
+        };
+
         let to_template_fields: Vec<_> = all_fields_full.iter().map(|field| {
             let field_ident = field.ident.as_ref().unwrap();
             if should_ignore_field(field) {
@@ -652,7 +658,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
         
         impl #new_struct_name {
             #get_relation_entity_type_fn
-            //#get_relation_by_fn
+            #wrap_fn
             #relation_by_fn
             #create_relation_from_self_fn
             #get_relation_label_fn

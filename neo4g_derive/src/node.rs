@@ -34,6 +34,7 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
     
     // Generated Props enum (e.g. UserProps).
     let props_enum_name = syn::Ident::new(&format!("{}Props", base_name), struct_name.span());
+    let current_props_enum_name = syn::Ident::new(&format!("{}CurrentProps", base_name), struct_name.span());
 
     // Generate enum variants that hold the actual field types.
     let props_enum_variants: Vec<_> = all_fields_full.iter()
@@ -496,6 +497,12 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
             }
         };
 
+        let wrap_fn = quote! {
+            pub fn wrap(self) -> EntityWrapper {
+                EntityWrapper::#new_struct_name(self.clone())
+            }
+        };
+
         let to_template_fields: Vec<_> = all_fields_full.iter().map(|field| {
             let field_ident = field.ident.as_ref().unwrap();
             if should_ignore_field(field) {
@@ -632,7 +639,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
         
         impl #new_struct_name {
             #get_node_entity_type_fn
-            //#get_node_by_fn
+            #wrap_fn
             #node_by_fn
             #create_node_from_self_fn
             #get_node_label_fn

@@ -179,14 +179,14 @@ impl<Q: CanWith> Neo4gBuilder<Q> {
     /// Generates a WITH call. 
     /// # Example
     /// ```rust
-    /// .with(&[&EntityWrapper::Entity(Entity1), &EntityWrapper::Entity2(Entity2)])
+    /// .with(&[entity1.wrap(), entity2.wrap()])
     /// ```
     /// The example above generates the following query:
     /// ```rust
     /// WITH entity1alias, entity2alias
     /// ```
     /// and asociated params.
-    pub fn with<T: Aliasable>(mut self, entities_to_alias: &[&T]) -> Neo4gBuilder<Withed> {
+    pub fn with<T: Aliasable>(mut self, entities_to_alias: &[T]) -> Neo4gBuilder<Withed> {
         let aliases: Vec<String> = entities_to_alias.iter().map(|entity| {
             entity.get_alias()
         }).collect();
@@ -516,7 +516,7 @@ impl <Q: PossibleStatementEnd> Neo4gMergeStatement<Q> {
     /// SET entity1alias.prop1 = $set1_prop1, entity1alias.prop2 = $set1_prop2, entity2alias.prop1 = $set2_prop1, entity2alias.prop2 = $set2_prop2
     /// ```
     /// and asociated params for the inner builder.
-    pub fn set<T: Neo4gEntity>(mut self, entity_to_alias: T, props: &[&T::Props]) -> Self {
+    pub fn set<T: Neo4gEntity>(mut self, entity_to_alias: &T, props: &[&T::Props]) -> Self {
         //where T::Props: Clone, PropsWrapper: From<<T as Neo4gEntity>::Props> {
         self.set_number += 1;
         let alias = entity_to_alias.get_alias();
