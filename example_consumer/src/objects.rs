@@ -67,7 +67,7 @@ pub struct UserTemplate {
     surname: String,
     deleted: bool,
     #[not_query_param]
-    groups: Vec<Group>,
+    groups: Vec<GroupTemplate>,
     #[serde(skip)]
     example: String,
 }
@@ -125,7 +125,7 @@ pub struct PageTemplate {
     id: String,
     path: String,
     #[not_query_param]
-    components: Vec<Component>,
+    components: Vec<ComponentTemplate>,
 }
 
 // impl User {

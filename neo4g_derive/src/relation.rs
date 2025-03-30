@@ -49,6 +49,18 @@ pub fn generate_neo4g_relation(input: TokenStream) -> TokenStream {
     })
     .collect();
 
+    let props_enum_current_variants: Vec<_> = all_fields_full.iter()
+    .filter_map(|field| {
+        if !should_ignore_field(field) {
+            let field_ident = field.ident.as_ref().unwrap();
+            let variant = syn::Ident::new(&format!("Current{}", field_ident.to_string().to_pascal_case()), struct_name.span());
+            Some(quote! { #variant })
+        } else {
+            None
+        }
+    })
+    .collect();
+
     let self_to_props_vec_iter: Vec<_> = all_fields_full.iter().filter_map(|field| {
         if !should_ignore_field(field) {
             let field_ident = field.ident.as_ref().unwrap();
@@ -595,16 +607,17 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
     // Assemble the final output.
     let expanded = quote! {
         // Generated Props enum.
-        #[derive(Serialize, Deserialize, Debug, Clone)]
-        #[serde(untagged)]
+        #[derive(Debug, Clone)]
         pub enum #props_enum_name {
-            #(#props_enum_variants),*
+            #(#props_enum_variants),*,
+            #(#props_enum_current_variants),*
         }
 
         impl QueryParam for #props_enum_name {
             fn to_query_param(&self) -> (&'static str, BoltType) {
                 match self {
-                    #(#to_query_param_match_arms),*
+                    #(#to_query_param_match_arms),*,
+                    _ => ("nope", 0.into()),
                 }
             }
         }
@@ -614,7 +627,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
         }
 
         // Generated new struct (e.g., `User` from `UserTemplate`) whose fields are wrapped in the Props enum.
-        #[derive(Serialize, Deserialize, Debug, Clone)]
+        #[derive(Debug, Clone)]
         pub struct #new_struct_name {
             pub alias: String,
             pub entity_type: EntityType,
