@@ -50,8 +50,7 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
     })
     .collect();
 
-    let props_enum_current_variants: Vec<_> = all_fields_full.iter()
-    .filter_map(|field| {
+    let props_enum_current_variants: Vec<_> = all_fields_full.iter().filter_map(|field| {
         if !should_ignore_field(field) {
             let field_ident = field.ident.as_ref().unwrap();
             let variant = syn::Ident::new(&format!("Current{}", field_ident.to_string().to_pascal_case()), struct_name.span());
@@ -61,6 +60,28 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
         }
     })
     .collect();
+
+    let get_current_match_arms: Vec<_> = all_fields_full.iter().filter_map(|field| {
+        if !should_ignore_field(field) {
+            let field_ident = field.ident.as_ref().unwrap();
+            let variant = syn::Ident::new(&field_ident.to_string().to_pascal_case(), struct_name.span());
+            let current_variant = syn::Ident::new(&format!("Current{}", field_ident.to_string().to_pascal_case()), struct_name.span());
+            Some(quote! { 
+                #props_enum_name::#variant(_) => prop.clone(),
+                #props_enum_name::#current_variant => self.#field_ident.clone(),
+            })
+        } else {
+            None
+        }
+    }).collect();
+
+    let get_current_fn = quote! {
+        fn get_current(&self, prop: &Self::Props) -> Self::Props {
+            match prop {
+                #(#get_current_match_arms)*
+            }
+        }
+    };
 
     let self_to_props_vec_iter: Vec<_> = all_fields_full.iter().filter_map(|field| {
         if !should_ignore_field(field) {
@@ -625,9 +646,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
                 Self::get_node_label()
             }
             
-            // fn match_by(&self, props: &[Self::Props]) -> (String, String, std::collections::HashMap<String, BoltType>) {
-            //     Self::get_node_by(props)
-            // }
+            #get_current_fn
             
             fn entity_by(&self, alias: &str, props: &[&Self::Props]) -> (String, std::collections::HashMap<String, BoltType>) {
                 Self::node_by(alias, props)

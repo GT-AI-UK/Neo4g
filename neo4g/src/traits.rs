@@ -17,6 +17,7 @@ pub trait Neo4gEntity: Aliasable {
     fn get_label(&self) -> String;
     fn entity_by(&self, alias: &str, props: &[&Self::Props]) -> (String, std::collections::HashMap<String, BoltType>);
     fn create_from_self(&self) -> (String, std::collections::HashMap<String, BoltType>);
+    fn get_current(&self, prop: Self::Props) -> Self::Props;
 }
 
 pub trait Aliasable {

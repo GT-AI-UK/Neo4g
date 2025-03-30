@@ -332,9 +332,12 @@ impl<Q: CanNode> Neo4gMergeStatement<Q> {
     /// (nodealias:NodeLabel {prop1: $node1_prop1, prop2: $node1_prop2})
     /// ```
     /// and asociated params.
-    pub fn node<T: Neo4gEntity>(mut self, entity: &mut T, props: &[&T::Props]) -> Neo4gMergeStatement<CreatedNode>
-    { //where EntityWrapper: From<T>, T: Clone {
+    pub fn node<T: Neo4gEntity>(mut self, entity: &mut T, filter_props: &[T::Props]) -> Neo4gMergeStatement<CreatedNode>
+    where T::Props: Clone {
         self.node_number += 1;
+        let props: Vec<T::Props> = filter_props.iter().map(|prop| {
+            entity.get_current(prop.clone())
+        }).collect();
         let label = entity.get_label();
         let alias = format!("{}{}", label.to_lowercase(), self.node_number);
         entity.set_alias(&alias);
@@ -343,7 +346,7 @@ impl<Q: CanNode> Neo4gMergeStatement<Q> {
         if props.is_empty() {
             self.query.push_str(&format!("({})", name));
         } else {
-            let (query_part, params) = entity.entity_by(&alias, props);
+            let (query_part, params) = entity.entity_by(&alias, &props);
             self.query.push_str(&query_part);
             self.params.extend(params);
         }
