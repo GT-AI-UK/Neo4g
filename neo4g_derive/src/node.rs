@@ -586,7 +586,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
     // Assemble the final output.
     let expanded = quote! {
         // Generated Props enum.
-        #[derive(Debug, Clone)]
+        #[derive(Debug, Clone, Serialize, Deserialize)]
         pub enum #props_enum_name {
             #(#props_enum_variants),*,
             #(#props_enum_current_variants),*
@@ -606,7 +606,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
         }
 
         // Generated new struct (e.g., `User` from `UserTemplate`) whose fields are wrapped in the Props enum.
-        #[derive(Debug, Clone)]
+        #[derive(Debug, Clone, Serialize, Deserialize)]
         pub struct #new_struct_name {
             pub alias: String,
             pub entity_type: EntityType,
