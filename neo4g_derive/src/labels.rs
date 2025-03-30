@@ -83,6 +83,7 @@ pub fn generate_labels(input: TokenStream) -> TokenStream {
         impl std::fmt::Display for #enum_name {
             #fmt_fn
         }
+        impl Neo4gLabel for #enum_name {}
     };
 
     gen.into()

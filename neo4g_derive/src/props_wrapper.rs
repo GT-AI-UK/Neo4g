@@ -88,11 +88,7 @@ pub fn generate_props_wrapper(input: TokenStream) -> TokenStream {
 
         impl #enum_name {
             #inner_fn
-            pub fn to_query_param(&self) -> (&'static str, BoltType) {
-                match self {
-                    #(#to_query_param_match_arms),*
-                }
-            }
+        }    
             // pub fn set_by(alias: &str, set_number: u32, props: &[&#enum_name]) -> (String, std::collections::HashMap<String, BoltType>) {
             //     let mut query = String::new();
             //     let mut params = std::collections::HashMap::new();
@@ -109,6 +105,12 @@ pub fn generate_props_wrapper(input: TokenStream) -> TokenStream {
             //     query.push_str(&props_str.join(", "));
             //     (query, params)
             // }
+        impl QueryParam for #enum_name {
+            fn to_query_param(&self) -> (&'static str, BoltType) {
+                match self {
+                    #(#to_query_param_match_arms),*
+                }
+            }
         }
         
         impl PartialEq for #enum_name {

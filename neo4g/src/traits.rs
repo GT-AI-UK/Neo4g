@@ -9,6 +9,8 @@ pub trait WrappedNeo4gEntity: Sized + Aliasable {
     fn get_entity_type(&self) -> EntityType;
 }
 
+pub trait Neo4gLabel: std::fmt::Display {}
+
 pub trait Neo4gEntity: Aliasable {
     type Props: QueryParam;
     fn get_entity_type(&self) -> EntityType;

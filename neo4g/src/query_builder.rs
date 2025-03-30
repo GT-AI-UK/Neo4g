@@ -296,11 +296,10 @@ impl Neo4gCreateStatement<CreatedNode> {
     /// .set_additional_labels(&[Label::Any, Label::SysObj])
     /// ```
     /// The example above inserts the labels within a node object, eg. (node1:Node) becomes (node1:Node:Any:SysObj):
-    pub fn set_additional_labels(mut self) {//, labels: &[Label]) -> Self {
-        todo!("figure this out")
-        // let additional_lables: Vec<String> = labels.iter().map(|l| l.to_string()).collect();
-        // self.query = self.query.replace(":AdditionalLabels", &additional_lables.join(":"));
-        // self
+    pub fn set_additional_labels<T: Neo4gLabel>(mut self, labels: &[T]) -> Self {
+        let additional_lables: Vec<String> = labels.iter().map(|l| l.to_string()).collect();
+        self.query = self.query.replace(":AdditionalLabels", &additional_lables.join(":"));
+        self
     }
 }
 impl <Q: CanAddReturn> Neo4gCreateStatement<Q> {
@@ -466,11 +465,10 @@ impl Neo4gMergeStatement<CreatedNode> {
     /// .set_additional_labels(&[Label::Any, Label::SysObj])
     /// ```
     /// The example above inserts the labels within a node object, eg. (node1:Node) becomes (node1:Node:Any:SysObj):
-    pub fn set_additional_labels(mut self) {//, labels: &[Label]) -> Self {
-        todo!()
-        // let additional_lables: Vec<String> = labels.iter().map(|l| l.to_string()).collect();
-        // self.query = self.query.replace(":AdditionalLabels", &additional_lables.join(":"));
-        // self
+    pub fn set_additional_labels<T: Neo4gLabel>(mut self, labels: &[T]) -> Self {
+        let additional_lables: Vec<String> = labels.iter().map(|l| l.to_string()).collect();
+        self.query = self.query.replace(":AdditionalLabels", &additional_lables.join(":"));
+        self
     }
 }
 impl <Q: CanAddReturn> Neo4gMergeStatement<Q> {
@@ -748,11 +746,10 @@ impl Neo4gMatchStatement<MatchedNode> {
     /// .set_additional_labels(&[Label::Any, Label::SysObj])
     /// ```
     /// The example above inserts the labels within a node object, eg. (node1:Node) becomes (node1:Node:Any:SysObj):
-    pub fn set_additional_labels(mut self) {//, labels: &[Label]) -> Self {
-        todo!()
-        // let additional_lables: Vec<String> = labels.iter().map(|l| l.to_string()).collect();
-        // self.query = self.query.replace(":AdditionalLabels", &additional_lables.join(":"));
-        // self
+    pub fn set_additional_labels<T: Neo4gLabel>(mut self, labels: &[T]) -> Self {
+        let additional_lables: Vec<String> = labels.iter().map(|l| l.to_string()).collect();
+        self.query = self.query.replace(":AdditionalLabels", &additional_lables.join(":"));
+        self
     }
 }
 impl <Q: CanAddReturn> Neo4gMatchStatement<Q> {
@@ -1598,34 +1595,35 @@ impl ParamString {
 #[derive(Debug, Clone)]
 pub struct Unwinder {
     alias: String,
-    list: Vec<String> // need to take a trait maybe? erm... simpler to just take a list of bolttypes?
+    list: Vec<BoltType> // need to take a trait maybe? erm... simpler to just take a list of bolttypes?
 }
 
 impl Unwinder {
-    pub fn new(list: &[String]) -> Self {
+    pub fn new<T: QueryParam>(list: &[T]) -> Self {
         Self {
             alias: String::new(),
-            list: list.to_owned(),
+            list: list.iter().map(|props_wrapper| {
+                let (_, bolt) = props_wrapper.to_query_param();
+                bolt
+            }).collect(),
         }
     }
     /// Builds the query and params. This is used by .unwind(), and should otherwise not be used unless you know what you're doing. 
     /// It has to be a pub fn to allow .unwind() to work as intended, but is not intended for use by API consumers.
     pub fn unwind(self) -> (String, HashMap<String, BoltType>) {
-        todo!()
-    //     let bolt_vec: Vec<BoltType> = self.list.iter().map(|props_wrapper| {
-    //         // let (_, bolt) = props_wrapper.to_query_param();
-    //         // bolt
-    //     }).collect();
-    //     let mut params = HashMap::new();
-    //     params.insert(format!("{}", self.alias), bolt_vec.into());
-    //     let query = format!("UNWIND ${} as {}", self.alias, self.alias);
-    //     (query, params)
+        let mut params = HashMap::new();
+        params.insert(format!("{}", self.alias), self.list.into());
+        let query = format!("UNWIND ${} as {}", self.alias, self.alias);
+        (query, params)
     }
 }
 
 impl Default for Unwinder {
     fn default() -> Self {
-        Self::new(&[])
+        Self {
+            alias: String::new(),
+            list: Vec::new(),
+        }
     }
 }
 
