@@ -553,8 +553,11 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
         };
 
         let wrap_fn = quote! {
-            pub fn wrap(self) -> EntityWrapper {
-                EntityWrapper::#new_struct_name(self.clone())
+            pub fn wrap(&self) -> EntityWrapper {
+                let obj = #new_struct_name {
+                    ..self.clone()
+                };
+                EntityWrapper::#new_struct_name(obj)
             }
         };
 

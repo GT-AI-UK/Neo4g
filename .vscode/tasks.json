@@ -7,7 +7,7 @@
             "command": "cargo",
             "args": ["build"],
             "options": {
-                "cwd": "${workspaceFolder}/neo4g"
+                "cwd": "${workspaceFolder}/example_consumer"
             },
             "isBackground": true,
             "problemMatcher": {

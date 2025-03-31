@@ -186,10 +186,13 @@ impl<Q: CanWith> Neo4gBuilder<Q> {
     /// WITH entity1alias, entity2alias
     /// ```
     /// and asociated params.
-    pub fn with<T: Aliasable>(mut self, entities_to_alias: &[T]) -> Neo4gBuilder<Withed> {
+    pub fn with<T: Aliasable>(mut self, entities_to_alias: &[T]) -> Neo4gBuilder<Withed>
+    where T: std::fmt::Debug {
+        println!("Inside with {:?}", entities_to_alias);
         let aliases: Vec<String> = entities_to_alias.iter().map(|entity| {
             entity.get_alias()
         }).collect();
+        println!("aliases: {:?}", aliases);
         self.query.push_str(&format!("\nWITH {}", aliases.join(", ")));
         self.transition::<Withed>()
     }

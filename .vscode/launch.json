@@ -5,7 +5,7 @@
             "name": "Run Cargo",
             "type": "lldb",
             "request": "launch",
-            "program": "${workspaceFolder}/neo4g/target/debug/neo4g",
+            "program": "${workspaceFolder}/example_consumer/target/debug/example_consumer",
             "args": [],
             "cwd": "${workspaceFolder}",
             "preLaunchTask": "cargo build",

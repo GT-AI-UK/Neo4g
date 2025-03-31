@@ -15,7 +15,7 @@
         }
     },
     "workspaceMount": "source=${localWorkspaceFolder},target=/neo4g,type=bind",
-    "workspaceFolder": "/neo4g-macros",
+    "workspaceFolder": "/neo4g",
     "mounts": [
         {
             "source": "devcontainer-cargo-cache-${devcontainerId}",
