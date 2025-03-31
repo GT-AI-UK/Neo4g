@@ -1500,9 +1500,9 @@ impl<Q: CanCondition> Where<Q> {
         let (name, value) = prop.to_query_param();
         let param_name = format!("where_{}{}", name, self.condition_number);
         let alias = entity_to_alias.get_alias();
-        self.string.push_str(&format!("{}.{} {} ${}", alias, name, operator.to_string(), &param_name));
+        self.string.push_str(&format!("{}.{} {} ${}", &alias, name, operator.to_string(), &param_name));
         self.params.insert(param_name, value);
-        //println!("{:?}", self.params);
+        println!("{}: number{}", alias, self.condition_number);
         self.transition::<Condition>()
     }
     /// Generates a condition string with the neo4j coalesce function included.
@@ -1516,6 +1516,7 @@ impl<Q: CanCondition> Where<Q> {
     /// ```
     /// and asociated params.
     pub fn coalesce<T: Neo4gEntity>(mut self, entity_to_alias: &T, prop: &T::Props) -> Where<Condition> {
+        self.condition_number += 1;
         let (name, value) = prop.to_query_param();
         let param_name = format!("where_{}{}", name, self.condition_number);
         let alias = entity_to_alias.get_alias();
@@ -1548,7 +1549,7 @@ impl<Q: CanCondition> Where<Q> {
     pub fn nest<F, S>(mut self, parent_closure: F, inner_builder: Where<Condition>) -> Where<Condition>
     where F: FnOnce(&Self) -> &Where<S> {
         let parent = parent_closure(&self);
-        self.condition_number = parent.condition_number + 1;
+        self.condition_number = parent.condition_number;
         let (query, params) = inner_builder.build(); // Assuming build() consumes the nested builder into (query, params)
         self.string.push_str(&format!("({})", query));
         self.params.extend(params);
