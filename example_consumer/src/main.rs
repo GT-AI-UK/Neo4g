@@ -34,30 +34,37 @@ async fn main() {
     let mut hcrel1 = HasComponent::default();
     let mut hcrel2 = HasComponent::default();
     let mut page1 = Page::new("pid4", "p1path", vec![component1.clone(), component2.clone()]);
+    let mut page2 = Page::new("pid99", "asdf", Vec::new());
 
     // !! Functional MATCH Query:
     let result = Neo4gBuilder::new()
         .get()
-            .node(&mut page1, &[PageProps::CurrentId])
-            .relation(&mut hcrel1, &[])
-            .node(&mut component1, &[ComponentProps::CurrentId])
+            .node(&mut page1, &[PageProps::CurrentId]).add_to_return()
+            .relation(&mut hcrel1, &[]).add_to_return()
+            .node(&mut component1, &[ComponentProps::CurrentId]).add_to_return()
         .end_statement()
         .get()
             .node_ref(&page1)
-            .relation(&mut hcrel2, &[])
-            .node(&mut component2, &[ComponentProps::Id("cid4".to_string())])
+            .relation(&mut hcrel2, &[]).add_to_return()
+            .node(&mut component2, &[ComponentProps::Id("cid4".to_string())]).add_to_return()
             .filter(Where::new()
-                .condition(&page1, &PageProps::Id("pid4".into()).into(), CompareOperator::Eq)
-                .join(CompareJoiner::And)
-                .nest(|parent_filter| parent_filter, Where::new()
+                .nest(|inner| {inner
                     .condition(&component1, &ComponentProps::Id("pid99".into()).into(), CompareOperator::Ne)
                     .join(CompareJoiner::And)
                     .condition(&component2, &ComponentProps::Id("pid99".into()).into(), CompareOperator::Ne)
-                )          
+                })
+                .join(CompareJoiner::And)
+                .condition(&page1, &PageProps::Id("pid4".into()).into(), CompareOperator::Eq)
+                
+                        
             )
             .end_statement()
+            .call(&[&page1.wrap(), &component1.wrap()], |inner| {
+                inner.get().node(&mut page2, &[PageProps::CurrentId]).end_statement()
+            })
+            .with(&[&page1.wrap(), &page2.wrap(), &component1.wrap(), &component2.wrap(), &hcrel1.wrap(), &hcrel2.wrap()])
         //.run_query(graph, &[EntityWrapper::from(page1), EntityWrapper::from(hcrel1), EntityWrapper::from(component1), EntityWrapper::from(hcrel2), EntityWrapper::from(component2)], EntityWrapper::from_db_entity).await;
-        .run_query(graph, returns!(page1, hcrel1, component1, hcrel2, component2), EntityWrapper::from_db_entity).await;
+        .run_query(graph, EntityWrapper::from_db_entity).await;
     println!("{:?}", result);
 
     // !! Functional MERGE Query:

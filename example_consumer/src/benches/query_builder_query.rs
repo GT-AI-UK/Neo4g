@@ -41,13 +41,13 @@ pub async fn query_builder_query_bench() {
             .node(&mut component2, &[ComponentProps::Id("cid73".to_string())])
             .filter(Where::new()
                 .condition(&page1, &PageProps::Id("pid99".into()).into(), CompareOperator::Eq)
-                .join(CompareJoiner::And)
-                .nest(|parent_filter| parent_filter, Where::new()
-                    .condition(&component1, &ComponentProps::Id("pid99".into()).into(), CompareOperator::Ne)
-                    .join(CompareJoiner::And)
-                    .condition(&component2, &ComponentProps::Id("pid99".into()).into(), CompareOperator::Ne)
-                )          
+                //.join(CompareJoiner::And)
+                // .nest(|parent_filter| parent_filter, Where::new()
+                //     .condition(&component1, &ComponentProps::Id("pid99".into()).into(), CompareOperator::Ne)
+                //     .join(CompareJoiner::And)
+                //     .condition(&component2, &ComponentProps::Id("pid99".into()).into(), CompareOperator::Ne)
+                // )          
             )
             .end_statement()
-        .run_query(graph, &[EntityWrapper::from(page1), EntityWrapper::from(hcrel1), EntityWrapper::from(component1), EntityWrapper::from(hcrel2), EntityWrapper::from(component2)], EntityWrapper::from_db_entity).await;
+        .run_query(graph, EntityWrapper::from_db_entity).await;
 }

@@ -2,6 +2,7 @@
 use neo4rs::{query, BoltNull, BoltType, Graph, Node, Query, Relation};
 use serde::{Deserialize, Serialize};
 use std::f32::consts::TAU;
+use std::hash::Hash;
 use std::marker::PhantomData;
 use std::fmt;
 use crate::traits::*;
@@ -16,9 +17,9 @@ pub struct Neo4gBuilder<State> {
     relation_number: u32,
     unwind_number: u32,
     set_number: u32,
-    ////return_refs: Vec<(String, EntityType, EntityWrapper)>,
+    return_refs: Vec<(String, EntityType)>,
     order_by_str: String,
-    ////previous_entity: Option<(String, EntityType, EntityWrapper)>,
+    previous_entity: Option<(String, EntityType)>,
     clause: Clause,
     _state: PhantomData<State>,
 }
@@ -32,9 +33,24 @@ impl Neo4gBuilder<Empty> {
             relation_number: 0,
             unwind_number: 0,
             set_number: 0,
-            ////return_refs: Vec::new(),
+            return_refs: Vec::new(),
             order_by_str: String::new(),
-            //previous_entity: None,
+            previous_entity: None,
+            clause: Clause::None,
+            _state: PhantomData,
+        }
+    }
+    fn new_with_parent<S>(parent: &Neo4gBuilder<S>) -> Self {
+        Self {
+            query: String::new(),
+            params: HashMap::new(),
+            node_number: parent.node_number,
+            relation_number: parent.relation_number,
+            unwind_number: parent.unwind_number,
+            set_number: parent.set_number,
+            return_refs: Vec::new(),
+            order_by_str: String::new(),
+            previous_entity: None,
             clause: Clause::None,
             _state: PhantomData,
         }
@@ -186,7 +202,7 @@ impl<Q: CanWith> Neo4gBuilder<Q> {
     /// WITH entity1alias, entity2alias
     /// ```
     /// and asociated params.
-    pub fn with<T: Aliasable>(mut self, entities_to_alias: &[T]) -> Neo4gBuilder<Withed>
+    pub fn with<T: Aliasable>(mut self, entities_to_alias: &[&T]) -> Neo4gBuilder<Withed>
     where T: std::fmt::Debug {
         println!("Inside with {:?}", entities_to_alias);
         let aliases: Vec<String> = entities_to_alias.iter().map(|entity| {
@@ -229,7 +245,7 @@ impl<Q: CanNode> Neo4gCreateStatement<Q> {
         let label = entity.get_label();
         entity.set_alias(&format!("{}{}", label.to_lowercase(), self.node_number));
         let name = format!("{}{}:AdditionalLabels", label.to_lowercase(), self.node_number);
-        //self.//previous_entity = Some((name.clone(), EntityType::Node, EntityWrapper::from(entity.clone())));
+        self.previous_entity = Some((name.clone(), EntityType::Node));
         let (query_part, params) = entity.create_from_self();
         self.query.push_str(&query_part);
         self.params.extend(params);
@@ -269,7 +285,7 @@ impl Neo4gCreateStatement<CreatedNode> {
         let label = entity.get_label();
         entity.set_alias(&format!("{}{}", label.to_lowercase(), self.relation_number));
         let name = format!("{}{}", label.to_lowercase(), self.relation_number);
-        //self.//previous_entity = Some((name.clone(), EntityType::Relation, EntityWrapper::from(entity.clone())));
+        self.previous_entity = Some((name.clone(), EntityType::Relation));
         let (query_part, params) = entity.create_from_self();
         self.query.push_str(&query_part);
         self.params.extend(params);
@@ -306,13 +322,13 @@ impl Neo4gCreateStatement<CreatedNode> {
     }
 }
 impl <Q: CanAddReturn> Neo4gCreateStatement<Q> {
-    // pub fn add_to_return(mut self) -> Self {
-    //     if let Some((mut name, entity_type, entity)) = //self.//previous_entity.clone() {
-    //         name = name.replace(":AdditionalLabels", "");
-    //         //self.//return_refs.push((name, entity_type, entity));
-    //     }
-    //     self
-    // }
+    pub fn add_to_return(mut self) -> Self {
+        if let Some((mut name, entity_type)) = self.previous_entity.clone() {
+            name = name.replace(":AdditionalLabels", "");
+            self.return_refs.push((name, entity_type));
+        }
+        self
+    }
 }
 impl <Q: PossibleStatementEnd> Neo4gCreateStatement<Q> {
     /// Finalises the current statement, tidies up placeholders, and changes the state of the builder so that new statements can be added.
@@ -345,7 +361,7 @@ impl<Q: CanNode> Neo4gMergeStatement<Q> {
         let alias = format!("{}{}", label.to_lowercase(), self.node_number);
         entity.set_alias(&alias);
         let name = format!("{}{}:AdditionalLabels", label.to_lowercase(), self.node_number);
-        //self.//previous_entity = Some((name.clone(), EntityType::Node, EntityWrapper::from(entity.clone())));
+        self.previous_entity = Some((name.clone(), EntityType::Node));
         if props.is_empty() {
             self.query.push_str(&format!("({})", name));
         } else {
@@ -393,7 +409,7 @@ impl Neo4gMergeStatement<CreatedNode> {
         let alias = format!("{}{}", label.to_lowercase(), self.relation_number);
         entity.set_alias(&alias);
         let name = format!("{}{}", label.to_lowercase(), self.relation_number);
-        //self.//previous_entity = Some((name.clone(), EntityType::Relation, EntityWrapper::from(entity.clone())));
+        self.previous_entity = Some((name.clone(), EntityType::Relation));
         let (query_part, params) = entity.entity_by(&alias, &props);
         self.query.push_str(&query_part.replace("min_hops", &format!("{}", min_hops)));
         self.params.extend(params);
@@ -420,7 +436,7 @@ impl Neo4gMergeStatement<CreatedNode> {
         let alias = format!("{}{}", label.to_lowercase(), self.relation_number);
         entity.set_alias(&alias);
         let name = format!("{}{}", label.to_lowercase(), self.relation_number);
-        //self.//previous_entity = Some((name.clone(), EntityType::Relation, EntityWrapper::from(entity.clone())));
+        self.previous_entity = Some((name.clone(), EntityType::Relation));
         let (query_part, params) = entity.entity_by(&alias, &props);
         self.query.push_str(&query_part.replace("*min_hops..", ""));
         self.params.extend(params);
@@ -443,7 +459,7 @@ impl Neo4gMergeStatement<CreatedNode> {
         let label = entity.get_label();
         entity.set_alias(&format!("{}{}", label.to_lowercase(), self.relation_number));
         let name = format!("{}{}", label.to_lowercase(), self.relation_number);
-        //self.//previous_entity = Some((name.clone(), EntityType::Relation, EntityWrapper::from(entity.clone())));
+        self.previous_entity = Some((name.clone(), EntityType::Relation));
         let (query_part, params) = entity.create_from_self();
         self.query.push_str(&query_part.replace("-[", "<-[").replace("]->", "]-"));
         self.params.extend(params);
@@ -484,13 +500,13 @@ impl Neo4gMergeStatement<CreatedNode> {
     }
 }
 impl <Q: CanAddReturn> Neo4gMergeStatement<Q> {
-    // pub fn add_to_return(mut self) -> Self {
-    //     if let Some((mut name, entity_type, entity)) = //self.//previous_entity.clone() {
-    //         name = name.replace(":AdditionalLabels", "");
-    //         //self.//return_refs.push((name, entity_type, entity));
-    //     }
-    //     self
-    // }
+    pub fn add_to_return(mut self) -> Self {
+        if let Some((mut name, entity_type)) = self.previous_entity.clone() {
+            name = name.replace(":AdditionalLabels", "");
+            self.return_refs.push((name, entity_type));
+        }
+        self
+    }
 }
 impl <Q: PossibleStatementEnd> Neo4gMergeStatement<Q> {
     /// Appends ON CREATE to the query string and changes the builder state so that .set() can be called
@@ -634,7 +650,7 @@ impl<Q: CanNode> Neo4gMatchStatement<Q> {
         let alias = format!("{}{}", label.to_lowercase(), self.node_number);
         entity.set_alias(&alias);
         let name = format!("{}{}:AdditionalLabels", label.to_lowercase(), self.node_number);
-        //self.//previous_entity = Some((name.clone(), EntityType::Node, EntityWrapper::from(entity.clone())));
+        self.previous_entity = Some((name.clone(), EntityType::Node));
         if props.is_empty() {
             self.query.push_str(&format!("({})", name));
         } else {
@@ -682,7 +698,7 @@ impl Neo4gMatchStatement<MatchedNode> {
         let alias = format!("{}{}", label.to_lowercase(), self.relation_number);
         entity.set_alias(&alias);
         let name = format!("{}{}", label.to_lowercase(), self.node_number);
-        //self.//previous_entity = Some((name.clone(), EntityType::Relation, EntityWrapper::from(entity.clone())));
+        self.previous_entity = Some((name.clone(), EntityType::Relation));
         let (query_part, params) = entity.entity_by(&alias, &props);
         self.query.push_str(&query_part.replace("min_hops", &format!("{}", min_hops)));
         self.params.extend(params);
@@ -709,7 +725,7 @@ impl Neo4gMatchStatement<MatchedNode> {
         let alias = format!("{}{}", label.to_lowercase(), self.relation_number);
         entity.set_alias(&alias);
         let name = format!("{}{}", label.to_lowercase(), self.node_number);
-        //self.//previous_entity = Some((name.clone(), EntityType::Relation, EntityWrapper::from(entity.clone())));
+        self.previous_entity = Some((name.clone(), EntityType::Relation));
         let (query_part, params) = entity.entity_by(&alias, &props);
         self.query.push_str(&query_part.replace("*min_hops..", ""));
         self.params.extend(params);
@@ -732,7 +748,7 @@ impl Neo4gMatchStatement<MatchedNode> {
         let label = entity.get_label();
         entity.set_alias(&format!("{}{}", label.to_lowercase(), self.relation_number));
         let name = format!("{}{}", label.to_lowercase(), self.node_number);
-        //self.//previous_entity = Some((name.clone(), EntityType::Relation, EntityWrapper::from(entity.clone())));
+        self.previous_entity = Some((name.clone(), EntityType::Relation));
         let (query_part, params) = entity.create_from_self();
         self.query.push_str(&query_part.replace("-[", "<-[").replace("]->", "]-"));
         self.params.extend(params);
@@ -774,14 +790,13 @@ impl Neo4gMatchStatement<MatchedNode> {
     }
 }
 impl <Q: CanAddReturn> Neo4gMatchStatement<Q> {
-
-    // pub fn add_to_return(mut self) -> Self {
-    //     if let Some((mut name, entity_type, entity)) = //self.//previous_entity.clone() {
-    //         name = name.replace(":AdditionalLabels", "");
-    //         //self.//return_refs.push((name, entity_type, entity));
-    //     }
-    //     self
-    // }
+    pub fn add_to_return(mut self) -> Self {
+        if let Some((mut name, entity_type)) = self.previous_entity.clone() {
+            name = name.replace(":AdditionalLabels", "");
+            self.return_refs.push((name, entity_type));
+        }
+        self
+    }
 }
 impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> {
     /// Generates a WHERE call
@@ -855,12 +870,12 @@ impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> {
         }
         if !self.set_str.is_empty() {
             self.query.push_str(&format!("{}", self.set_str));
-            // if !//self.//return_refs.is_empty() {
-            //     let return_aliases: Vec<String> = //self.//return_refs.iter().map(|item| {
-            //         item.0.clone()
-            //     }).collect();
-            //     self.query.push_str(&format!("WITH {}\n", return_aliases.join(", ")));
-            // }
+            if !self.return_refs.is_empty() {
+                let return_aliases: Vec<String> = self.return_refs.iter().map(|item| {
+                    item.0.clone()
+                }).collect();
+                self.query.push_str(&format!("WITH {}\n", return_aliases.join(", ")));
+            }
         }
         self.query = self.query.replace(":AdditionalLabels", "");
         Neo4gBuilder::from(self)
@@ -884,39 +899,29 @@ impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
     /// ```rust
     /// RETURN node1alias, rel1alias
     /// ```
-    // pub fn set_returns(mut self, returns: &[(EntityType, EntityWrapper)]) -> Self {
-    //     if returns.is_empty() && //self.//return_refs.is_empty() {
-    //         //println!("Nothing will be returned from this query...");
-    //     } else {
+    pub fn set_returns<T: WrappedNeo4gEntity>(mut self, returns: &[(EntityType, T)]) -> Self {
+        if returns.is_empty() && self.return_refs.is_empty() {
+            println!("Nothing will be returned from this query...");
+        } else {
             
-    //     }
-    //     if !returns.is_empty() {
-    //         //self.//return_refs = returns.iter().map(|(entity_type, wrapper)| {
-    //             let entity = wrapper.clone();
-    //             let alias = entity.get_alias();
-    //             (alias, entity_type.clone(), wrapper.clone())
-    //         }).collect();
-    //     }
-    //     if !//self.//return_refs.is_empty() {
-    //         self.query.push_str("RETURN ");
-    //         let aliases: Vec<String> = //self.//return_refs.iter().map(|(_, _, wrapper)| {
-    //             let entity = wrapper.clone();
-    //             let alias = entity.get_alias();
-    //             alias
-    //         }).collect();
-    //         self.query.push_str(&aliases.join(", "));
-    //     }
-    //     self
-    // }
+        }
+        if !returns.is_empty() {
+            self.return_refs = returns.iter().map(|(entity_type, wrapper)| {
+                let entity = wrapper.clone();
+                let alias = entity.get_alias();
+                (alias, entity_type.clone())
+            }).collect();
+        }
+        self
+    }
 
     /// Generates a CALL call
     /// # Example
     /// ```rust
-    /// .call(|parent_builder| parent_builder,
-    ///     &[&node1, &unwinder1, &relation1],
-    ///     Neo4gBuilder::new(
-    ///         ... //get(), merge(), create(), etc.
-    ///     )
+    /// .call(&[&node1, &unwinder1, &relation1],
+    ///     |inner| {inner
+    ///         .get(), merge(), create(), etc.
+    ///     }
     /// )
     /// ```
     /// The example above generates the following query:
@@ -926,22 +931,27 @@ impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
     /// }
     /// ```
     /// and asociated params for the inner builder.
-    pub fn call<A, F, S, B>(mut self, parent_closure: F, entities_to_alias: &[&A], inner_bulder: Neo4gBuilder<B>) -> Neo4gBuilder<Called>
-    where A: Aliasable, B: PossibleQueryEnd, F: FnOnce(&Self) -> &Neo4gBuilder<S> {
-        let parent = parent_closure(&self);
-        let node_number = parent.node_number;
-        let relation_number = parent.relation_number;
-        let set_number = parent.set_number;
-        let unwind_number = parent.unwind_number;
+    pub fn call<A, F, B>(mut self, entities_to_alias: &[&A], inner_builder_closure: F) -> Neo4gBuilder<Called>
+    where A: Aliasable, F: FnOnce(Neo4gBuilder<Empty>) -> Neo4gBuilder<B>, B: PossibleQueryEnd {
+        let inner_builder = Neo4gBuilder::new_with_parent(&self);
+        let (
+            query,
+            params,
+            node_number,
+            relation_number,
+            set_number,
+            unwind_number,
+            return_refs,
+        ) = inner_builder_closure(inner_builder).build_inner();
         self.node_number = node_number;
         self.relation_number = relation_number;
         self.set_number = set_number;
         self.unwind_number = unwind_number;
+        self.return_refs.extend_from_slice(&return_refs);
         let aliases: Vec<String> = entities_to_alias.iter().map(|entity| {
             entity.get_alias()
         }).collect();
-        let (query, params) = inner_bulder.build();
-        self.query.push_str(format!("CALL ({}) {{\n {} \n}}\n", aliases.join(", "), &query).as_str());
+        self.query.push_str(format!("\nCALL ({}) {{\n {} \n}}", aliases.join(", "), &query).as_str());
         self.params.extend(params);
         self.transition::<Called>()
     }
@@ -991,11 +1001,12 @@ impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
         self
     }
     /// Runs the query against a provided Graph and returns the registered return objects.
-    pub async fn run_query<F, T, R>(mut self, graph: Graph, returns: &[T], unpack: F) -> anyhow::Result<Vec<F::Output>> 
-    where T: WrappedNeo4gEntity, F: Fn(DbEntityWrapper) -> R {
-        if !returns.is_empty() {
+    //pub async fn run_query<F, T, R>(mut self, graph: Graph, returns: &[T], unpack: F) -> anyhow::Result<Vec<F::Output>> 
+    pub async fn run_query<F, R>(mut self, graph: Graph, unpack: F) -> anyhow::Result<Vec<F::Output>> 
+    where F: Fn(DbEntityWrapper) -> R {
+        if !self.return_refs.is_empty() {
             self.query.push_str("\nRETURN ");
-            let aliases: Vec<String> = returns.iter().map(|entity| entity.get_alias()).collect();
+            let aliases: Vec<&str> = self.return_refs.iter().map(|(alias, _)| alias.as_str()).collect();
             self.query.push_str(&aliases.join(", "));
         }
         self.query.push_str(&self.order_by_str);
@@ -1006,12 +1017,13 @@ impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
         if let Ok(mut result) = graph.execute(query).await {
             println!("query ran");
             while let Ok(Some(row)) = result.next().await {
-                //for (alias, entity_type, ret_obj) in //self.//return_refs.clone() {
-                for ret_obj in returns {
+                for (alias, entity_type) in &self.return_refs {
+                //for ret_obj in returns {
                     //println!("attemping to get {} from database. {:?}, {:?}", alias, &entity_type, &ret_obj);
-                    match ret_obj.get_entity_type() {
+                    //match ret_obj.get_entity_type() {
+                    match entity_type {
                         EntityType::Node => {
-                            if let Ok(node) = row.get::<Node>(&ret_obj.get_alias()) {
+                            if let Ok(node) = row.get::<Node>(&alias) { //&ret_obj.get_alias()) {
                                 //println!("got node for: {}", &alias);
                                 //let wrapped_entity = EntityWrapper::from_node(node.clone());
                                 let wrapped_entity = unpack(DbEntityWrapper::Node(node));
@@ -1021,7 +1033,7 @@ impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
                             }
                         },
                         EntityType::Relation => {
-                            if let Ok(relation) = row.get::<Relation>(&ret_obj.get_alias()) {
+                            if let Ok(relation) = row.get::<Relation>(&alias) { //&ret_obj.get_alias()) {
                                 //println!("got relation for: {}", &alias);
                                 let label = relation.typ();
                                 //let wrapped_entity = EntityWrapper::from_relation(relation.clone());
@@ -1067,8 +1079,8 @@ pub struct Neo4gMatchStatement<State> {
     set_number: u32,
     where_str: String,
     set_str: String,
-    //return_refs: Vec<(String, EntityType, EntityWrapper)>,
-    //previous_entity: Option<(String, EntityType, EntityWrapper)>,
+    return_refs: Vec<(String, EntityType)>,
+    previous_entity: Option<(String, EntityType)>,
     clause: Clause,
     _state: PhantomData<State>,
 }
@@ -1084,8 +1096,8 @@ pub struct Neo4gMergeStatement<State> {
     on_create_str: String,
     on_match_str: String,
     current_on_str: OnString,
-    //return_refs: Vec<(String, EntityType, EntityWrapper)>,
-    //previous_entity: Option<(String, EntityType, EntityWrapper)>,
+    return_refs: Vec<(String, EntityType)>,
+    previous_entity: Option<(String, EntityType)>,
     clause: Clause,
     _state: PhantomData<State>,
 }
@@ -1098,8 +1110,8 @@ pub struct Neo4gCreateStatement<State> {
     relation_number: u32,
     unwind_number: u32,
     set_number: u32,
-    //return_refs: Vec<(String, EntityType, EntityWrapper)>,
-    //previous_entity: Option<(String, EntityType, EntityWrapper)>,
+    return_refs: Vec<(String, EntityType)>,
+    previous_entity: Option<(String, EntityType)>,
     clause: Clause,
     _state: PhantomData<State>,
 }
@@ -1114,9 +1126,9 @@ impl<S> Neo4gBuilder<S> {
             relation_number,
             unwind_number,
             set_number,
-            //return_refs,
+            return_refs,
             order_by_str,
-            //previous_entity,
+            previous_entity,
             clause,
             ..
         } = self;
@@ -1127,12 +1139,15 @@ impl<S> Neo4gBuilder<S> {
             relation_number,
             unwind_number,
             set_number,
-            //return_refs,
+            return_refs,
             order_by_str,
-            //previous_entity,
+            previous_entity,
             clause,
             _state: std::marker::PhantomData,
         }
+    }
+    fn build_inner(self) -> (String, HashMap<String, BoltType>, u32, u32, u32, u32, Vec<(String, EntityType)>) {
+        (self.query, self.params, self.node_number, self.relation_number, self.unwind_number, self.set_number, self.return_refs)
     }
 }
 
@@ -1148,8 +1163,8 @@ impl<S> Neo4gMatchStatement<S> {
             set_number,
             where_str,
             set_str,
-            //return_refs,
-            //previous_entity,
+            return_refs,
+            previous_entity,
             clause,
             ..
         } = self;
@@ -1162,8 +1177,8 @@ impl<S> Neo4gMatchStatement<S> {
             set_number,
             where_str,
             set_str,
-            //return_refs,
-            //previous_entity,
+            return_refs,
+            previous_entity,
             clause,
             _state: std::marker::PhantomData,
         }
@@ -1183,8 +1198,8 @@ impl<S> Neo4gMergeStatement<S> {
             on_create_str,
             on_match_str,
             current_on_str,
-            //return_refs,
-            //previous_entity,
+            return_refs,
+            previous_entity,
             clause,
             ..
         } = self;
@@ -1198,8 +1213,8 @@ impl<S> Neo4gMergeStatement<S> {
             on_create_str,
             on_match_str,
             current_on_str,
-            //return_refs,
-            //previous_entity,
+            return_refs,
+            previous_entity,
             clause,
             _state: std::marker::PhantomData,
         }
@@ -1216,8 +1231,8 @@ impl<S> Neo4gCreateStatement<S> {
             relation_number,
             unwind_number,
             set_number,
-            //return_refs,
-            //previous_entity,
+            return_refs,
+            previous_entity,
             clause,
             ..
         } = self;
@@ -1228,8 +1243,8 @@ impl<S> Neo4gCreateStatement<S> {
             relation_number,
             unwind_number,
             set_number,
-            //return_refs,
-            //previous_entity,
+            return_refs,
+            previous_entity,
             clause,
             _state: std::marker::PhantomData,
         }
@@ -1245,8 +1260,8 @@ impl <S> From<Neo4gBuilder<S>> for Neo4gCreateStatement<Empty> {
             relation_number: value.relation_number,
             unwind_number: value.unwind_number,
             set_number: value.set_number,
-            //return_refs: value.//return_refs,
-            //previous_entity: value.//previous_entity,
+            return_refs: value.return_refs,
+            previous_entity: value.previous_entity,
             clause: value.clause,
             _state: std::marker::PhantomData,
         }
@@ -1265,8 +1280,8 @@ impl <S> From<Neo4gBuilder<S>> for Neo4gMergeStatement<Empty> {
             on_create_str: "".to_string(),
             on_match_str: "".to_string(),
             current_on_str: OnString::None,
-            //return_refs: value.//return_refs,
-            //previous_entity: value.//previous_entity,
+            return_refs: value.return_refs,
+            previous_entity: value.previous_entity,
             clause: value.clause,
             _state: std::marker::PhantomData,
         }
@@ -1284,8 +1299,8 @@ impl <S> From<Neo4gBuilder<S>> for Neo4gMatchStatement<Empty> {
             set_number: value.set_number,
             where_str: String::new(),
             set_str: String::new(),
-            //return_refs: value.//return_refs,
-            //previous_entity: value.//previous_entity,
+            return_refs: value.return_refs,
+            previous_entity: value.previous_entity,
             clause: value.clause,
             _state: std::marker::PhantomData,
         }
@@ -1301,9 +1316,9 @@ impl <S> From<Neo4gMatchStatement<S>> for Neo4gBuilder<MatchedNode> {
             relation_number: value.relation_number,
             unwind_number: value.unwind_number,
             set_number: value.set_number,
-            //return_refs: value.//return_refs,
+            return_refs: value.return_refs,
             order_by_str: String::new(),
-            //previous_entity: value.//previous_entity,
+            previous_entity: value.previous_entity,
             clause: value.clause,
             _state: std::marker::PhantomData,
         }
@@ -1319,9 +1334,9 @@ impl <S> From<Neo4gMergeStatement<S>> for Neo4gBuilder<CreatedNode> {
             relation_number: value.relation_number,
             unwind_number: value.unwind_number,
             set_number: value.set_number,
-            //return_refs: value.//return_refs,
+            return_refs: value.return_refs,
             order_by_str: String::new(),
-            //previous_entity: value.//previous_entity,
+            previous_entity: value.previous_entity,
             clause: value.clause,
             _state: std::marker::PhantomData,
         }
@@ -1337,9 +1352,9 @@ impl <S> From<Neo4gCreateStatement<S>> for Neo4gBuilder<CreatedNode> {
             relation_number: value.relation_number,
             unwind_number: value.unwind_number,
             set_number: value.set_number,
-            //return_refs: value.//return_refs,
+            return_refs: value.return_refs,
             order_by_str: String::new(),
-            //previous_entity: value.//previous_entity,
+            previous_entity: value.previous_entity,
             clause: value.clause,
             _state: std::marker::PhantomData,
         }
@@ -1471,6 +1486,9 @@ impl<S> Where<S> {
         let Where {string, params, condition_number, ..} = self;
         Where {string, params, condition_number, _state: std::marker::PhantomData,}
     }
+    fn build_inner(self) -> (String, HashMap<String, BoltType>, u32) {
+        (self.string, self.params, self.condition_number)
+    }
 }
 
 impl Where<Empty> {
@@ -1479,6 +1497,14 @@ impl Where<Empty> {
             string: String::new(),
             params: HashMap::new(),
             condition_number: 0,
+            _state: PhantomData,
+        }
+    }
+    fn new_with_parent<S>(parent: &Where<S>) -> Self {
+        Self {
+            string: String::new(),
+            params: HashMap::new(),
+            condition_number: parent.condition_number,
             _state: PhantomData,
         }
     }
@@ -1539,18 +1565,21 @@ impl<Q: CanCondition> Where<Q> {
     /// Nests conditions within the inner_builder in parens.
     /// # Example
     /// ```rust
-    /// .nest(|parent_filter| parent_filter, Where::new_nested()
+    /// .nest(|inner| { inner
     ///     .condition(&entity1, EntityProps::Prop(123).into(), CompareOperator::Eq)
     ///     .join(CompareJoiner::And)
     ///     .condition(&entity2, EntityProps::Prop(456).into(), CompareOperator::Ne)
-    /// )  
+    /// })  
     /// ```
     /// The example above generates "(entity1alias.prop = 123 AND entity2alias.prop <> 456)"
-    pub fn nest<F, S>(mut self, parent_closure: F, inner_builder: Where<Condition>) -> Where<Condition>
-    where F: FnOnce(&Self) -> &Where<S> {
-        let parent = parent_closure(&self);
-        self.condition_number = parent.condition_number;
-        let (query, params) = inner_builder.build(); // Assuming build() consumes the nested builder into (query, params)
+    pub fn nest<F>(mut self, inner_builder_closure: F) -> Where<Condition>
+    where F: FnOnce(Where<Empty>) -> Where<Condition> {
+        let inner_builder = Where::new_with_parent(&self);
+        let (query,
+            params,
+            condition_number
+        ) = inner_builder_closure(inner_builder).build_inner();
+        self.condition_number = condition_number;
         self.string.push_str(&format!("({})", query));
         self.params.extend(params);
         self.transition::<Condition>()
