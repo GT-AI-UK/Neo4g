@@ -351,12 +351,10 @@ impl<Q: CanNode> Neo4gMergeStatement<Q> {
     /// (nodealias:NodeLabel {prop1: $node1_prop1, prop2: $node1_prop2})
     /// ```
     /// and asociated params.
-    pub fn node<T: Neo4gEntity>(mut self, entity: &mut T, filter_props: &[T::Props]) -> Neo4gMergeStatement<CreatedNode>
-    where T::Props: Clone {
+    pub fn node<T, F>(mut self, entity: &mut T, f: F) -> Neo4gMergeStatement<CreatedNode>
+    where T: Neo4gEntity, T::Props: Clone, F: FnOnce(&T) -> Vec<T::Props> {
         self.node_number += 1;
-        let props: Vec<T::Props> = filter_props.iter().map(|prop| {
-            entity.get_current(&prop.clone())
-        }).collect();
+        let props = f(entity);
         let label = entity.get_label();
         let alias = format!("{}{}", label.to_lowercase(), self.node_number);
         entity.set_alias(&alias);
@@ -399,12 +397,10 @@ impl Neo4gMergeStatement<CreatedNode> {
     /// [realtionalias:REL_TYPE*0 {prop1: $relation1_prop1, prop2: $relation1_prop2}]->
     /// ```
     /// and asociated params.
-    pub fn relations<T: Neo4gEntity>(mut self, min_hops: u32, entity: &mut T, filter_props: &[T::Props]) -> Neo4gMergeStatement<CreatedRelation>
-    where T::Props: Clone {
+    pub fn relations<T, F>(mut self, min_hops: u32, entity: &mut T, f: F) -> Neo4gMergeStatement<CreatedRelation>
+    where T: Neo4gEntity, T::Props: Clone, F: FnOnce(&T) -> Vec<T::Props> {
         self.relation_number += 1;
-        let props: Vec<T::Props> = filter_props.iter().map(|prop| {
-            entity.get_current(&prop.clone())
-        }).collect();
+        let props = f(entity);
         let label = entity.get_label();
         let alias = format!("{}{}", label.to_lowercase(), self.relation_number);
         entity.set_alias(&alias);
@@ -426,12 +422,10 @@ impl Neo4gMergeStatement<CreatedNode> {
     /// [realtionalias:REL_TYPE {prop1: $relation1_prop1, prop2: $relation1_prop2}]->
     /// ```
     /// and asociated params.
-    pub fn relation<T: Neo4gEntity>(mut self, entity: &mut T, filter_props: &[T::Props]) -> Neo4gMergeStatement<CreatedRelation>
-    where T::Props: Clone {
+    pub fn relation<T, F>(mut self, entity: &mut T, f: F) -> Neo4gMergeStatement<CreatedRelation>
+    where T: Neo4gEntity, T::Props: Clone, F: FnOnce(&T) -> Vec<T::Props> {
         self.relation_number += 1;
-        let props: Vec<T::Props> = filter_props.iter().map(|prop| {
-            entity.get_current(&prop.clone())
-        }).collect();
+        let props = f(entity);
         let label = entity.get_label();
         let alias = format!("{}{}", label.to_lowercase(), self.relation_number);
         entity.set_alias(&alias);
@@ -446,21 +440,24 @@ impl Neo4gMergeStatement<CreatedNode> {
     /// Uses the T::Props vec to set the conditions for the MERGE.
     /// # Example
     /// ```rust
-    /// .relation(&mut relation, &[&relation.prop1, RelationProps::Prop2(456)])
+    /// .relation_flipped(&mut relation, &[&relation.prop1, RelationProps::Prop2(456)])
     /// ```
     /// The example above generates the following query:
     /// ```rust
     /// <-[realtionalias:REL_TYPE {prop1: $relation1_prop1, prop2: $relation1_prop2}]-
     /// ```
     /// and asociated params.
-    pub fn relation_flipped<T: Neo4gEntity>(mut self, entity: &mut T) -> Neo4gMergeStatement<CreatedRelation>
-    { //where EntityWrapper: From<T>, T: Clone {
+    pub fn relation_flipped<T, F>(mut self, entity: &mut T, f: F) -> Neo4gMergeStatement<CreatedRelation>
+    where T: Neo4gEntity, T::Props: Clone, F: FnOnce(&T) -> Vec<T::Props> {
+        self.relation_number += 1;
+        let props = f(entity);
         self.relation_number += 1;
         let label = entity.get_label();
-        entity.set_alias(&format!("{}{}", label.to_lowercase(), self.relation_number));
+        let alias = format!("{}{}", label.to_lowercase(), self.relation_number);
+        entity.set_alias(&alias);
         let name = format!("{}{}", label.to_lowercase(), self.relation_number);
         self.previous_entity = Some((name.clone(), EntityType::Relation));
-        let (query_part, params) = entity.create_from_self();
+        let (query_part, params) = entity.entity_by(&alias,&props);
         self.query.push_str(&query_part.replace("-[", "<-[").replace("]->", "]-"));
         self.params.extend(params);
         self.transition::<CreatedRelation>()
@@ -659,8 +656,6 @@ impl<Q: CanNode> Neo4gMatchStatement<Q> {
         self.transition::<MatchedNode>()
     }
     
-    
-    
     // pub fn node<T: Neo4gEntity>(mut self, entity: &mut T, filter_props: &[T::Props]) -> Neo4gMatchStatement<MatchedNode>
     // where T::Props: Clone {
     //     self.node_number += 1;
@@ -702,19 +697,17 @@ impl Neo4gMatchStatement<MatchedNode> {
     /// Uses the T::Props vec to set the conditions for the MATCH.
     /// # Example
     /// ```rust
-    /// .relation(0, &mut relation, &[&relation.prop1, &RelationProps::Prop2(456)])
+    /// .relations(0, &mut relation, &[&relation.prop1, &RelationProps::Prop2(456)])
     /// ```
     /// The example above generates the following query:
     /// ```rust
     /// [realtionalias:REL_TYPE*0 {prop1: $relation1_prop1, prop2: $relation1_prop2}]->
     /// ```
     /// and asociated params.
-    pub fn relations<T: Neo4gEntity>(mut self, min_hops: u32, entity: &mut T, filter_props: &[T::Props]) -> Neo4gMatchStatement<CreatedRelation>
-    where T::Props: Clone {
+    pub fn relations<T, F>(mut self, min_hops: u32, entity: &mut T, f: F) -> Neo4gMatchStatement<MatchedRelation>
+    where T: Neo4gEntity, T::Props: Clone, F: FnOnce(&T) -> Vec<T::Props> {
         self.relation_number += 1;
-        let props: Vec<T::Props> = filter_props.iter().map(|prop| {
-            entity.get_current(&prop.clone())
-        }).collect();
+        let props = f(entity);
         let label = entity.get_label();
         let alias = format!("{}{}", label.to_lowercase(), self.relation_number);
         entity.set_alias(&alias);
@@ -723,7 +716,7 @@ impl Neo4gMatchStatement<MatchedNode> {
         let (query_part, params) = entity.entity_by(&alias, &props);
         self.query.push_str(&query_part.replace("min_hops", &format!("{}", min_hops)));
         self.params.extend(params);
-        self.transition::<CreatedRelation>()
+        self.transition::<MatchedRelation>()
     }
     /// Generates a relation query object. 
     /// Uses the T::Props vec to set the conditions for the MATCH.
@@ -736,12 +729,10 @@ impl Neo4gMatchStatement<MatchedNode> {
     /// [realtionalias:REL_TYPE {prop1: $relation1_prop1, prop2: $relation1_prop2}]->
     /// ```
     /// and asociated params.
-    pub fn relation<T: Neo4gEntity>(mut self, entity: &mut T, filter_props: &[T::Props]) -> Neo4gMatchStatement<MatchedRelation>
-    where T::Props: Clone {
+    pub fn relation<T, F>(mut self, entity: &mut T, f: F) -> Neo4gMatchStatement<MatchedRelation>
+    where T: Neo4gEntity, T::Props: Clone, F: FnOnce(&T) -> Vec<T::Props> {
         self.relation_number += 1;
-        let props: Vec<T::Props> = filter_props.iter().map(|prop| {
-            entity.get_current(&prop.clone())
-        }).collect();
+        let props: Vec<<T as Neo4gEntity>::Props> = f(entity);
         let label = entity.get_label();
         let alias = format!("{}{}", label.to_lowercase(), self.relation_number);
         entity.set_alias(&alias);
@@ -756,16 +747,17 @@ impl Neo4gMatchStatement<MatchedNode> {
     /// Uses the T::Props vec to set the conditions for the MATCH.
     /// # Example
     /// ```rust
-    /// .relation(&mut relation, &[&relation.prop1, &RelationProps::Prop2(456)])
+    /// .relation_flipped(&mut relation, &[&relation.prop1, &RelationProps::Prop2(456)])
     /// ```
     /// The example above generates the following query:
     /// ```rust
     /// <-[realtionalias:REL_TYPE {prop1: $relation1_prop1, prop2: $relation1_prop2}]-
     /// ```
     /// and asociated params.
-    pub fn relation_flipped<T: Neo4gEntity>(mut self, entity: &mut T) -> Neo4gMatchStatement<CreatedRelation>
-    { //where EntityWrapper: From<T>, T: Clone {
+    pub fn relation_flipped<T, F>(mut self, entity: &mut T, f: F) -> Neo4gMatchStatement<MatchedRelation>
+    where T: Neo4gEntity, T::Props: Clone, F: FnOnce(&T) -> Vec<T::Props> {
         self.relation_number += 1;
+        let props = f(entity);
         let label = entity.get_label();
         entity.set_alias(&format!("{}{}", label.to_lowercase(), self.relation_number));
         let name = format!("{}{}", label.to_lowercase(), self.node_number);
@@ -773,12 +765,12 @@ impl Neo4gMatchStatement<MatchedNode> {
         let (query_part, params) = entity.create_from_self();
         self.query.push_str(&query_part.replace("-[", "<-[").replace("]->", "]-"));
         self.params.extend(params);
-        self.transition::<CreatedRelation>()
+        self.transition::<MatchedRelation>()
     }
     /// Provides an empty relation with no direction, simply -- . 
-    pub fn relation_undirected(mut self) -> Neo4gMatchStatement<CreatedRelation> {
+    pub fn relation_undirected(mut self) -> Neo4gMatchStatement<MatchedRelation> {
         self.query.push_str("--");
-        self.transition::<CreatedRelation>()
+        self.transition::<MatchedRelation>()
     }
     /// Provides a relation alias for use in a query string
     /// Uses all of the properties of the relation object as properties of the relation in the database.

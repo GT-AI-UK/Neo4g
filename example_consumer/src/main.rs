@@ -6,7 +6,7 @@ use dotenv::dotenv;
 use std::{env, result, vec};
 use heck::ToShoutySnakeCase;
 use neo4g::traits::WrappedNeo4gEntity;
-use neo4g_macro_rules::props;
+use neo4g_macro_rules::{props, no_props};
 
 pub async fn connect_neo4j() -> Graph { //return db object, run on startup, bind to state var
     let test = "CamalCase".to_shouty_snake_case();
@@ -40,12 +40,12 @@ async fn main() {
     let result = Neo4gBuilder::new()
         .get()
             .node(&mut page1, props!(page1 => page1.id, page1.path)).add_to_return()
-            .relation(&mut hcrel1, &[]).add_to_return()
+            .relation(&mut hcrel1, no_props!()).add_to_return()
             .node(&mut component1, |component1| vec![component1.id.clone()]).add_to_return()
         .end_statement()
         .get()
             .node_ref(&page1)
-            .relation(&mut hcrel2, &[]).add_to_return()
+            .relation(&mut hcrel2, no_props!()).add_to_return()
             .node(&mut component2, |component| vec![ComponentProps::Id("cid4".to_string())]).add_to_return()
             .filter(Where::new()
                 .nest(|inner| {inner
