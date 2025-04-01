@@ -46,7 +46,7 @@ async fn main() {
         .get()
             .node_ref(&page1)
             .relation(&mut hcrel2, no_props!()).add_to_return()
-            .node(&mut component2, |component| vec![ComponentProps::Id("cid4".to_string())]).add_to_return()
+            .node(&mut component2, props!(component2 => component2.path, ComponentProps::Id("cid4".to_string()))).add_to_return()
             .filter(Where::new()
                 .nest(|inner| {inner
                     .condition(&component1, &ComponentProps::Id("pid99".into()).into(), CompareOperator::Ne)
