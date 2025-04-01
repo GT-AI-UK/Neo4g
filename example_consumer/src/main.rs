@@ -6,7 +6,7 @@ use dotenv::dotenv;
 use std::{env, result, vec};
 use heck::ToShoutySnakeCase;
 use neo4g::traits::WrappedNeo4gEntity;
-use neo4g_macro_rules::returns;
+use neo4g_macro_rules::props;
 
 pub async fn connect_neo4j() -> Graph { //return db object, run on startup, bind to state var
     let test = "CamalCase".to_shouty_snake_case();
@@ -39,14 +39,14 @@ async fn main() {
     // !! Functional MATCH Query:
     let result = Neo4gBuilder::new()
         .get()
-            .node(&mut page1, &[PageProps::CurrentId]).add_to_return()
+            .node(&mut page1, props!(page1 => page1.id, page1.path)).add_to_return()
             .relation(&mut hcrel1, &[]).add_to_return()
-            .node(&mut component1, &[ComponentProps::CurrentId]).add_to_return()
+            .node(&mut component1, |component1| vec![component1.id.clone()]).add_to_return()
         .end_statement()
         .get()
             .node_ref(&page1)
             .relation(&mut hcrel2, &[]).add_to_return()
-            .node(&mut component2, &[ComponentProps::Id("cid4".to_string())]).add_to_return()
+            .node(&mut component2, |component| vec![ComponentProps::Id("cid4".to_string())]).add_to_return()
             .filter(Where::new()
                 .nest(|inner| {inner
                     .condition(&component1, &ComponentProps::Id("pid99".into()).into(), CompareOperator::Ne)
@@ -59,10 +59,10 @@ async fn main() {
                         
             )
             .end_statement()
-            .call(&[&page1.wrap(), &component1.wrap()], |inner| {
-                inner.get().node(&mut page2, &[PageProps::CurrentId]).end_statement()
-            })
-            .with(&[&page1.wrap(), &page2.wrap(), &component1.wrap(), &component2.wrap(), &hcrel1.wrap(), &hcrel2.wrap()])
+            // .call(&[&page1.wrap(), &component1.wrap()], |inner| {
+            //     inner.get().node(&mut page2, || vec![&PageProps::CurrentId]).end_statement()
+            // })
+            // .with(&[&page1.wrap(), &page2.wrap(), &component1.wrap(), &component2.wrap(), &hcrel1.wrap(), &hcrel2.wrap()])
         //.run_query(graph, &[EntityWrapper::from(page1), EntityWrapper::from(hcrel1), EntityWrapper::from(component1), EntityWrapper::from(hcrel2), EntityWrapper::from(component2)], EntityWrapper::from_db_entity).await;
         .run_query(graph, EntityWrapper::from_db_entity).await;
     println!("{:?}", result);

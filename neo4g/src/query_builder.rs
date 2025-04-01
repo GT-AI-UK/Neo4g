@@ -640,12 +640,10 @@ impl<Q: CanNode> Neo4gMatchStatement<Q> {
     /// (nodealias:NodeLabel {prop1: $node1_prop1, prop2: $node1_prop2})
     /// ```
     /// and asociated params.
-    pub fn node<T: Neo4gEntity>(mut self, entity: &mut T, filter_props: &[T::Props]) -> Neo4gMatchStatement<MatchedNode>
-    where T::Props: Clone {
+    pub fn node<T, F>(mut self, entity: &mut T, f: F) -> Neo4gMatchStatement<MatchedNode>
+    where T: Neo4gEntity, T::Props: Clone, F: FnOnce(&T) -> Vec<T::Props> {
         self.node_number += 1;
-        let props: Vec<T::Props> = filter_props.iter().map(|prop| {
-            entity.get_current(&prop.clone())
-        }).collect();
+        let props = f(entity);
         let label = entity.get_label();
         let alias = format!("{}{}", label.to_lowercase(), self.node_number);
         entity.set_alias(&alias);
@@ -660,6 +658,29 @@ impl<Q: CanNode> Neo4gMatchStatement<Q> {
         }
         self.transition::<MatchedNode>()
     }
+    
+    
+    
+    // pub fn node<T: Neo4gEntity>(mut self, entity: &mut T, filter_props: &[T::Props]) -> Neo4gMatchStatement<MatchedNode>
+    // where T::Props: Clone {
+    //     self.node_number += 1;
+    //     let props: Vec<T::Props> = filter_props.iter().map(|prop| {
+    //         entity.get_current(&prop.clone())
+    //     }).collect();
+    //     let label = entity.get_label();
+    //     let alias = format!("{}{}", label.to_lowercase(), self.node_number);
+    //     entity.set_alias(&alias);
+    //     let name = format!("{}{}:AdditionalLabels", label.to_lowercase(), self.node_number);
+    //     self.previous_entity = Some((name.clone(), EntityType::Node));
+    //     if props.is_empty() {
+    //         self.query.push_str(&format!("({})", name));
+    //     } else {
+    //         let (query_part, params) = entity.entity_by(&alias, &props);
+    //         self.query.push_str(&query_part);
+    //         self.params.extend(params);
+    //     }
+    //     self.transition::<MatchedNode>()
+    // }
     /// Provides a node alias for use in a query string. 
     /// Uses all of the properties of the node object as properties of the node in the database.
     /// # Example

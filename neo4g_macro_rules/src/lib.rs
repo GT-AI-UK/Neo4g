@@ -41,5 +41,12 @@ macro_rules! returns {
         ]
     }
 }
+
+#[macro_export]
+macro_rules! props {
+    ($entity:ident => $($field:expr),* $(,)?) => {
+        |$entity| vec![$($field.clone()),*]
+    };
+}
 // could do macro rules for returns!, take in the var names, and output them wrapped in EntityWrapper in a slice, with the EntityWrapper::from_db_entity() function after?
 // doesn't solve the issue, but makes everything more convenient...
