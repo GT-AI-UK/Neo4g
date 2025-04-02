@@ -1,3 +1,4 @@
+use anyhow::{anyhow, Error};
 use neo4rs::{query, BoltNull, BoltType, Graph, Node, Query, Relation};
 use serde::{Deserialize, Serialize};
 use std::f32::consts::TAU;
@@ -98,8 +99,8 @@ impl<Q: CanCreate> Neo4gBuilder<Q> {
     /// The example above generates the following query:
     /// ```rust
     /// MERGE (node1alias:Node1Label {prop: $node1_prop1)-[relalias:REL_TYPE]->(node2alias: Node2Label {prop: $node2_prop2})
-    /// ON CREATE SET node1alias.eg = $node1alias_eg1, node2alias.eg = $node2alias_eg2
-    /// ON MATCH SET node1alias.eg = $node1alias_eg1
+    /// ON CREATE SET node1alias.prop2 = $set_prop21, node2alias.prop3 = $set_prop32
+    /// ON MATCH SET node1alias.prop2 = $set_prop23
     /// RETURN node1alias, relalias, node2alias
     /// ```
     /// and asociated params.
@@ -164,18 +165,18 @@ impl<Q: CanMatch> Neo4gBuilder<Q> {
     /// # Example
     /// ```rust
     /// .get()
-    ///     .node(&mut node1, &[&node1.prop1]).add_to_return()
-    ///     .relation(&mut rel, &[]).add_to_return()
-    ///     .node(&mut node2, &[&Node2Props::Prop(123)]).add_to_return()
+    ///     .node(&mut node1, props!(node1 => node1.prop1)).add_to_return()
+    ///     .relation(&mut rel, no_props!()).add_to_return()
+    ///     .node(&mut node2, props!(node2 => Node2Props::Prop1(val))).add_to_return()
     ///     .filter(Where::new()
-    ///         .condition(&node1, &Node1Props::Prop2(123), CompareOperator::Gt)         
+    ///         .condition(&node1, prop!(node1.prop2), CompareOperator::Gt)
     ///     )
     /// .end_statement()
     /// ```
     /// The example above generates the following query:
     /// ```rust
     /// MATCH (node1alias: Node1Label {prop: $node1_prop1})-[relalias: REL_TYPE]->(node2alias: Node2Label {prop: $node2_prop2})
-    /// WHERE node1alias.prop2 = $where_prop21
+    /// WHERE node1alias.prop2 > $where_prop21
     /// RETURN node1alias, relalias, node2alias
     /// ```
     /// and asociated params.
@@ -191,18 +192,18 @@ impl<Q: CanMatch> Neo4gBuilder<Q> {
     /// # Example
     /// ```rust
     /// .optional_match()
-    ///     .node(&mut node1, &[&node1.prop1]).add_to_return()
-    ///     .relation(&mut rel, &[]).add_to_return()
-    ///     .node(&mut node2, &[&Node2Props::Prop(123)]).add_to_return()
+    ///     .node(&mut node1, props!(node1 => node1.prop1)).add_to_return()
+    ///     .relation(&mut rel, no_props!()).add_to_return()
+    ///     .node(&mut node2, props!(node2 => Node2Props::Prop1(val))).add_to_return()
     ///     .filter(Where::new()
-    ///         .condition(&node1, &Node1Props::Prop2(123), CompareOperator::Gt)         
+    ///         .condition(&node1, prop!(node1.prop2), CompareOperator::Gt)
     ///     )
     /// .end_statement()
     /// ```
     /// The example above generates the following query:
     /// ```rust
     /// OPTION MATCH (node1alias: Node1Label {prop: $node1_prop1})-[relalias: REL_TYPE]->(node2alias: Node2Label {prop: $node2_prop2})
-    /// WHERE node1alias.prop2 = $where_prop21
+    /// WHERE node1alias.prop2 > $where_prop21
     /// RETURN node1alias, relalias, node2alias
     /// ```
     /// and asociated params.
@@ -238,11 +239,12 @@ impl<Q: CanWith> Neo4gBuilder<Q> {
         self
     }
     /// Generates a WITH call. 
-    /// # Example
+    /// # Examples
     /// ```rust
     /// .with(&[entity1.wrap(), entity2.wrap()])
+    /// .with(wrap!(entity1, entity2))
     /// ```
-    /// The example above generates the following query:
+    /// The examples above each generate the following query:
     /// ```rust
     /// WITH entity1alias, entity2alias
     /// ```
@@ -259,6 +261,7 @@ impl<Q: CanWith> Neo4gBuilder<Q> {
     }
 }
 
+// Can use WHERE in more places than just within a MATCH... Do I need to?
 // impl<Q: CanWhere> Neo4gBuilder<Q> {
 //     pub fn filter_with(mut self, filter: Where<Condition>) -> Self { // needs to be specific to with... I'd rather not have lots of filters on it...
 //         if self.where_str.is_empty() {
@@ -389,7 +392,7 @@ impl<Q: CanNode> Neo4gMergeStatement<Q> {
     /// Uses the T::Props vec to set the conditions for the MERGE.
     /// # Example
     /// ```rust
-    /// .node(&mut node, &[&node.prop1, &NodeProps::Prop2(456)])
+    /// .node(&mut node, props!(node => node.prop1, NodeProps::Prop2(val)))
     /// ```
     /// The example above generates the following query:
     /// ```rust
@@ -435,7 +438,7 @@ impl Neo4gMergeStatement<CreatedNode> {
     /// Uses the T::Props vec to set the conditions for the MERGE.
     /// # Example
     /// ```rust
-    /// .relation(0, &mut relation, &[&relation.prop1, &RelationProps::Prop2(456)])
+    /// .relation(0, &mut relation, props!(relation => relation.prop1, RelationProps::Prop2(val)))
     /// ```
     /// The example above generates the following query:
     /// ```rust
@@ -460,7 +463,7 @@ impl Neo4gMergeStatement<CreatedNode> {
     /// Uses the T::Props vec to set the conditions for the MERGE.
     /// # Example
     /// ```rust
-    /// .relation(&mut relation, &[&relation.prop1, &RelationProps::Prop2(456)])
+    /// .relation(&mut relation, props!(relation => relation.prop1, RelationProps::Prop2(val)))
     /// ```
     /// The example above generates the following query:
     /// ```rust
@@ -485,7 +488,7 @@ impl Neo4gMergeStatement<CreatedNode> {
     /// Uses the T::Props vec to set the conditions for the MERGE.
     /// # Example
     /// ```rust
-    /// .relation_flipped(&mut relation, &[&relation.prop1, RelationProps::Prop2(456)])
+    /// .relation_flipped(&mut relation, props!(relation => relation.prop1, RelationProps::Prop2(val)))
     /// ```
     /// The example above generates the following query:
     /// ```rust
@@ -578,8 +581,8 @@ impl <Q: PossibleStatementEnd> Neo4gMergeStatement<Q> {
     /// Generates a SET call
     /// # Example
     /// ```rust
-    /// .set(&Entity, &[&Entity1Props::Prop1(123), &Entity1Props::Prop2(456)])
-    /// .set(&Entity2, &[&Entity2Props::Prop1(987), &Entity2Props::Prop2(654)])
+    /// .set(&entity1, props!(entity1 => entity1.prop1, Entity1Props::Prop2(val)))
+    /// .set(&entity2, props!(entity2 => entity2.prop1, Entity2Props::Prop2(val)))
     /// ```
     /// The example above generates the following query:
     /// ```rust
@@ -641,7 +644,7 @@ impl<Q: CanNode> Neo4gMatchStatement<Q> {
     /// Uses the T::Props vec to set the conditions for the MATCH.
     /// # Example
     /// ```rust
-    /// .node(&mut node, &[&node.prop1, &NodeProps::Prop2(456)])
+    /// .node(&mut node, props!(node => node.prop1, NodeProps::Prop2(val)))
     /// ```
     /// The example above generates the following query:
     /// ```rust
@@ -687,11 +690,11 @@ impl Neo4gMatchStatement<MatchedNode> {
     /// Uses the T::Props vec to set the conditions for the MATCH.
     /// # Example
     /// ```rust
-    /// .relations(0, &mut relation, &[&relation.prop1, &RelationProps::Prop2(456)])
+    /// .relations(0, &mut relation, props!(relation => relation.prop1, RelationProps::Prop2(val)))
     /// ```
     /// The example above generates the following query:
     /// ```rust
-    /// [realtionalias:REL_TYPE*0 {prop1: $relation1_prop1, prop2: $relation1_prop2}]->
+    /// [realtionalias:REL_TYPE*0 {prop1: $relation_prop1, prop2: $relation_prop2}]->
     /// ```
     /// and asociated params.
     pub fn relations<T, F>(mut self, min_hops: u32, entity: &mut T, props_macro: F) -> Neo4gMatchStatement<MatchedRelation>
@@ -712,11 +715,11 @@ impl Neo4gMatchStatement<MatchedNode> {
     /// Uses the T::Props vec to set the conditions for the MATCH.
     /// # Example
     /// ```rust
-    /// .relation(&mut relation, &[&relation.prop1, &RelationProps::Prop2(456)])
+    /// .relation(&mut relation, props!(relation => relation.prop1, RelationProps::Prop2(val)))
     /// ```
     /// The example above generates the following query:
     /// ```rust
-    /// [realtionalias:REL_TYPE {prop1: $relation1_prop1, prop2: $relation1_prop2}]->
+    /// [realtionalias:REL_TYPE {prop1: $relation_prop1, prop2: $relation_prop2}]->
     /// ```
     /// and asociated params.
     pub fn relation<T, F>(mut self, entity: &mut T, props_macro: F) -> Neo4gMatchStatement<MatchedRelation>
@@ -741,11 +744,11 @@ impl Neo4gMatchStatement<MatchedNode> {
     /// Uses the T::Props vec to set the conditions for the MATCH.
     /// # Example
     /// ```rust
-    /// .relation_flipped(&mut relation, &[&relation.prop1, &RelationProps::Prop2(456)])
+    /// .relation_flipped(&mut relation, props!(relation => relation.prop1, RelationProps::Prop2(val)))
     /// ```
     /// The example above generates the following query:
     /// ```rust
-    /// <-[realtionalias:REL_TYPE {prop1: $relation1_prop1, prop2: $relation1_prop2}]-
+    /// <-[realtionalias:REL_TYPE {prop1: $relation_prop1, prop2: $relation_prop2}]-
     /// ```
     /// and asociated params.
     pub fn relation_flipped<T, F>(mut self, entity: &mut T, props_macro: F) -> Neo4gMatchStatement<MatchedRelation>
@@ -813,9 +816,9 @@ impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> {
     /// # Example
     /// ```rust
     /// .filter(Where::new()
-    ///     .condition(&node1, &node1.prop1, CompareOperator::Eq)
+    ///     .condition(&node1, prop!(node1.prop1), CompareOperator::Eq)
     ///     .join(CompareJoiner::And)
-    ///     .condition(&node1, &Node1Props::Prop2(456), CompareOperator::Gt)       
+    ///     .condition(&node1, |_| Node1Props::Prop2(val), CompareOperator::Gt)       
     /// )
     /// ```
     /// The example above generates the following query:
@@ -835,8 +838,8 @@ impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> {
     /// Generates a SET call
     /// # Example
     /// ```rust
-    /// .set(Entity, &[&Entity1Props::Prop1(123), &Entity1Props::Prop2(456)])
-    /// .set(Entity2, &[&Entity2Props::Prop1(987), &Entity2Props::Prop2(654)])
+    /// .set(&entity1, props!(entity1 => entity1.prop1, Entity1Props::Prop2(val)))
+    /// .set(&entity2, props!(entity2 => entity2.prop1, Entity2Props::Prop2(val)))
     /// ```
     /// The example above generates the following query:
     /// ```rust
@@ -898,7 +901,7 @@ impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
     /// This is a more traditional way of managing returns and may be more familiar to people who are used to writing database queries.
     /// # Example
     /// ```rust
-    /// .set_returns(&[(EntityType::Node, EntityWrapper::Node1(node)), (EntityType::Relation, relation.clone().into())])
+    /// .set_returns(&[(EntityType::Node, node.wrap()), (EntityType::Relation, relation.wrap())])
     /// ```
     /// When .run_query(graph).await; is called, the following will be appended to the query:
     /// ```rust
@@ -920,48 +923,6 @@ impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
         self
     }
 
-    // /// Generates a CALL call
-    // /// # Example
-    // /// ```rust
-    // /// .call(&[&node1, &unwinder1, &relation1],
-    // ///     |inner| {inner
-    // ///         .get(), merge(), create(), etc.
-    // ///     }
-    // /// )
-    // /// ```
-    // /// The example above generates the following query:
-    // /// ```rust
-    // /// CALL (node1alias, unwinder1alias, relation1alias) {
-    // ///     ... // query generated by inner builder
-    // /// }
-    // /// ```
-    // /// and asociated params for the inner builder.
-    // //pub fn call<A, F, B>(mut self, entities_to_alias: &[&A], inner_builder_closure: F) -> Neo4gBuilder<Called>
-    // pub fn call<F, B>(mut self, inner_builder_closure: F) -> Neo4gBuilder<Called>
-    // where F: FnOnce(Neo4gBuilder<Empty>) -> Neo4gBuilder<B>, B: PossibleQueryEnd {
-    //     let inner_builder = Neo4gBuilder::new_with_parent(&self);
-    //     let (
-    //         query,
-    //         params,
-    //         node_number,
-    //         relation_number,
-    //         set_number,
-    //         unwind_number,
-    //         return_refs,
-    //     ) = inner_builder_closure(inner_builder).build_inner();
-    //     self.node_number = node_number;
-    //     self.relation_number = relation_number;
-    //     self.set_number = set_number;
-    //     self.unwind_number = unwind_number;
-    //     self.return_refs.extend_from_slice(&return_refs);
-    //     // let aliases: Vec<String> = entities_to_alias.iter().map(|entity| {
-    //     //     entity.get_alias()
-    //     // }).collect();
-    //     //self.query.push_str(format!("\nCALL ({}) {{\n {} \n}}", aliases.join(", "), &query).as_str());
-    //     self.query.push_str(format!("\nCALL {{\n{}\n}}", &query).as_str());
-    //     self.params.extend(params);
-    //     self.transition::<Called>()
-    // }
     /// Generates a SKIP call. 
     /// # Example
     /// ```rust
@@ -1010,7 +971,10 @@ impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
         self
     }
     /// Runs the query against a provided Graph and returns the registered return objects.
-    //pub async fn run_query<F, T, R>(mut self, graph: Graph, returns: &[T], unpack: F) -> anyhow::Result<Vec<F::Output>> 
+    /// # Example:
+    /// ```rust
+    /// .run_query(graph, EntityWrapper::from_db_entity).await;
+    /// ```
     pub async fn run_query<F, R>(mut self, graph: Graph, unpack: F) -> anyhow::Result<Vec<F::Output>> 
     where F: Fn(DbEntityWrapper) -> R {
         if !self.return_refs.is_empty() {
@@ -1027,33 +991,26 @@ impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
             println!("query ran");
             while let Ok(Some(row)) = result.next().await {
                 for (alias, entity_type) in &self.return_refs {
-                //for ret_obj in returns {
-                    //println!("attemping to get {} from database. {:?}, {:?}", alias, &entity_type, &ret_obj);
-                    //match ret_obj.get_entity_type() {
                     match entity_type {
                         EntityType::Node => {
-                            if let Ok(node) = row.get::<Node>(&alias) { //&ret_obj.get_alias()) {
-                                //println!("got node for: {}", &alias);
-                                //let wrapped_entity = EntityWrapper::from_node(node.clone());
+                            if let Ok(node) = row.get::<Node>(&alias) {
                                 let wrapped_entity = unpack(DbEntityWrapper::Node(node));
                                 return_vec.push(wrapped_entity);
                             } else {
-                                //println!("error getting {} from db result", alias);
+                                return Err(anyhow!(format!("Failed to get Node from db for {}", &alias)));
                             }
                         },
                         EntityType::Relation => {
-                            if let Ok(relation) = row.get::<Relation>(&alias) { //&ret_obj.get_alias()) {
-                                //println!("got relation for: {}", &alias);
-                                let label = relation.typ();
-                                //let wrapped_entity = EntityWrapper::from_relation(relation.clone());
+                            if let Ok(relation) = row.get::<Relation>(&alias) {
                                 let wrapped_entity = unpack(DbEntityWrapper::Relation(relation));
-                                //println!("wrapped relation: {:?}", wrapped_entity);
                                 return_vec.push(wrapped_entity);
                             } else {
-                                //println!("error getting {} from db result", alias);
+                                return Err(anyhow!(format!("Failed to get Relation from db for {}", &alias)));
                             }
                         },
-                        _ => {}//println!("You've done something strange here...")}
+                        _ => {
+                            return Err(anyhow!(format!("Not a Node or Relation not sure what you were trying to return here, or why...")));
+                        }
                     }
                 }
             }
