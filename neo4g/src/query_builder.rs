@@ -130,9 +130,9 @@ impl<Q: CanMatch> Neo4gBuilder<Q> {
     /// }
     /// ```
     /// and asociated params for the inner builder.
-    //pub fn call<A, F, B>(mut self, entities_to_alias: &[&A], inner_builder_closure: F) -> Neo4gBuilder<Called>
-    pub fn call<F, B>(mut self, inner_builder_closure: F) -> Neo4gBuilder<Called>
-    where F: FnOnce(Neo4gBuilder<Empty>) -> Neo4gBuilder<B>, B: PossibleQueryEnd {
+    pub fn call<A, F, B>(mut self, entities_to_alias: &[&A], inner_builder_closure: F) -> Neo4gBuilder<Called>
+    //pub fn call<F, B>(mut self, inner_builder_closure: F) -> Neo4gBuilder<Called>
+    where A: Aliasable, F: FnOnce(Neo4gBuilder<Empty>) -> Neo4gBuilder<B>, B: PossibleQueryEnd {
         let inner_builder = Neo4gBuilder::new_with_parent(&self);
         let (
             query,
@@ -148,11 +148,11 @@ impl<Q: CanMatch> Neo4gBuilder<Q> {
         self.set_number = set_number;
         self.unwind_number = unwind_number;
         self.return_refs.extend_from_slice(&return_refs);
-        // let aliases: Vec<String> = entities_to_alias.iter().map(|entity| {
-        //     entity.get_alias()
-        // }).collect();
-        //self.query.push_str(format!("\nCALL ({}) {{\n {} \n}}", aliases.join(", "), &query).as_str());
-        self.query.push_str(format!("\nCALL {{\n{}\n}}", &query).as_str());
+        let aliases: Vec<String> = entities_to_alias.iter().map(|entity| {
+            entity.get_alias()
+        }).collect();
+        self.query.push_str(format!("\nCALL ({}) {{\n {} \n}}", aliases.join(", "), &query).as_str());
+        //self.query.push_str(format!("\nCALL {{\n{}\n}}", &query).as_str());
         self.params.extend(params);
         self.transition::<Called>()
     }
