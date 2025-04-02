@@ -38,25 +38,25 @@ async fn main() {
     let mut page3 = Page::new("pid6", "DID IT WORK?!", Vec::new());
 
     // !! Functional MERGE Query:
-    // let result = Neo4gBuilder::new()
-    // .merge()
-    //     .node(&mut page1, props!(page1 => page1.id)).add_to_return()
-    //     .relation(&mut hcrel1, no_props!()).add_to_return()
-    //     .node(&mut component1, |component1| vec![component1.id.clone()]).add_to_return()
-    //     .on_create()
-    //         .set(&page1, props!( page1 => PageProps::Path("on_match_set page1".to_string())))
-    //         .set(&component1, props!(component1 => ComponentProps::Path("on_match_set component1".to_string())))
-    //     .on_match()
-    //         .set(&page1, props!(oage1 => PageProps::Path("on_match_set page1".to_string())))
-    // .end_statement()
-    // .with(wrap!(page1, component1, hcrel1))
-    // .merge()
-    //     .node_ref(&page1)
-    //     .relation(&mut hcrel2, no_props!())
-    //     .node(&mut component2, props!(component2 => component2.id))
-    // .end_statement()
-    // .run_query(graph, EntityWrapper::from_db_entity).await;
-    // println!("{:?}", result);
+    let result = Neo4gBuilder::new()
+    .merge()
+        .node(&mut page1, props!(page1 => page1.id)).add_to_return()
+        .relation(&mut hcrel1, no_props!()).add_to_return()
+        .node(&mut component1, |component1| vec![component1.id.clone()]).add_to_return()
+        .on_create()
+            .set(&page1, props!( page1 => PageProps::Path("on_match_set page1".to_string())))
+            .set(&component1, props!(component1 => ComponentProps::Path("on_match_set component1".to_string())))
+        .on_match()
+            .set(&page1, props!(oage1 => PageProps::Path("on_match_set page1".to_string())))
+    .end_statement()
+    .with(wrap!(page1, component1, hcrel1))
+    .merge()
+        .node_ref(&page1)
+        .relation(&mut hcrel2, no_props!())
+        .node(&mut component2, props!(component2 => component2.id))
+    .end_statement()
+    .run_query(graph, EntityWrapper::from_db_entity).await;
+    println!("{:?}", result);
 
     // !! Functional MATCH Query:
     // let result = Neo4gBuilder::new()
@@ -97,20 +97,20 @@ async fn main() {
     // println!("{:?}", result);
     
     // !! Functional CREATE Query:
-    let result = Neo4gBuilder::new()
-        .create()
-            .node(&mut page1).add_to_return()
-            .relation(&mut hcrel1).add_to_return()
-            .node(&mut component1).add_to_return()
-            .end_statement()
-        .with(wrap!(page1, hcrel1, component1))
-        .create()
-            .node_ref(&page1)
-            .relation(&mut hcrel2).add_to_return()
-            .node(&mut component2).add_to_return()
-            .end_statement()
-        .run_query(graph, EntityWrapper::from_db_entity).await;
-    println!("{:?}", result);
+    // let result = Neo4gBuilder::new()
+    //     .create()
+    //         .node(&mut page1).add_to_return()
+    //         .relation(&mut hcrel1).add_to_return()
+    //         .node(&mut component1).add_to_return()
+    //         .end_statement()
+    //     .with(wrap!(page1, hcrel1, component1))
+    //     .create()
+    //         .node_ref(&page1)
+    //         .relation(&mut hcrel2).add_to_return()
+    //         .node(&mut component2).add_to_return()
+    //         .end_statement()
+    //     .run_query(graph, EntityWrapper::from_db_entity).await;
+    // println!("{:?}", result);
 
 
 
