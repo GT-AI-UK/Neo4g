@@ -36,7 +36,7 @@ macro_rules! generate_entity_wrappers {
     }
 }
 
-/// Calls .wrap() on provided args. Useful to create a &[EntityWrapper].
+/// Calls .wrap() on provided args. Useful to create an &[EntityWrapper].
 #[macro_export]
 macro_rules! wrap {
     ($($arg:expr),* $(,)?) => {
@@ -49,11 +49,11 @@ macro_rules! wrap {
 /// Generates a closure to access entity props conveniently. Use with .node(), .relation(), etc.
 /// # Example:
 /// ```rust
-/// props!(entity1 => entity1.prop1, entity1.prop2)
+/// props!(entity => entity.prop, EntityProps::Prop(val))
 /// ```
 /// The example above generates:
 /// ```rust
-/// |entity1| vec![entity1.prop1.clone(), entity1.prop2.clone()]
+/// |entity| vec![entity.prop.clone(), entity.prop.clone()]
 /// ``` 
 #[macro_export]
 macro_rules! props {
