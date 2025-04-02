@@ -1,6 +1,9 @@
 use paste::paste;
 use neo4g_derive::{Neo4gEntityWrapper, Neo4gPropsWrapper, Neo4gLabels};
 
+/// Required for Neo4gNode and Neo4gRelation to work.
+/// Generates EntityWrapper, PropsWrapper, and Label enums.
+/// Also generates impl blocks for each using derive macros.
 #[macro_export]
 macro_rules! generate_entity_wrappers {
     ( $( $struct_name:ident ),* $(,)? ) => {
@@ -33,6 +36,7 @@ macro_rules! generate_entity_wrappers {
     }
 }
 
+/// Calls .wrap() on provided args. Useful to create a &[EntityWrapper].
 #[macro_export]
 macro_rules! wrap {
     ($($arg:expr),* $(,)?) => {
@@ -42,6 +46,15 @@ macro_rules! wrap {
     }
 }
 
+/// Generates a closure to access entity props conveniently. Use with .node(), .relation(), etc.
+/// # Example:
+/// ```rust
+/// props!(entity1 => entity1.prop1, entity1.prop2)
+/// ```
+/// The example above generates:
+/// ```rust
+/// |entity1| vec![entity1.prop1.clone(), entity1.prop2.clone()]
+/// ``` 
 #[macro_export]
 macro_rules! props {
     ($entity:ident => $($field:expr),* $(,)?) => {
@@ -49,6 +62,19 @@ macro_rules! props {
     };
 }
 
+/// Generates a closure to access entity props conveniently. Use with .condition().
+/// # Example:
+/// ```rust
+/// prop!(entity.prop)
+/// ```
+/// The example above generates:
+/// ```rust
+/// |entity| entity.field1.clone()
+/// ```
+/// NOTE: There is no alternative for EntityProps::Prop(val) because it's simple enough to just write:
+/// ```rust
+/// |_| EntityProps::Prop(val)
+/// ```
 #[macro_export]
 macro_rules! prop {
     ($entity:ident . $field:ident) => {
@@ -56,6 +82,7 @@ macro_rules! prop {
     };
 }
 
+/// Generates an empty closure that returns an empty vec. Use with .node(), .relation(), etc. when no props are required.
 #[macro_export]
 macro_rules! no_props {
     () => {
