@@ -697,7 +697,7 @@ impl Neo4gMatchStatement<MatchedNode> {
         let label = entity.get_label();
         let alias = format!("{}{}", label.to_lowercase(), self.relation_number);
         entity.set_alias(&alias);
-        let name = format!("{}{}", label.to_lowercase(), self.node_number);
+        let name = format!("{}{}", label.to_lowercase(), self.relation_number);
         self.previous_entity = Some((name.clone(), EntityType::Relation));
         let (query_part, params) = entity.entity_by(&alias, &props);
         self.query.push_str(&query_part.replace("min_hops", &format!("{}", min_hops)));
@@ -750,7 +750,7 @@ impl Neo4gMatchStatement<MatchedNode> {
         let props = props_macro(entity);
         let label = entity.get_label();
         entity.set_alias(&format!("{}{}", label.to_lowercase(), self.relation_number));
-        let name = format!("{}{}", label.to_lowercase(), self.node_number);
+        let name = format!("{}{}", label.to_lowercase(), self.relation_number);
         self.previous_entity = Some((name.clone(), EntityType::Relation));
         let (query_part, params) = entity.create_from_self();
         self.query.push_str(&query_part.replace("-[", "<-[").replace("]->", "]-"));
