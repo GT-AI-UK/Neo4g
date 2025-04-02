@@ -717,12 +717,16 @@ impl Neo4gMatchStatement<MatchedNode> {
     /// and asociated params.
     pub fn relation<T, F>(mut self, entity: &mut T, props_macro: F) -> Neo4gMatchStatement<MatchedRelation>
     where T: Neo4gEntity, T::Props: Clone, F: FnOnce(&T) -> Vec<T::Props> {
+        println!("incoming rel: {}", self.relation_number);
         self.relation_number += 1;
         let props: Vec<<T as Neo4gEntity>::Props> = props_macro(entity);
         let label = entity.get_label();
+        println!("rel num pre alias: {}", self.relation_number);
         let alias = format!("{}{}", label.to_lowercase(), self.relation_number);
+        println!("alias to be set: {}", &alias);
         entity.set_alias(&alias);
-        let name = format!("{}{}", label.to_lowercase(), self.node_number);
+        println!("actual alias: {}", &entity.get_alias());
+        let name = format!("{}{}", label.to_lowercase(), self.relation_number);
         self.previous_entity = Some((name.clone(), EntityType::Relation));
         let (query_part, params) = entity.entity_by(&alias, &props);
         self.query.push_str(&query_part.replace("*min_hops..", ""));
@@ -790,10 +794,13 @@ impl Neo4gMatchStatement<MatchedNode> {
 }
 impl <Q: CanAddReturn> Neo4gMatchStatement<Q> {
     pub fn add_to_return(mut self) -> Self {
+        println!("ret incoming rel_num: {}", self.relation_number);
         if let Some((mut name, entity_type)) = self.previous_entity.clone() {
+            println!("name: {}", &name);
             name = name.replace(":AdditionalLabels", "");
             self.return_refs.push((name, entity_type));
         }
+        println!("ret outgoing rel_num: {}", self.relation_number);
         self
     }
 }
@@ -834,7 +841,6 @@ impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> {
     /// and asociated params for the inner builder.
     pub fn set<T, F>(mut self, entity: &T, props_macro: F) -> Self
     where T: Neo4gEntity, T::Props: Clone, F: FnOnce(&T) -> Vec<T::Props> {
-        //where T::Props: Clone, PropsWrapper: From<<T as Neo4gEntity>::Props> {
         self.set_number += 1;
         let props = props_macro(entity);
         let alias = entity.get_alias();
@@ -848,7 +854,6 @@ impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> {
                 format!("{}.{} = $set_{}{}", alias, key, key, self.set_number)
             })
             .collect();
-
         query.push_str(&props_str.join(", "));
         self.params.extend(params);
         if self.set_str.is_empty() {
@@ -870,7 +875,7 @@ impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> {
                 let return_aliases: Vec<String> = self.return_refs.iter().map(|item| {
                     item.0.clone()
                 }).collect();
-                //self.query.push_str(&format!("WITH {}\n", return_aliases.join(", ")));
+                self.query.push_str(&format!("\nWITH {}", return_aliases.join(", ")));
             }
         }
         self.query = self.query.replace(":AdditionalLabels", "");
@@ -1531,6 +1536,7 @@ impl<Q: CanCondition> Where<Q> {
         let (name, value) = prop.to_query_param();
         let param_name = format!("where_{}{}", name, self.condition_number);
         let alias = entity.get_alias();
+        println!("condition_alias: {}", &alias);
         self.string.push_str(&format!("{}.{} {} ${}", &alias, name, operator.to_string(), &param_name));
         self.params.insert(param_name, value);
         println!("{}: number{}", alias, self.condition_number);
