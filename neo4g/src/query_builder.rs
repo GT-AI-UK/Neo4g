@@ -251,11 +251,11 @@ impl<Q: CanWith> Neo4gBuilder<Q> {
     /// and asociated params.
     pub fn with<T: Aliasable>(mut self, entities_to_alias: &[&T]) -> Neo4gBuilder<Withed>
     where T: std::fmt::Debug {
-        println!("Inside with {:?}", entities_to_alias);
+        // println!("Inside with {:?}", entities_to_alias);
         let aliases: Vec<String> = entities_to_alias.iter().map(|entity| {
             entity.get_alias()
         }).collect();
-        println!("aliases: {:?}", aliases);
+        // println!("aliases: {:?}", aliases);
         self.query.push_str(&format!("\nWITH {}", aliases.join(", ")));
         self.transition::<Withed>()
     }
@@ -632,7 +632,7 @@ impl <Q: PossibleStatementEnd> Neo4gMergeStatement<Q> {
     /// Finalises the current statement, tidies up placeholders, and changes the state of the builder so that new statements can be added.
     pub fn end_statement(mut self) -> Neo4gBuilder<CreatedNode> {
         self.query = self.query.replace(":AdditionalLabels", "");
-        //println!("INSIDE MERGE! Query: {}", &self.query);
+        //// println!("INSIDE MERGE! Query: {}", &self.query);
         self.query.push_str(&format!("{}{}", self.on_match_str, self.on_create_str));
         Neo4gBuilder::from(self)
     }
@@ -724,15 +724,15 @@ impl Neo4gMatchStatement<MatchedNode> {
     /// and asociated params.
     pub fn relation<T, F>(mut self, entity: &mut T, props_macro: F) -> Neo4gMatchStatement<MatchedRelation>
     where T: Neo4gEntity, T::Props: Clone, F: FnOnce(&T) -> Vec<T::Props> {
-        println!("incoming rel: {}", self.relation_number);
+        // println!("incoming rel: {}", self.relation_number);
         self.relation_number += 1;
         let props: Vec<<T as Neo4gEntity>::Props> = props_macro(entity);
         let label = entity.get_label();
-        println!("rel num pre alias: {}", self.relation_number);
+        // println!("rel num pre alias: {}", self.relation_number);
         let alias = format!("{}{}", label.to_lowercase(), self.relation_number);
-        println!("alias to be set: {}", &alias);
+        // println!("alias to be set: {}", &alias);
         entity.set_alias(&alias);
-        println!("actual alias: {}", &entity.get_alias());
+        // println!("actual alias: {}", &entity.get_alias());
         let name = format!("{}{}", label.to_lowercase(), self.relation_number);
         self.previous_entity = Some((name.clone(), EntityType::Relation));
         let (query_part, params) = entity.entity_by(&alias, &props);
@@ -801,13 +801,13 @@ impl Neo4gMatchStatement<MatchedNode> {
 }
 impl <Q: CanAddReturn> Neo4gMatchStatement<Q> {
     pub fn add_to_return(mut self) -> Self {
-        println!("ret incoming rel_num: {}", self.relation_number);
+        // println!("ret incoming rel_num: {}", self.relation_number);
         if let Some((mut name, entity_type)) = self.previous_entity.clone() {
-            println!("name: {}", &name);
+            // println!("name: {}", &name);
             name = name.replace(":AdditionalLabels", "");
             self.return_refs.push((name, entity_type));
         }
-        println!("ret outgoing rel_num: {}", self.relation_number);
+        // println!("ret outgoing rel_num: {}", self.relation_number);
         self
     }
 }
@@ -909,7 +909,7 @@ impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
     /// ```
     pub fn set_returns<T: WrappedNeo4gEntity>(mut self, returns: &[(EntityType, T)]) -> Self {
         if returns.is_empty() && self.return_refs.is_empty() {
-            println!("Nothing will be returned from this query...");
+            // println!("Nothing will be returned from this query...");
         } else {
             
         }
@@ -983,12 +983,12 @@ impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
             self.query.push_str(&aliases.join(", "));
         }
         self.query.push_str(&self.order_by_str);
-        println!("query: {}", self.query.clone());
-        println!("params: {:?}", self.params.clone());
+        // println!("query: {}", self.query.clone());
+        // println!("params: {:?}", self.params.clone());
         let query = Query::new(self.query).params(self.params);
         let mut return_vec: Vec<R> = Vec::new();
         if let Ok(mut result) = graph.execute(query).await {
-            println!("query ran");
+            // println!("query ran");
             while let Ok(Some(row)) = result.next().await {
                 for (alias, entity_type) in &self.return_refs {
                     match entity_type {
@@ -1497,10 +1497,10 @@ impl<Q: CanCondition> Where<Q> {
         let (name, value) = prop.to_query_param();
         let param_name = format!("where_{}{}", name, self.condition_number);
         let alias = entity.get_alias();
-        println!("condition_alias: {}", &alias);
+        // println!("condition_alias: {}", &alias);
         self.string.push_str(&format!("{}.{} {} ${}", &alias, name, operator.to_string(), &param_name));
         self.params.insert(param_name, value);
-        println!("{}: number{}", alias, self.condition_number);
+        // println!("{}: number{}", alias, self.condition_number);
         self.transition::<Condition>()
     }
     /// Generates a condition string with the neo4j coalesce function included.

@@ -1,6 +1,7 @@
 use crate::entity_wrapper::{EntityWrapper, Label};
 use crate::objects::{Group, GroupProps, MemberOf, MemberOfProps, User, UserProps, UserTemplate, Page, PageProps, PageTemplate, Component, ComponentProps, ComponentTemplate, ComponentType, HasComponent, HasComponentTemplate, HasComponentProps};
 use neo4g::query_builder::{self, CompareJoiner, CompareOperator, Neo4gBuilder, Where};
+use neo4g_macro_rules::{no_props, prop, props};
 use neo4rs::Graph;
 use dotenv::dotenv;
 use std::{env, result};
@@ -12,25 +13,20 @@ pub fn query_builder_string_bench() {
     let mut hcrel1 = HasComponent::default();
     let mut hcrel2 = HasComponent::default();
     let mut page1 = Page::new("pid4", "ppath4", vec![component1.clone(), component2.clone()]);
-    // let result = Neo4gBuilder::new()
-    //     .get()
-    //         .node(&mut page1, &[PageProps::Id("pid99".to_string())])
-    //         .relation(&mut hcrel1, &[])
-    //         .node(&mut component1, &[ComponentProps::Id("cid3".to_string())])
-    //     .end_statement()
-    //     .get()
-    //         .node_ref(&page1)
-    //         .relation(&mut hcrel2, &[])
-    //         .node(&mut component2, &[ComponentProps::Id("cid73".to_string())])
-    //         .filter(Where::new()
-    //             .condition(&page1, &PageProps::Id("pid99".into()).into(), CompareOperator::Eq)
-    //             //.join(CompareJoiner::And)
-    //             // .nest(Where::new_nested(|parent_filter| parent_filter)
-    //             //     .condition(&component1, &ComponentProps::Id("pid99".into()).into(), CompareOperator::Ne)
-    //             //     .join(CompareJoiner::And)
-    //             //     .condition(&component2, &ComponentProps::Id("pid99".into()).into(), CompareOperator::Ne)
-    //             // )          
-    //         )
-    //         .end_statement()
-    // .build();
+    let result = Neo4gBuilder::new()
+        .get()
+            .node(&mut page1, props!(page1 => page1.id))
+            .relation(&mut hcrel1, no_props!())
+            .node(&mut component1, props!(component1 => component1.id))
+            .filter(Where::new()
+                .condition(&page1, prop!(page1.id), CompareOperator::Eq)
+                .join(CompareJoiner::And)
+                .nest(|inner| {
+                    inner.condition(&component1, |_| ComponentProps::Id("asdfasdf".into()), CompareOperator::Ne)
+                    .join(CompareJoiner::And)
+                    .condition(&component2, |_| ComponentProps::Id("asdfasdfasdf".into()), CompareOperator::Ne)
+                })
+            )
+        .end_statement()
+        .build();
 }
