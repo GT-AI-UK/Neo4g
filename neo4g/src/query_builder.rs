@@ -259,6 +259,22 @@ impl<Q: CanWith> Neo4gBuilder<Q> {
         self.query.push_str(&format!("\nWITH {}", aliases.join(", ")));
         self.transition::<Withed>()
     }
+
+    pub fn with_arrays<T, F>(mut self, arrays: &[&Array], entities_to_alias: &[&T]) -> Neo4gBuilder<Withed>
+    where T: Aliasable {
+        let array_aliases: Vec<String> = arrays.iter().map(|entity| {
+            entity.get_alias()
+        }).collect();
+        let mut aliases: Vec<String> = entities_to_alias.iter().map(|entity| {
+            entity.get_alias()
+        }).collect();
+        aliases.extend_from_slice(&array_aliases);
+        self.query.push_str(&format!("\nWITH {}", aliases.join(", ")));
+        for array in arrays {
+            self.params.insert(array.alias.clone(), array.list.clone().into());
+        };
+        self.transition::<Withed>()
+    }
 }
 
 // Can use WHERE in more places than just within a MATCH... Do I need to?
@@ -1477,19 +1493,22 @@ impl Where<Empty> {
 }
 
 impl<Q: CanCondition> Where<Q> {
+    /// Appends NOT to the string. 
+    pub fn not(mut self) -> Self {
+        self.string.push_str("NOT");
+        self
+    }
     /// Generates a condition string.
     /// # Example
     /// ```rust
-    /// .condition(&entity, &entity.prop1, CompareOperator::Eq)
+    /// .condition(&entity, prop!(entity.prop), CompareOperator::Eq)
     /// ```
     /// The example above generates the following string:
     /// ```rust
-    /// entityalias.prop1 = $where_prop11
+    /// entityalias.prop = $where_prop11
     /// ```
     /// and asociated params.
     /// 
-    // pub fn relation_flipped<T, F>(mut self, entity: &mut T, props_macro: F) -> Neo4gMatchStatement<MatchedRelation>
-    
     pub fn condition<T, F>(mut self, entity: &T, prop_macro: F, operator: CompareOperator) -> Where<Condition>
     where T: Neo4gEntity, T::Props: Clone, F: FnOnce(&T) -> T::Props {
         self.condition_number += 1;
@@ -1506,11 +1525,11 @@ impl<Q: CanCondition> Where<Q> {
     /// Generates a condition string with the neo4j coalesce function included.
     /// # Example
     /// ```rust
-    /// .coalesce(&entity, &EntityProps::Prop1(123), CompareOperator::Eq)
+    /// .coalesce(&entity, prop!(entity.prop), CompareOperator::Eq)
     /// ```
     /// The example above generates the following string:
     /// ```rust
-    /// entityalias.prop1 = coalesce($where_prop11, entityalias.prop1)
+    /// entityalias.prop = coalesce($where_prop1, entityalias.prop)
     /// ```
     /// and asociated params.
     pub fn coalesce<T, F>(mut self, entity: &T, prop_macro: F) -> Where<Condition>
@@ -1539,13 +1558,13 @@ impl<Q: CanCondition> Where<Q> {
     /// Nests conditions within the inner_builder in parens.
     /// # Example
     /// ```rust
-    /// .nest(|inner| { inner
-    ///     .condition(&entity1, EntityProps::Prop(123).into(), CompareOperator::Eq)
+    /// .nest(|inner| {inner
+    ///     .condition(&entity1, prop!(entity1.prop1), CompareOperator::Eq)
     ///     .join(CompareJoiner::And)
-    ///     .condition(&entity2, EntityProps::Prop(456).into(), CompareOperator::Ne)
-    /// })  
+    ///     .condition(&entity2, |_| Entity2Props::Prop2(val), CompareOperator::Ne)
+    /// })
     /// ```
-    /// The example above generates "(entity1alias.prop = 123 AND entity2alias.prop <> 456)"
+    /// The example above generates "(entity1alias.prop1 = $where_prop11 AND entity2alias.prop2 <> $where_prop22)"
     pub fn nest<F>(mut self, inner_builder_closure: F) -> Where<Condition>
     where F: FnOnce(Where<Empty>) -> Where<Condition> {
         let inner_builder = Where::new_with_parent(&self);
@@ -1617,7 +1636,7 @@ impl ParamString {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Unwinder {
     alias: String,
     list: Vec<BoltType> // need to take a trait maybe? erm... simpler to just take a list of bolttypes?
@@ -1643,21 +1662,38 @@ impl Unwinder {
     }
 }
 
-impl Default for Unwinder {
-    fn default() -> Self {
-        Self {
-            alias: String::new(),
-            list: Vec::new(),
-        }
-    }
-}
-
 impl Aliasable for Unwinder {
+    fn get_alias(&self) -> String {
+        self.alias.clone()
+    }
     fn set_alias(&mut self, alias: &str) {
         self.alias = alias.to_string();
     }
+}
+
+pub struct Array {
+    alias: String,
+    list: Vec<BoltType>,
+}
+
+impl Array {
+    pub fn new(alias: &str, list: Vec<BoltType>) -> Self {
+        Self {
+            alias: alias.to_string(),
+            list,
+        }
+    }
+    pub fn build(&self) -> (String, HashMap<String, Vec<BoltType>>) {
+        (format!("&{} AS {}", &self.alias, &self.alias), HashMap::from([(self.alias.clone(), self.list.clone())]))
+    }
+}
+
+impl Aliasable for Array {
     fn get_alias(&self) -> String {
         self.alias.clone()
+    }
+    fn set_alias(&mut self, alias: &str) -> () {
+        self.alias = alias.to_string();
     }
 }
 
