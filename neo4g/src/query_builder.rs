@@ -173,7 +173,7 @@ impl<Q: CanMatch> Neo4gBuilder<Q> {
     /// UNWIND $neo4g_unwind1 as neo4g_unwind1
     /// ```
     /// and asociated params.
-    pub fn unwind(mut self, unwinder: &mut Unwinder) -> Self {
+    pub fn unwind(mut self, unwinder: &mut Unwinder) -> Self { //instead of an Unwinder, should .unwind() just be an Array method as an alternative to build?
         self.unwind_number += 1;
         unwinder.alias = format!("unwound_{}{}", &unwinder.array.alias, self.unwind_number);
         self.query.push_str(&format!("\nUNWIND {} AS {}", &unwinder.array.alias, &unwinder.alias));
