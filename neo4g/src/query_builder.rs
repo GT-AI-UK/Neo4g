@@ -161,6 +161,24 @@ impl<Q: CanMatch> Neo4gBuilder<Q> {
         self.params.extend(params);
         self.transition::<Called>()
     }
+       /// Generates an UNWIND call. 
+    /// # Example
+    /// ```rust
+    /// .unwind(
+    ///     Unwinder::new(vec![PropsWrapper::EntityProps(EntityProps::Prop(123))])
+    /// )
+    /// ```
+    /// The example above generates the following query:
+    /// ```rust
+    /// UNWIND $neo4g_unwind1 as neo4g_unwind1
+    /// ```
+    /// and asociated params.
+    pub fn unwind(mut self, unwinder: &mut Unwinder) -> Self {
+        self.unwind_number += 1;
+        unwinder.alias = format!("unwound_{}{}", &unwinder.array.alias, self.unwind_number);
+        self.query.push_str(&format!("\nUNWIND {} AS {}", &unwinder.array.alias, &unwinder.alias));
+        self
+    }
     /// Generates a MATCH statement. 
     /// # Example
     /// ```rust
@@ -218,26 +236,6 @@ impl<Q: CanMatch> Neo4gBuilder<Q> {
 }
 
 impl<Q: CanWith> Neo4gBuilder<Q> {
-    /// Generates an UNWIND call. 
-    /// # Example
-    /// ```rust
-    /// .unwind(
-    ///     Unwinder::new(vec![PropsWrapper::EntityProps(EntityProps::Prop(123))])
-    /// )
-    /// ```
-    /// The example above generates the following query:
-    /// ```rust
-    /// UNWIND $neo4g_unwind1 as neo4g_unwind1
-    /// ```
-    /// and asociated params.
-    pub fn unwind(mut self, mut unwinder: Unwinder) -> Self {
-        self.unwind_number += 1;
-        unwinder.alias = format!("neo4g_unwind{}", self.unwind_number);
-        let (query, params) = unwinder.unwind();
-        self.query.push_str(&format!("\n{}", query));
-        self.params.extend(params);
-        self
-    }
     /// Generates a WITH call. 
     /// # Examples
     /// ```rust
@@ -260,19 +258,18 @@ impl<Q: CanWith> Neo4gBuilder<Q> {
         self.transition::<Withed>()
     }
 
-    pub fn with_arrays<T, F>(mut self, arrays: &[&Array], entities_to_alias: &[&T]) -> Neo4gBuilder<Withed>
+    pub fn with_arrays<T, F>(mut self, arrays: &mut [&mut Array], entities_to_alias: &[&T]) -> Neo4gBuilder<Withed>
     where T: Aliasable {
-        let array_aliases: Vec<String> = arrays.iter().map(|entity| {
-            entity.get_alias()
+        let array_aliases_as: Vec<String> = arrays.iter_mut().map(|array| {
+            let (query, params) = array.build();
+            self.params.extend(params);
+            query
         }).collect();
         let mut aliases: Vec<String> = entities_to_alias.iter().map(|entity| {
             entity.get_alias()
         }).collect();
-        aliases.extend_from_slice(&array_aliases);
+        aliases.extend_from_slice(&array_aliases_as);
         self.query.push_str(&format!("\nWITH {}", aliases.join(", ")));
-        for array in arrays {
-            self.params.insert(array.alias.clone(), array.list.clone().into());
-        };
         self.transition::<Withed>()
     }
 }
@@ -1639,25 +1636,31 @@ impl ParamString {
 #[derive(Debug, Clone, Default)]
 pub struct Unwinder {
     alias: String,
-    list: Vec<BoltType> // need to take a trait maybe? erm... simpler to just take a list of bolttypes?
+    array: Array,
 }
 
 impl Unwinder {
-    pub fn new<T: QueryParam>(list: &[T]) -> Self {
+    pub fn new(array: &Array) -> Self {
         Self {
             alias: String::new(),
-            list: list.iter().map(|props_wrapper| {
-                let (_, bolt) = props_wrapper.to_query_param();
-                bolt
-            }).collect(),
+            array: array.clone(),
+            // list: list.iter().map(|props_wrapper| {
+            //     let (_, bolt) = props_wrapper.to_query_param();
+            //     bolt
+            // }).collect(),
         }
     }
     /// Builds the query and params. This is used by .unwind(), and should otherwise not be used unless you know what you're doing. 
     /// It has to be a pub fn to allow .unwind() to work as intended, but is not intended for use by API consumers.
-    pub fn unwind(self) -> (String, HashMap<String, BoltType>) {
+    pub fn unwind(&mut self) -> (String, HashMap<String, BoltType>) {
         let mut params = HashMap::new();
-        params.insert(format!("{}", self.alias), self.list.into());
-        let query = format!("UNWIND ${} as {}", self.alias, self.alias);
+        let mut query = String::new();
+        if !self.array.is_built {
+            let (array_query, array_params) = self.array.build();
+            params = array_params;
+            query.push_str(&array_query);
+        }
+        query.push_str(&format!("\nUNWIND {} as {}", self.alias, self.alias));
         (query, params)
     }
 }
@@ -1671,9 +1674,11 @@ impl Aliasable for Unwinder {
     }
 }
 
+#[derive(Debug, Clone, Default)]
 pub struct Array {
     alias: String,
     list: Vec<BoltType>,
+    is_built: bool,
 }
 
 impl Array {
@@ -1681,10 +1686,12 @@ impl Array {
         Self {
             alias: alias.to_string(),
             list,
+            is_built: false,
         }
     }
-    pub fn build(&self) -> (String, HashMap<String, Vec<BoltType>>) {
-        (format!("&{} AS {}", &self.alias, &self.alias), HashMap::from([(self.alias.clone(), self.list.clone())]))
+    pub fn build(&mut self) -> (String, HashMap<String, BoltType>) {
+        self.is_built = true; 
+        (format!("${} AS {}", &self.alias, &self.alias), HashMap::from([(self.alias.clone(), BoltType::from(self.list.clone()))]))
     }
 }
 
