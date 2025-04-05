@@ -165,18 +165,24 @@ impl<Q: CanMatch> Neo4gBuilder<Q> {
     /// # Example
     /// ```rust
     /// .unwind(
-    ///     Unwinder::new(vec![PropsWrapper::EntityProps(EntityProps::Prop(123))])
+    ///     &mut Unwinder::new(&Array::new("example_array", vec!["string".into(), 1.into()]))
     /// )
+    /// .unwind(
+    ///     &mut Unwinder::new(&example_array)
+    /// )
+    /// .unwind(&mut unwinder)
     /// ```
-    /// The example above generates the following query:
+    /// The examples above may each generate the following query:
     /// ```rust
-    /// UNWIND $neo4g_unwind1 as neo4g_unwind1
+    /// UNWIND $example_array as unwound_example_array1
     /// ```
     /// and asociated params.
-    pub fn unwind(mut self, unwinder: &mut Unwinder) -> Self { //keep as unwinder because this way you can unwind multiple times?
+    pub fn unwind(mut self, unwinder: &mut Unwinder) -> Self {
         self.unwind_number += 1;
         unwinder.alias = format!("unwound_{}{}", &unwinder.array.alias, self.unwind_number);
-        self.query.push_str(&format!("\nUNWIND {} AS {}", &unwinder.array.alias, &unwinder.alias));
+        let (query, params) = unwinder.unwind();
+        self.query.push_str(&query);
+        self.params.extend(params);
         self
     }
     /// Generates a MATCH statement. 
@@ -258,7 +264,7 @@ impl<Q: CanWith> Neo4gBuilder<Q> {
         self.transition::<Withed>()
     }
 
-    pub fn with_arrays<T, F>(mut self, arrays: &mut [&mut Array], entities_to_alias: &[&T]) -> Neo4gBuilder<Withed>
+    pub fn with_arrays<T>(mut self, arrays: &mut [&mut Array], entities_to_alias: &[&T]) -> Neo4gBuilder<Withed>
     where T: Aliasable {
         let array_aliases_as: Vec<String> = arrays.iter_mut().map(|array| {
             let (query, params) = array.build();
@@ -996,12 +1002,12 @@ impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
             self.query.push_str(&aliases.join(", "));
         }
         self.query.push_str(&self.order_by_str);
-        // println!("query: {}", self.query.clone());
-        // println!("params: {:?}", self.params.clone());
+        println!("query: {}", self.query.clone());
+        println!("params: {:?}", self.params.clone());
         let query = Query::new(self.query).params(self.params);
         let mut return_vec: Vec<R> = Vec::new();
         if let Ok(mut result) = graph.execute(query).await {
-            // println!("query ran");
+            println!("query ran");
             while let Ok(Some(row)) = result.next().await {
                 for (alias, entity_type) in &self.return_refs {
                     match entity_type {
@@ -1384,7 +1390,7 @@ pub enum CompareOperator {
     Lt,
     Le,
     Ne,
-    In,
+    In(Vec<BoltType>),
 }
 
 impl fmt::Display for CompareOperator {
@@ -1396,7 +1402,7 @@ impl fmt::Display for CompareOperator {
             CompareOperator::Lt => "<",
             CompareOperator::Le => "<=",
             CompareOperator::Ne => "<>",
-            CompareOperator::In => "IN",
+            CompareOperator::In(v) => "IN", //, v.iter().map(|i| format!("{}", i)).collect::<Vec<String>>().join(", ")),
         };
         write!(f, "{}", s)
     }
@@ -1411,7 +1417,6 @@ impl From<&str> for CompareOperator {
             "lt" => CompareOperator::Lt,
             "le" => CompareOperator::Le,
             "ne" => CompareOperator::Ne,
-            "in" => CompareOperator::In,
             _ => panic!("Invalid CompareOperator string: {}", s),
         }
     }
@@ -1515,7 +1520,11 @@ impl<Q: CanCondition> Where<Q> {
         let alias = entity.get_alias();
         // println!("condition_alias: {}", &alias);
         self.string.push_str(&format!("{}.{} {} ${}", &alias, name, operator.to_string(), &param_name));
-        self.params.insert(param_name, value);
+        if let CompareOperator::In(v) = operator {
+            self.params.insert(param_name, v.into());
+        } else {
+            self.params.insert(param_name, value);
+        }
         // println!("{}: number{}", alias, self.condition_number);
         self.transition::<Condition>()
     }
@@ -1656,11 +1665,11 @@ impl Unwinder {
         let mut params = HashMap::new();
         let mut query = String::new();
         if !self.array.is_built {
-            let (array_query, array_params) = self.array.build();
-            params = array_params;
-            query.push_str(&array_query);
+            params.insert(self.array.alias.clone(), self.array.list().into());
+            query.push_str(&format!("\nUNWIND ${} as {}", &self.array.alias, &self.alias));
+        } else {
+            query.push_str(&format!("\nUNWIND {} as {}", &self.array.alias, &self.alias));
         }
-        query.push_str(&format!("\nUNWIND {} as {}", self.alias, self.alias));
         (query, params)
     }
 }
@@ -1692,6 +1701,9 @@ impl Array {
     pub fn build(&mut self) -> (String, HashMap<String, BoltType>) {
         self.is_built = true; 
         (format!("${} AS {}", &self.alias, &self.alias), HashMap::from([(self.alias.clone(), BoltType::from(self.list.clone()))]))
+    }
+    pub fn list(&self) -> Vec<BoltType> {
+        self.list.clone()
     }
 }
 

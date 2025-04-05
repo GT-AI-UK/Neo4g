@@ -39,7 +39,7 @@ macro_rules! generate_entity_wrappers {
 /// Calls .wrap() on provided args. Useful to create an &[EntityWrapper].
 #[macro_export]
 macro_rules! wrap {
-    ($($arg:expr),* $(,)?) => {
+    [$($arg:expr),* $(,)?] => {
         &[
             $( &$arg.wrap() ),*
         ]
@@ -87,5 +87,23 @@ macro_rules! prop {
 macro_rules! no_props {
     () => {
         |_| Vec::new()
+    };
+}
+
+/// Generates input for the arrays argument in .with_arrays().
+/// # Exmaple:
+/// ```rust
+/// arrays![array1, array2, array_n]
+/// ```
+/// The exmaple above generates:
+/// ```rust
+/// &mut [&mut array1, &mut array2, &mut array_n]
+/// ```
+#[macro_export]
+macro_rules! arrays {
+    [$($arg:expr),* $(,)?] => {
+        &mut [
+            $( &mut $arg ),*
+        ]
     };
 }
