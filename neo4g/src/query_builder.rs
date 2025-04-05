@@ -264,20 +264,20 @@ impl<Q: CanWith> Neo4gBuilder<Q> {
         self.transition::<Withed>()
     }
 
-    pub fn with_arrays<T>(mut self, arrays: &mut [&mut Array], entities_to_alias: &[&T]) -> Neo4gBuilder<Withed>
-    where T: Aliasable {
-        let array_aliases_as: Vec<String> = arrays.iter_mut().map(|array| {
-            let (query, params) = array.build();
-            self.params.extend(params);
-            query
-        }).collect();
-        let mut aliases: Vec<String> = entities_to_alias.iter().map(|entity| {
-            entity.get_alias()
-        }).collect();
-        aliases.extend_from_slice(&array_aliases_as);
-        self.query.push_str(&format!("\nWITH {}", aliases.join(", ")));
-        self.transition::<Withed>()
-    }
+    // pub fn with_arrays<T>(mut self, arrays: &mut [&mut Array], entities_to_alias: &[&T]) -> Neo4gBuilder<Withed>
+    // where T: Aliasable {
+    //     let array_aliases_as: Vec<String> = arrays.iter_mut().map(|array| {
+    //         let (query, params) = array.build();
+    //         self.params.extend(params);
+    //         query
+    //     }).collect();
+    //     let mut aliases: Vec<String> = entities_to_alias.iter().map(|entity| {
+    //         entity.get_alias()
+    //     }).collect();
+    //     aliases.extend_from_slice(&array_aliases_as);
+    //     self.query.push_str(&format!("\nWITH {}", aliases.join(", ")));
+    //     self.transition::<Withed>()
+    // }
 }
 
 // Can use WHERE in more places than just within a MATCH... Do I need to?
@@ -1497,7 +1497,7 @@ impl Where<Empty> {
 impl<Q: CanCondition> Where<Q> {
     /// Appends NOT to the string. 
     pub fn not(mut self) -> Self {
-        self.string.push_str("NOT");
+        self.string.push_str("NOT ");
         self
     }
     /// Generates a condition string.
@@ -1526,6 +1526,28 @@ impl<Q: CanCondition> Where<Q> {
             self.params.insert(param_name, value);
         }
         // println!("{}: number{}", alias, self.condition_number);
+        self.transition::<Condition>()
+    }
+    /// Generates a condition string for an entity not being null.
+    /// # Example
+    /// ```rust
+    /// .is_not_null(&entity)
+    /// ```
+    /// The example above generates `entityalias IS NOT NULL`
+    pub fn is_not_null<T: Neo4gEntity>(mut self, entity: &T) -> Where<Condition> {
+        self.condition_number += 1;
+        self.string.push_str(&format!("{} IS NOT NULL", entity.get_alias()));
+        self.transition::<Condition>()
+    }
+    /// Generates a condition string for an entity being null.
+    /// # Example
+    /// ```rust
+    /// .is_null(&entity)
+    /// ```
+    /// The example above generates `entityalias IS NULL`
+    pub fn is_null<T: Neo4gEntity>(mut self, entity: &T) -> Where<Condition> {
+        self.condition_number += 1;
+        self.string.push_str(&format!("{} IS NULL", entity.get_alias()));
         self.transition::<Condition>()
     }
     /// Generates a condition string with the neo4j coalesce function included.
@@ -1681,6 +1703,9 @@ impl Aliasable for Unwinder {
     fn set_alias(&mut self, alias: &str) {
         self.alias = alias.to_string();
     }
+    fn with(&mut self) -> (String, std::collections::HashMap<String, BoltType>) {
+        (self.get_alias(), HashMap::new())
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -1699,8 +1724,12 @@ impl Array {
         }
     }
     pub fn build(&mut self) -> (String, HashMap<String, BoltType>) {
-        self.is_built = true; 
-        (format!("${} AS {}", &self.alias, &self.alias), HashMap::from([(self.alias.clone(), BoltType::from(self.list.clone()))]))
+        if self.is_built {
+            return (self.get_alias(), HashMap::new());
+        } else {
+            self.is_built = true; 
+            return (format!("${} AS {}", &self.alias, &self.alias), HashMap::from([(self.alias.clone(), BoltType::from(self.list.clone()))]));
+        }
     }
     pub fn list(&self) -> Vec<BoltType> {
         self.list.clone()
@@ -1713,6 +1742,102 @@ impl Aliasable for Array {
     }
     fn set_alias(&mut self, alias: &str) -> () {
         self.alias = alias.to_string();
+    }
+    fn with(&mut self) -> (String, HashMap<String, BoltType>) {
+        self.build()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct With<State> {
+    string: String,
+    params: HashMap<String, BoltType>,
+    with_number: u32,
+    _state: PhantomData<State>,
+}
+
+impl With<Empty> {
+    pub fn new() -> Self {
+        Self {
+            string: String::new(),
+            params: HashMap::new(),
+            with_number: 0,
+            _state: PhantomData,
+        }
+    }
+}
+
+impl <S> With<S> {
+    fn transition<NewState>(self) -> With<NewState> {
+        let With {string, params, with_number, ..} = self;
+        With {string, params, with_number, _state: std::marker::PhantomData,}
+    }
+}
+impl <CanBuild> With<CanBuild> {
+    pub fn entities<T: WrappedNeo4gEntity>(mut self, entities: &[T]) -> With<Condition> {
+        if entities.len() == 0 {
+            return self.transition::<Condition>();
+        }
+        self.with_number += 1;
+        let aliases: Vec<String> = entities.iter().map(|entity| {
+            entity.get_alias()
+        }).collect();
+        if !self.string.is_empty() {
+            self.string.push_str(", ");
+        }
+        self.string.push_str(&aliases.join(", "));
+        self.transition::<Condition>()
+    }
+    pub fn arrays(mut self, arrays: &mut [&mut Array]) -> With<Condition> {
+        let aliases: Vec<String> = arrays.iter_mut().map(|array|{
+            let (string, params) = array.build();
+            self.params.extend(params);
+            string
+        }).collect();
+        if !self.string.is_empty() {
+            self.string.push_str(", ");
+        }
+        self.string.push_str(&aliases.join(", "));
+        self.transition::<Condition>()
+    }
+    pub fn collect<A: Aliasable>(mut self, entities: &[&A]) -> With<Condition> {
+        if !self.string.is_empty() {
+            self.string.push_str(", ");
+        }
+        let strings:Vec<String> = entities.iter().map(|entity| {
+            let alias = entity.get_alias();
+            self.with_number += 1;
+            format!("COLLECT({}) AS collected_{}{}", &alias, &alias, self.with_number)
+        }).collect();
+        self.string.push_str(&strings.join(", "));
+        self.transition::<Condition>()
+    }
+    pub fn build(self) -> (String, HashMap<String, BoltType>) {
+        (self.string, self.params)
+    }
+}
+
+impl With<Condition> {
+    /// Generates a WHERE call
+    /// # Example
+    /// ```rust
+    /// .filter(Where::new()
+    ///     .is_not_null(&entity1)
+    ///     .join(CompareJoiner::And)
+    ///     .size(&entity2, CompareOperator::Gt(0))       
+    /// )
+    /// ```
+    /// The example above generates the following query:
+    /// ```rust
+    /// WHERE entity1alias IS NOT NULL AND size(entity2alias) > $where_entity2alias1
+    /// ```
+    /// and asociated params.
+    pub fn filter(mut self, filter: Where<Condition>) -> With<ReturnSet> {
+        self.string.push_str(" WHERE ");
+        let (query_part, where_params) = filter.build();
+        self.string.push_str(&query_part);
+        self.params.extend(where_params);
+        self.transition::<ReturnSet>()
     }
 }
 
