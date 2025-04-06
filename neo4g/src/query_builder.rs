@@ -1806,6 +1806,7 @@ impl fmt::Display for Expr {
     }
 }
 
+// See conversation: https://chatgpt.com/c/67f2becb-e4cc-8013-8c50-c40598488122
 impl fmt::Display for Function {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
