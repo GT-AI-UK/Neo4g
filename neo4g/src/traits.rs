@@ -23,7 +23,6 @@ pub trait Neo4gEntity: Aliasable {
 pub trait Aliasable {
     fn set_alias(&mut self, alias: &str) -> ();
     fn get_alias(&self) -> String;
-    fn with(&mut self) -> (String, std::collections::HashMap<String, BoltType>);
 }
 
 pub trait QueryParam {

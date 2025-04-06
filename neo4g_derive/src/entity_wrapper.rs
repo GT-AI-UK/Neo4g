@@ -193,9 +193,6 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
         impl Aliasable for EntityWrapper {
             #get_alias_fn
             #set_alias_fn
-            fn with(&mut self) -> (String, std::collections::HashMap<String, BoltType>) {
-                (self.get_alias(), std::collections::HashMap::new())
-            }
         }
 
         impl WrappedNeo4gEntity for EntityWrapper {

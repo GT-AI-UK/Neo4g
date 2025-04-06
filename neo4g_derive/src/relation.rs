@@ -690,10 +690,6 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
             fn get_alias(&self) -> String {
                 self.get_entity_alias()
             }
-
-            fn with(&mut self) -> (String, std::collections::HashMap<String, BoltType>) {
-                (self.get_entity_alias(), std::collections::HashMap::new())
-            }
         }
         
         impl #new_struct_name {

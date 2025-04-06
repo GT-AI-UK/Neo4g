@@ -259,45 +259,7 @@ impl<Q: CanWith> Neo4gBuilder<Q> {
         self.params.extend(params);
         self.transition::<Withed>()
     }
-    // pub fn with<T: Aliasable>(mut self, entities_to_alias: &[&T]) -> Neo4gBuilder<Withed>
-    // where T: std::fmt::Debug {
-    //     // println!("Inside with {:?}", entities_to_alias);
-    //     let aliases: Vec<String> = entities_to_alias.iter().map(|entity| {
-    //         entity.get_alias()
-    //     }).collect();
-    //     // println!("aliases: {:?}", aliases);
-    //     self.query.push_str(&format!("\nWITH {}", aliases.join(", ")));
-    //     self.transition::<Withed>()
-    // }
-
-    // pub fn with_arrays<T>(mut self, arrays: &mut [&mut Array], entities_to_alias: &[&T]) -> Neo4gBuilder<Withed>
-    // where T: Aliasable {
-    //     let array_aliases_as: Vec<String> = arrays.iter_mut().map(|array| {
-    //         let (query, params) = array.build();
-    //         self.params.extend(params);
-    //         query
-    //     }).collect();
-    //     let mut aliases: Vec<String> = entities_to_alias.iter().map(|entity| {
-    //         entity.get_alias()
-    //     }).collect();
-    //     aliases.extend_from_slice(&array_aliases_as);
-    //     self.query.push_str(&format!("\nWITH {}", aliases.join(", ")));
-    //     self.transition::<Withed>()
-    // }
 }
-
-// Can use WHERE in more places than just within a MATCH... Do I need to?
-// impl<Q: CanWhere> Neo4gBuilder<Q> {
-//     pub fn filter_with(mut self, filter: Where<Condition>) -> Self { // needs to be specific to with... I'd rather not have lots of filters on it...
-//         if self.where_str.is_empty() {
-//             self.where_str.push_str("\nWHERE ")
-//         }
-//         let (query_part, where_params) = filter.build();
-//         self.where_str.push_str(&format!("{}\n", &query_part));
-//         self.params.extend(where_params);
-//         self
-//     }
-// }
 
 //Create statement methods
 impl<Q: CanNode> Neo4gCreateStatement<Q> {
@@ -1352,114 +1314,191 @@ impl <S> From<Neo4gCreateStatement<S>> for Neo4gBuilder<CreatedNode> {
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum Order {
-    Asc,
-    Desc,
-    None,
+#[derive(Debug, Clone, Default)]
+pub struct Unwinder {
+    alias: String,
+    array: Array,
 }
 
-impl fmt::Display for Order {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            Order::Asc => "",
-            Order::Desc  => "DESC",
-            Order::None => "",
-        };
-        write!(f, "{}", s)
+impl Unwinder {
+    pub fn new(array: &Array) -> Self {
+        Self {
+            alias: String::new(),
+            array: array.clone(),
+        }
+    }
+    /// Builds the query and params. This is used by .unwind(), and should otherwise not be used unless you know what you're doing. 
+    fn unwind(&mut self) -> (String, HashMap<String, BoltType>) {
+        let mut params = HashMap::new();
+        let mut query = String::new();
+        if !self.array.is_built {
+            params.insert(self.array.alias.clone(), self.array.list().into());
+            query.push_str(&format!("\nUNWIND ${} as {}", &self.array.alias, &self.alias));
+        } else {
+            query.push_str(&format!("\nUNWIND {} as {}", &self.array.alias, &self.alias));
+        }
+        (query, params)
     }
 }
 
-impl From<&str> for Order {
-    fn from(s: &str) -> Self {
-        match s.to_lowercase().as_str() {
-            "asc" => Order::Asc,
-            "desc"  => Order::Desc,
-            "" => Order::None,
-            _ => panic!("Invalid CompareJoiner string: {}", s),
+impl Aliasable for Unwinder {
+    fn get_alias(&self) -> String {
+        self.alias.clone()
+    }
+    fn set_alias(&mut self, alias: &str) {
+        self.alias = alias.to_string();
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct Array {
+    alias: String,
+    list: Vec<BoltType>,
+    is_built: bool,
+}
+
+impl Array {
+    pub fn new(alias: &str, list: Vec<BoltType>) -> Self {
+        Self {
+            alias: alias.to_string(),
+            list,
+            is_built: false,
+        }
+    }
+    fn build(&mut self) -> (String, HashMap<String, BoltType>) {
+        if self.is_built {
+            return (self.get_alias(), HashMap::new());
+        } else {
+            self.is_built = true; 
+            return (format!("${} AS {}", &self.alias, &self.alias), HashMap::from([(self.alias.clone(), BoltType::from(self.list.clone()))]));
+        }
+    }
+    pub fn list(&self) -> Vec<BoltType> {
+        self.list.clone()
+    }
+}
+
+impl Aliasable for Array {
+    fn get_alias(&self) -> String {
+        self.alias.clone()
+    }
+    fn set_alias(&mut self, alias: &str) -> () {
+        self.alias = alias.to_string();
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct With<State> {
+    string: String,
+    params: HashMap<String, BoltType>,
+    with_number: u32,
+    _state: PhantomData<State>,
+}
+
+impl With<Empty> {
+    pub fn new() -> Self {
+        Self {
+            string: String::new(),
+            params: HashMap::new(),
+            with_number: 0,
+            _state: PhantomData,
         }
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum OnString {
-    Create,
-    Match,
-    None,
-}
-
-#[derive(Debug, Clone)]
-pub enum CompareOperator {
-    Eq,
-    Gt,
-    Ge,
-    Lt,
-    Le,
-    Ne,
-    In(Vec<BoltType>),
-}
-
-impl fmt::Display for CompareOperator {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            CompareOperator::Eq => "=",
-            CompareOperator::Gt => ">",
-            CompareOperator::Ge => ">=",
-            CompareOperator::Lt => "<",
-            CompareOperator::Le => "<=",
-            CompareOperator::Ne => "<>",
-            CompareOperator::In(v) => "IN", //, v.iter().map(|i| format!("{}", i)).collect::<Vec<String>>().join(", ")),
-        };
-        write!(f, "{}", s)
+impl <S> With<S> {
+    fn transition<NewState>(self) -> With<NewState> {
+        let With {string, params, with_number, ..} = self;
+        With {string, params, with_number, _state: std::marker::PhantomData,}
     }
 }
-
-impl From<&str> for CompareOperator {
-    fn from(s: &str) -> Self {
-        match s.to_lowercase().as_str() {
-            "eq" => CompareOperator::Eq,
-            "gt" => CompareOperator::Gt,
-            "ge" => CompareOperator::Ge,
-            "lt" => CompareOperator::Lt,
-            "le" => CompareOperator::Le,
-            "ne" => CompareOperator::Ne,
-            _ => panic!("Invalid CompareOperator string: {}", s),
+impl <CanBuild> With<CanBuild> {
+    /// Generates comma separated entity aliases.
+    /// # Example
+    /// ```rust
+    /// .entities(wrap![entity1, entity2])
+    /// ```
+    /// The example above generates `entity1alias, entity2alias`.
+    /// If this was called after other With methods, a comma is also inserted at the start of the string.
+    pub fn entities<T: WrappedNeo4gEntity>(mut self, entities: &[T]) -> With<Condition> {
+        if entities.len() == 0 {
+            return self.transition::<Condition>();
         }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum CompareJoiner {
-    And,
-    Or,
-    Not,
-}
-
-#[derive(Debug, Clone)]
-pub enum DbEntityWrapper {
-    Node(Node),
-    Relation(Relation),
-}
-
-impl fmt::Display for CompareJoiner {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            CompareJoiner::And => "AND",
-            CompareJoiner::Or  => "OR",
-            CompareJoiner::Not => "NOT",
-        };
-        write!(f, "{}", s)
-    }
-}
-
-impl From<&str> for CompareJoiner {
-    fn from(s: &str) -> Self {
-        match s.to_lowercase().as_str() {
-            "and" => CompareJoiner::And,
-            "or"  => CompareJoiner::Or,
-            "not" => CompareJoiner::Not,
-            _ => panic!("Invalid CompareJoiner string: {}", s),
+        self.with_number += 1;
+        let aliases: Vec<String> = entities.iter().map(|entity| {
+            entity.get_alias()
+        }).collect();
+        if !self.string.is_empty() {
+            self.string.push_str(", ");
         }
+        self.string.push_str(&aliases.join(", "));
+        self.transition::<Condition>()
+    }
+    /// Generates comma separated array params AS aliases.
+    /// # Example
+    /// ```rust
+    /// .arrays(arrays![array1, array2])
+    /// ```
+    /// The example above generates `$array1 AS array1, $array2 AS array2`.
+    /// If this was called after other With methods, a comma is also inserted at the start of the string.
+    pub fn arrays(mut self, arrays: &mut [&mut Array]) -> With<Condition> {
+        self.with_number += 1;
+        let aliases: Vec<String> = arrays.iter_mut().map(|array|{
+            let (string, params) = array.build();
+            self.params.extend(params);
+            string
+        }).collect();
+        if !self.string.is_empty() {
+            self.string.push_str(", ");
+        }
+        self.string.push_str(&aliases.join(", "));
+        self.transition::<Condition>()
+    }
+    /// Generates comma separated calls to COLLECT.
+    /// # Example
+    /// ```rust
+    /// .collect(wrap![entity1, entity2])
+    /// ```
+    /// The example above generates `COLLECT(entit1alias) AS collected_entity1alias1, COLLECT(entity2alias) AS collected_entity2alias2`.
+    /// If this was called after other With methods, a comma is also inserted at the start of the string.
+    pub fn collect<A: Aliasable>(mut self, entities: &[&A]) -> With<Condition> {
+        if !self.string.is_empty() {
+            self.string.push_str(", ");
+        }
+        let strings:Vec<String> = entities.iter().map(|entity| {
+            let alias = entity.get_alias();
+            self.with_number += 1;
+            format!("COLLECT({}) AS collected_{}{}", &alias, &alias, self.with_number)
+        }).collect();
+        self.string.push_str(&strings.join(", "));
+        self.transition::<Condition>()
+    }
+    fn build(self) -> (String, HashMap<String, BoltType>) {
+        (self.string, self.params)
+    }
+}
+
+impl With<Condition> {
+    /// Generates a WHERE call
+    /// # Example
+    /// ```rust
+    /// .filter(Where::new()
+    ///     .is_not_null(&entity1)
+    ///     .join(CompareJoiner::And)
+    ///     .size(&entity2, CompareOperator::Gt(0))       
+    /// )
+    /// ```
+    /// The example above generates the following query:
+    /// ```rust
+    /// WHERE entity1alias IS NOT NULL AND size(entity2alias) > $where_entity2alias1
+    /// ```
+    /// and asociated params.
+    pub fn filter(mut self, filter: Where<Condition>) -> With<ReturnSet> {
+        self.string.push_str(" WHERE ");
+        let (query_part, where_params) = filter.build();
+        self.string.push_str(&query_part);
+        self.params.extend(where_params);
+        self.transition::<ReturnSet>()
     }
 }
 
@@ -1591,18 +1630,6 @@ impl<Q: CanCondition> Where<Q> {
         self.params.insert(param_name, value);
         self.transition::<Condition>()
     }
-    // COULD USE Aliasable here for something?
-    // DO YOU EVEN NEED COALESCE?!
-    // just provide the params you need by starting the query, then branching it based on what optional values you have? - if querying by ID or Username, just have .node inside and if/else?
-    // should functions be done like this? I could wrap each function in an enum. Might be simpler/lower effort to template out with a macro and a FunctionWrapper?
-    // seems reasonable, but as they are all so different, the implementations to get them into query, queryparams structure will be complex...
-    // pub fn condition_with_function(mut self, alias: &str, prop: PropsWrapper, operator: CompareOperator, function: Function) -> Where<Condition> {
-    //     let (name, value) = prop.to_query_param();
-    //     let (func_query_part, (func_prop, func_val)) = function.to_query_part();
-    //     self.string.push_str(&format!("{}.{} {} {}", alias, name, operator.to_string(), func_query_part));
-    //     self.transition::<Condition>()
-    // }
-
     /// Nests conditions within the inner_builder in parens.
     /// # Example
     /// ```rust
@@ -1641,226 +1668,122 @@ impl<Q: CanJoin> Where<Q> {
 
 impl Where<Condition> {
     /// Builds the filter and params. This is used by .filter(), and should otherwise not be used unless you know what you're doing. 
-    /// It has to be a pub fn to allow .filter() to work as intended, but is not intended for use by API consumers.
-    pub fn build(self) -> (String, HashMap<String, BoltType>) {
+    fn build(self) -> (String, HashMap<String, BoltType>) {
         (self.string, self.params)
     }
 }
 
-fn bolt_inner_value(bolt: &BoltType) -> String {
-    match bolt {
-        BoltType::String(s) => s.value.clone(),
-        BoltType::Boolean(b) => b.value.to_string(),
-        BoltType::Integer(i) => i.value.to_string(),
-        BoltType::Float(f) => f.value.to_string(),
-        //BoltType::LocalDateTime(d) => d ????
-        // Add match arms for all variants you care about...
-        _ => format!("{:?}", bolt),
-    }
-}
-
-fn prepend_params_key(prefix: &str, params: HashMap<String, BoltType>) -> HashMap<String, BoltType> {
-    let mut new_params: HashMap<String, BoltType> = HashMap::new();
-    for (key, value) in params {
-        let new_key = format!("{}_{}", prefix, key);
-        new_params.insert(new_key, value);
-    }
-    new_params
+#[derive(Debug, Clone)]
+pub enum OnString {
+    Create,
+    Match,
+    None,
 }
 
 #[derive(Debug, Clone)]
-pub struct ParamString(String);
+pub enum CompareOperator {
+    Eq,
+    Gt,
+    Ge,
+    Lt,
+    Le,
+    Ne,
+    In(Vec<BoltType>),
+}
 
-impl ParamString {
-    pub fn new<T: Neo4gEntity>(entity: T, prop: T::Props) -> Self {
-        let (key, _) = prop.to_query_param();
-        Self(format!("${}_{}", entity.get_alias(), key))
-    }
-    pub fn manual(name: &str) -> Self {
-        Self(String::from(name))
-    }
-    pub fn get(self) -> String {
-        self.0
+impl fmt::Display for CompareOperator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            CompareOperator::Eq => "=",
+            CompareOperator::Gt => ">",
+            CompareOperator::Ge => ">=",
+            CompareOperator::Lt => "<",
+            CompareOperator::Le => "<=",
+            CompareOperator::Ne => "<>",
+            CompareOperator::In(v) => "IN", //, v.iter().map(|i| format!("{}", i)).collect::<Vec<String>>().join(", ")),
+        };
+        write!(f, "{}", s)
     }
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct Unwinder {
-    alias: String,
-    array: Array,
-}
-
-impl Unwinder {
-    pub fn new(array: &Array) -> Self {
-        Self {
-            alias: String::new(),
-            array: array.clone(),
-            // list: list.iter().map(|props_wrapper| {
-            //     let (_, bolt) = props_wrapper.to_query_param();
-            //     bolt
-            // }).collect(),
+impl From<&str> for CompareOperator {
+    fn from(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "eq" => CompareOperator::Eq,
+            "gt" => CompareOperator::Gt,
+            "ge" => CompareOperator::Ge,
+            "lt" => CompareOperator::Lt,
+            "le" => CompareOperator::Le,
+            "ne" => CompareOperator::Ne,
+            _ => panic!("Invalid CompareOperator string: {}", s),
         }
-    }
-    /// Builds the query and params. This is used by .unwind(), and should otherwise not be used unless you know what you're doing. 
-    /// It has to be a pub fn to allow .unwind() to work as intended, but is not intended for use by API consumers.
-    pub fn unwind(&mut self) -> (String, HashMap<String, BoltType>) {
-        let mut params = HashMap::new();
-        let mut query = String::new();
-        if !self.array.is_built {
-            params.insert(self.array.alias.clone(), self.array.list().into());
-            query.push_str(&format!("\nUNWIND ${} as {}", &self.array.alias, &self.alias));
-        } else {
-            query.push_str(&format!("\nUNWIND {} as {}", &self.array.alias, &self.alias));
-        }
-        (query, params)
-    }
-}
-
-impl Aliasable for Unwinder {
-    fn get_alias(&self) -> String {
-        self.alias.clone()
-    }
-    fn set_alias(&mut self, alias: &str) {
-        self.alias = alias.to_string();
-    }
-    fn with(&mut self) -> (String, std::collections::HashMap<String, BoltType>) {
-        (self.get_alias(), HashMap::new())
-    }
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct Array {
-    alias: String,
-    list: Vec<BoltType>,
-    is_built: bool,
-}
-
-impl Array {
-    pub fn new(alias: &str, list: Vec<BoltType>) -> Self {
-        Self {
-            alias: alias.to_string(),
-            list,
-            is_built: false,
-        }
-    }
-    pub fn build(&mut self) -> (String, HashMap<String, BoltType>) {
-        if self.is_built {
-            return (self.get_alias(), HashMap::new());
-        } else {
-            self.is_built = true; 
-            return (format!("${} AS {}", &self.alias, &self.alias), HashMap::from([(self.alias.clone(), BoltType::from(self.list.clone()))]));
-        }
-    }
-    pub fn list(&self) -> Vec<BoltType> {
-        self.list.clone()
-    }
-}
-
-impl Aliasable for Array {
-    fn get_alias(&self) -> String {
-        self.alias.clone()
-    }
-    fn set_alias(&mut self, alias: &str) -> () {
-        self.alias = alias.to_string();
-    }
-    fn with(&mut self) -> (String, HashMap<String, BoltType>) {
-        self.build()
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct With<State> {
-    string: String,
-    params: HashMap<String, BoltType>,
-    with_number: u32,
-    _state: PhantomData<State>,
+pub enum CompareJoiner {
+    And,
+    Or,
+    Not,
 }
 
-impl With<Empty> {
-    pub fn new() -> Self {
-        Self {
-            string: String::new(),
-            params: HashMap::new(),
-            with_number: 0,
-            _state: PhantomData,
-        }
-    }
+#[derive(Debug, Clone)]
+pub enum DbEntityWrapper {
+    Node(Node),
+    Relation(Relation),
 }
 
-impl <S> With<S> {
-    fn transition<NewState>(self) -> With<NewState> {
-        let With {string, params, with_number, ..} = self;
-        With {string, params, with_number, _state: std::marker::PhantomData,}
-    }
-}
-impl <CanBuild> With<CanBuild> {
-    pub fn entities<T: WrappedNeo4gEntity>(mut self, entities: &[T]) -> With<Condition> {
-        if entities.len() == 0 {
-            return self.transition::<Condition>();
-        }
-        self.with_number += 1;
-        let aliases: Vec<String> = entities.iter().map(|entity| {
-            entity.get_alias()
-        }).collect();
-        if !self.string.is_empty() {
-            self.string.push_str(", ");
-        }
-        self.string.push_str(&aliases.join(", "));
-        self.transition::<Condition>()
-    }
-    pub fn arrays(mut self, arrays: &mut [&mut Array]) -> With<Condition> {
-        self.with_number += 1;
-        let aliases: Vec<String> = arrays.iter_mut().map(|array|{
-            let (string, params) = array.build();
-            self.params.extend(params);
-            string
-        }).collect();
-        if !self.string.is_empty() {
-            self.string.push_str(", ");
-        }
-        self.string.push_str(&aliases.join(", "));
-        self.transition::<Condition>()
-    }
-    pub fn collect<A: Aliasable>(mut self, entities: &[&A]) -> With<Condition> {
-        if !self.string.is_empty() {
-            self.string.push_str(", ");
-        }
-        let strings:Vec<String> = entities.iter().map(|entity| {
-            let alias = entity.get_alias();
-            self.with_number += 1;
-            format!("COLLECT({}) AS collected_{}{}", &alias, &alias, self.with_number)
-        }).collect();
-        self.string.push_str(&strings.join(", "));
-        self.transition::<Condition>()
-    }
-    pub fn build(self) -> (String, HashMap<String, BoltType>) {
-        (self.string, self.params)
+impl fmt::Display for CompareJoiner {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            CompareJoiner::And => "AND",
+            CompareJoiner::Or  => "OR",
+            CompareJoiner::Not => "NOT",
+        };
+        write!(f, "{}", s)
     }
 }
 
-impl With<Condition> {
-    /// Generates a WHERE call
-    /// # Example
-    /// ```rust
-    /// .filter(Where::new()
-    ///     .is_not_null(&entity1)
-    ///     .join(CompareJoiner::And)
-    ///     .size(&entity2, CompareOperator::Gt(0))       
-    /// )
-    /// ```
-    /// The example above generates the following query:
-    /// ```rust
-    /// WHERE entity1alias IS NOT NULL AND size(entity2alias) > $where_entity2alias1
-    /// ```
-    /// and asociated params.
-    pub fn filter(mut self, filter: Where<Condition>) -> With<ReturnSet> {
-        self.string.push_str(" WHERE ");
-        let (query_part, where_params) = filter.build();
-        self.string.push_str(&query_part);
-        self.params.extend(where_params);
-        self.transition::<ReturnSet>()
+impl From<&str> for CompareJoiner {
+    fn from(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "and" => CompareJoiner::And,
+            "or"  => CompareJoiner::Or,
+            "not" => CompareJoiner::Not,
+            _ => panic!("Invalid CompareJoiner string: {}", s),
+        }
     }
 }
+
+#[derive(Debug, Clone)]
+pub enum Order {
+    Asc,
+    Desc,
+    None,
+}
+
+impl fmt::Display for Order {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            Order::Asc => "",
+            Order::Desc  => "DESC",
+            Order::None => "",
+        };
+        write!(f, "{}", s)
+    }
+}
+
+impl From<&str> for Order {
+    fn from(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "asc" => Order::Asc,
+            "desc"  => Order::Desc,
+            "" => Order::None,
+            _ => panic!("Invalid CompareJoiner string: {}", s),
+        }
+    }
+}
+
 
 // REALLY NEED TO THINK ABOUT HOW TO CALL FUNCTIONS!!!
 // // pub struct Avg {
