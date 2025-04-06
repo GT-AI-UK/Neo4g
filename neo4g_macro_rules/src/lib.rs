@@ -100,7 +100,7 @@ macro_rules! no_props {
 /// &mut [&mut array1, &mut array2, &mut array_n]
 /// ```
 #[macro_export]
-macro_rules! mut_entities {
+macro_rules! arrays {
     [$($arg:expr),* $(,)?] => {
         &mut [
             $( &mut $arg ),*

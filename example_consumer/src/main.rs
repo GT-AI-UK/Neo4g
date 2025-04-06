@@ -1,12 +1,12 @@
 use example_consumer::entity_wrapper::{EntityWrapper, Label};
 use example_consumer::objects::{Group, GroupProps, MemberOf, MemberOfProps, User, UserProps, UserTemplate, Page, PageProps, PageTemplate, Component, ComponentProps, ComponentTemplate, ComponentType, HasComponent, HasComponentTemplate, HasComponentProps};
-use neo4g::query_builder::{self, Array, CompareJoiner, CompareOperator, Neo4gBuilder, Unwinder, Where};
+use neo4g::query_builder::{self, Array, CompareJoiner, CompareOperator, Neo4gBuilder, Unwinder, Where, With};
 use neo4rs::Graph;
 use dotenv::dotenv; 
 use std::{env, result, vec};
 use heck::ToShoutySnakeCase;
 use neo4g::traits::WrappedNeo4gEntity;
-use neo4g_macro_rules::{mut_entities, no_props, prop, props, wrap};
+use neo4g_macro_rules::{arrays, no_props, prop, props, wrap};
 
 pub async fn connect_neo4j() -> Graph { //return db object, run on startup, bind to state var
     let test = "CamalCase".to_shouty_snake_case();
@@ -71,7 +71,11 @@ async fn main() {
                 .set(&page3, props!(page3 => PageProps::Path("TEST!!!".into())))
             .end_statement()
         })
-        .with_arrays(mut_entities![array1], wrap![page3])
+        .with(With::new()
+            .entities(&[page3.wrap()])
+            // .arrays(arrays![array1])
+            // .collect(&[&array1])
+        )
         .unwind(&mut Unwinder::new(&array1))
         .get()
             .node(&mut page1, props!(page1 => page1.id)).add_to_return()

@@ -253,16 +253,22 @@ impl<Q: CanWith> Neo4gBuilder<Q> {
     /// WITH entity1alias, entity2alias
     /// ```
     /// and asociated params.
-    pub fn with<T: Aliasable>(mut self, entities_to_alias: &[&T]) -> Neo4gBuilder<Withed>
-    where T: std::fmt::Debug {
-        // println!("Inside with {:?}", entities_to_alias);
-        let aliases: Vec<String> = entities_to_alias.iter().map(|entity| {
-            entity.get_alias()
-        }).collect();
-        // println!("aliases: {:?}", aliases);
-        self.query.push_str(&format!("\nWITH {}", aliases.join(", ")));
+    pub fn with<W: CanBuild>(mut self, with: With<W>) -> Neo4gBuilder<Withed> {
+        let (query, params) = with.build();
+        self.query.push_str(&format!("\nWITH {}", query));
+        self.params.extend(params);
         self.transition::<Withed>()
     }
+    // pub fn with<T: Aliasable>(mut self, entities_to_alias: &[&T]) -> Neo4gBuilder<Withed>
+    // where T: std::fmt::Debug {
+    //     // println!("Inside with {:?}", entities_to_alias);
+    //     let aliases: Vec<String> = entities_to_alias.iter().map(|entity| {
+    //         entity.get_alias()
+    //     }).collect();
+    //     // println!("aliases: {:?}", aliases);
+    //     self.query.push_str(&format!("\nWITH {}", aliases.join(", ")));
+    //     self.transition::<Withed>()
+    // }
 
     // pub fn with_arrays<T>(mut self, arrays: &mut [&mut Array], entities_to_alias: &[&T]) -> Neo4gBuilder<Withed>
     // where T: Aliasable {
@@ -1528,6 +1534,20 @@ impl<Q: CanCondition> Where<Q> {
         // println!("{}: number{}", alias, self.condition_number);
         self.transition::<Condition>()
     }
+    /// Generates a call to the size() cypher function.
+    /// # Example
+    /// ```rust
+    /// .size(&entity, CompareOperator::Gt, 0)
+    /// ```
+    /// The example above generates `size(entityalias) > $size_entityalias1`
+    pub fn size<T: Neo4gEntity>(mut self, entity: &T, operator: CompareOperator, value: i32) -> Where<Condition> {
+        self.condition_number += 1;
+        let alias = entity.get_alias();
+        let param_string = format!("size_{}{}", &alias, self.condition_number);
+        self.string.push_str(&format!("size({}) {} ${}", &alias, operator, &param_string));
+        self.params.insert(param_string, value.into());
+        self.transition::<Condition>()
+    }
     /// Generates a condition string for an entity not being null.
     /// # Example
     /// ```rust
@@ -1789,6 +1809,7 @@ impl <CanBuild> With<CanBuild> {
         self.transition::<Condition>()
     }
     pub fn arrays(mut self, arrays: &mut [&mut Array]) -> With<Condition> {
+        self.with_number += 1;
         let aliases: Vec<String> = arrays.iter_mut().map(|array|{
             let (string, params) = array.build();
             self.params.extend(params);
