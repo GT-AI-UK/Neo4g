@@ -1454,12 +1454,12 @@ impl <CanBuild> With<CanBuild> {
         self.string.push_str(&aliases.join(", "));
         self.transition::<Condition>()
     }
-    /// Generates comma separated calls to COLLECT.
+    /// Generates comma separated calls to collect().
     /// # Example
     /// ```rust
     /// .collect(wrap![entity1, entity2])
     /// ```
-    /// The example above generates `COLLECT(entit1alias) AS collected_entity1alias1, COLLECT(entity2alias) AS collected_entity2alias2`.
+    /// The example above generates `collect(entit1alias) AS collected_entity1alias1, collect(entity2alias) AS collected_entity2alias2`.
     /// If this was called after other With methods, a comma is also inserted at the start of the string.
     pub fn collect<A: Aliasable>(mut self, entities: &[&A]) -> With<Condition> {
         if !self.string.is_empty() {
@@ -1468,7 +1468,7 @@ impl <CanBuild> With<CanBuild> {
         let strings:Vec<String> = entities.iter().map(|entity| {
             let alias = entity.get_alias();
             self.with_number += 1;
-            format!("COLLECT({}) AS collected_{}{}", &alias, &alias, self.with_number)
+            format!("collect({}) AS collected_{}{}", &alias, &alias, self.with_number)
         }).collect();
         self.string.push_str(&strings.join(", "));
         self.transition::<Condition>()
@@ -1783,6 +1783,7 @@ impl From<&str> for Order {
         }
     }
 }
+
 
 
 // REALLY NEED TO THINK ABOUT HOW TO CALL FUNCTIONS!!!
