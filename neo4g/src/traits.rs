@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use neo4rs::{BoltType, Node, Relation};
 
-use crate::query_builder::{DbEntityWrapper, EntityType};
+use crate::query_builder::{DbEntityWrapper, EntityType, Expr, Function};
 
 pub trait WrappedNeo4gEntity: Sized + Aliasable {
     fn from_db_entity(db_entity: DbEntityWrapper) -> Self;
@@ -27,6 +27,22 @@ pub trait Aliasable {
 
 pub trait QueryParam {
     fn to_query_param(&self) -> (&'static str, BoltType);
+}
+
+pub trait ToExpr {
+    fn to_expr(&self) -> Expr;
+}
+
+impl ToExpr for Function {
+    fn to_expr(&self) -> Expr {
+        Expr::Func(self.clone())
+    }
+}
+
+impl<T: Aliasable> ToExpr for T {
+    fn to_expr(&self) -> Expr {
+        Expr::Raw(self.get_alias())
+    }
 }
 
 pub trait CanMatch {}

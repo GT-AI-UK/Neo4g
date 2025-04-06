@@ -37,7 +37,7 @@ async fn main() {
     let mut page2 = Page::new("pid99", "DID IT WORK?!", Vec::new());
     let mut page3 = Page::new("pid6", "DID IT WORK?!", Vec::new());
     let mut array1 = Array::new("array1", vec!["cid3".into(), "cid4".into()]);
-    // !! Functional MERGE Query:
+    // !!Functional MERGE Query:
     // let result = Neo4gBuilder::new()
     // .merge()
     //     .node(&mut page1, props!(page1 => page1.id)).add_to_return()

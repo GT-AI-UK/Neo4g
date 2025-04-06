@@ -1784,6 +1784,43 @@ impl From<&str> for Order {
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum Expr {
+    Raw(String),
+    Func(Function),
+}
+
+#[derive(Debug, Clone)]
+pub enum Function {
+    Id(Box<Expr>),
+    Coalesce(Vec<Expr>),
+    Exists(Box<Expr>),
+}
+
+impl fmt::Display for Expr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Expr::Raw(s) => write!(f, "{}", s), // instead of being a raw string, should this be a struct? Alternatively, should the Expr::new() take an Aliasable?
+            Expr::Func(func) => write!(f, "{}", func),
+        }
+    }
+}
+
+impl fmt::Display for Function {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Function::Id(expr) => write!(f, "id({})", expr),
+            Function::Coalesce(exprs) => {
+                let joined = exprs.iter()
+                    .map(|e| e.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                write!(f, "coalesce({})", joined)
+            }
+            Function::Exists(expr) => write!(f, "exists({})", expr),
+        }
+    }
+}
 
 
 // REALLY NEED TO THINK ABOUT HOW TO CALL FUNCTIONS!!!
