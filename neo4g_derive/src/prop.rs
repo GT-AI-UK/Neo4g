@@ -1,7 +1,6 @@
 use proc_macro::TokenStream;
 use quote::{quote, format_ident};
 use syn::{parse_macro_input, DeriveInput};
-use crate::utils;
 
 pub fn generate_neo4g_prop(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -20,7 +19,6 @@ pub fn generate_neo4g_prop(input: TokenStream) -> TokenStream {
         }
     };
 
-    //let mut eq_checks = Vec::new();
     let mut from_str_match_arms = Vec::new();
     let mut display_match_arms = Vec::new();
 
@@ -38,11 +36,6 @@ pub fn generate_neo4g_prop(input: TokenStream) -> TokenStream {
             Self::#var_name => #var_name_str,
         };
         display_match_arms.push(display_arm);
-        
-        // let eq_check = quote! {
-        //     (#enum_name::#var_name(_), #enum_name::#var_name(_)) => true,
-        // };
-        // eq_checks.push(eq_check);
     }
 
     let gen = quote! {
@@ -73,15 +66,6 @@ pub fn generate_neo4g_prop(input: TokenStream) -> TokenStream {
         }
 
         impl Prop for #enum_name {}
-        
-        // impl PartialEq for #enum_name {
-        //     fn eq(&self, other: &Self) -> bool {
-        //         match (self, other) {
-        //             #(#eq_checks)*
-        //             _ => false,
-        //         }
-        //     }
-        // }
     };
 
     gen.into()

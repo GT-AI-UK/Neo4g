@@ -53,10 +53,6 @@ pub struct HasComponentTemplate {
     deleted: bool,
 }
 
-
-
-//macros for neo_use? or a generic use* for a re-export of all the shit (probably better)
-//take a param for default lables as well? create another prop for additional lables in structs?
 #[derive(Neo4gNode, Serialize, Deserialize, Debug, Clone)] //
 pub struct UserTemplate {
     id: String,
@@ -79,35 +75,6 @@ pub enum ComponentType {
     Type2,
 }
 
-// impl std::fmt::Display for ComponentType {
-//     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-//         core::fmt::Formatter::write_str(f,
-//             match self {
-//                 Self::Type1 => "Type1",
-//                 Self::Type2 => "Type2",
-//                 _ => "",
-//             }
-//         )
-//     }
-// }
-
-// impl From<ComponentType> for BoltType {
-//     fn from(value: ComponentType) -> Self {
-//         BoltType::String(format!("{}", value).into())
-//     }
-// }
-
-// impl From<String> for ComponentType {
-//     fn from(value: String) -> Self {
-//         let v = value.to_lowercase();
-//         match v.as_ref() {
-//             "type1" => Self::Type1,
-//             "type2" => Self::Type2,
-//             _ => Self::Type1,
-//         }
-//     }
-// }
-
 #[derive(Neo4gNode, Serialize, Deserialize, Debug, Clone)]
 pub struct ComponentTemplate {
     id: String,
@@ -122,13 +89,3 @@ pub struct PageTemplate {
     #[not_query_param]
     components: Vec<Component>,
 }
-
-// impl User {
-//     pub fn create_from_self(self) -> (String, Vec<(String, BoltType)>) {
-//         let query = //CREATE etc.
-//         let mut params: Vec<String, BoltType> = Vec::new();
-//         params.push("id", self.id());
-//         params.push("name", self.name());
-//         (query, params)
-//     }
-// }
