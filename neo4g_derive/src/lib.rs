@@ -6,6 +6,7 @@ mod utils;
 mod entity_wrapper;
 mod props_wrapper;
 mod labels;
+mod prop;
 use quote::quote;
 use syn::{parse_macro_input, Ident, ItemStruct};
 use syn::parse::Parse;
@@ -38,6 +39,13 @@ pub fn neo4g_relationship_derive(input: TokenStream) -> TokenStream {
 pub fn not_query_param(_attr: TokenStream, item: TokenStream) -> TokenStream {
     // Just a marker - nothing changes
     item
+}
+
+/// This is used to provide necesary impls for an enum that is used in a struct's property.
+/// It provides formatting, a from(String), a BoltType::from(enum), and a trait that ensures dependencies are met.
+#[proc_macro_derive(Neo4gProp)]
+pub fn neo4g_prop_derive(input: TokenStream) -> TokenStream {
+    prop::generate_neo4g_prop(input)
 }
 
 /// This is used by the macro rules macro that generates enums to generate the impl blocks for the enums.

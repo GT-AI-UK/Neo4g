@@ -28,8 +28,8 @@ use neo4rs::{
 use neo4g::query_builder::EntityType;
 use neo4g::traits::WrappedNeo4gEntity;
 use crate::entity_wrapper::{EntityWrapper, Nothing};
-use neo4g_derive::{Neo4gNode, Neo4gRelation, not_query_param};
-use neo4g::traits::Neo4gEntity;
+use neo4g_derive::{Neo4gProp, Neo4gNode, Neo4gRelation, not_query_param};
+use neo4g::traits::{Prop, Neo4gEntity};
 use heck::ToShoutySnakeCase;
 use serde::{Serialize, Deserialize};
 use neo4g::traits::QueryParam;
@@ -67,51 +67,46 @@ pub struct UserTemplate {
     surname: String,
     deleted: bool,
     #[not_query_param]
-    groups: Vec<Group>,
+    groups: Vec<GroupTemplate>,
     #[serde(skip)]
     example: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Neo4gProp, Serialize, Deserialize, Debug, Clone, Default)]
 pub enum ComponentType {
+    #[default]
     Type1,
     Type2,
 }
 
-impl std::fmt::Display for ComponentType {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        core::fmt::Formatter::write_str(f,
-            match self {
-                Self::Type1 => "Type1",
-                Self::Type2 => "Type2",
-                _ => "",
-            }
-        )
-    }
-}
+// impl std::fmt::Display for ComponentType {
+//     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+//         core::fmt::Formatter::write_str(f,
+//             match self {
+//                 Self::Type1 => "Type1",
+//                 Self::Type2 => "Type2",
+//                 _ => "",
+//             }
+//         )
+//     }
+// }
 
-impl From<ComponentType> for BoltType {
-    fn from(value: ComponentType) -> Self {
-        BoltType::String(format!("{}", value).into())
-    }
-}
+// impl From<ComponentType> for BoltType {
+//     fn from(value: ComponentType) -> Self {
+//         BoltType::String(format!("{}", value).into())
+//     }
+// }
 
-impl From<String> for ComponentType {
-    fn from(value: String) -> Self {
-        let v = value.to_lowercase();
-        match v.as_ref() {
-            "type1" => Self::Type1,
-            "type2" => Self::Type2,
-            _ => Self::Type1,
-        }
-    }
-}
-
-impl Default for ComponentType {
-    fn default() -> Self {
-        Self::Type1
-    }
-}
+// impl From<String> for ComponentType {
+//     fn from(value: String) -> Self {
+//         let v = value.to_lowercase();
+//         match v.as_ref() {
+//             "type1" => Self::Type1,
+//             "type2" => Self::Type2,
+//             _ => Self::Type1,
+//         }
+//     }
+// }
 
 #[derive(Neo4gNode, Serialize, Deserialize, Debug, Clone)]
 pub struct ComponentTemplate {

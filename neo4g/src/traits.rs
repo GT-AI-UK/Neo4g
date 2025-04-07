@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use neo4rs::{BoltType, Node, Relation};
+use serde::{Deserialize, Serialize};
 
 use crate::query_builder::{DbEntityWrapper, EntityType, Expr, Function};
 
@@ -19,6 +20,8 @@ pub trait Neo4gEntity: Aliasable {
     fn create_from_self(&self) -> (String, std::collections::HashMap<String, BoltType>);
     fn get_current(&self, prop: &Self::Props) -> Self::Props;
 }
+
+pub trait Prop: Default + Clone + std::fmt::Debug + Serialize + for <'a> Deserialize<'a> {}
 
 pub trait Aliasable {
     fn set_alias(&mut self, alias: &str) -> ();
