@@ -107,3 +107,7 @@ macro_rules! arrays {
         ]
     };
 }
+
+// probably need a macro rules macro for numbers![] to allow easy .into() calls to BoltType for all numeric types.
+// this would allow functions to be used more easily? might have to format and put into the query manually as a bolt vec is still a rust vec?
+// hmmmmm
