@@ -1102,6 +1102,9 @@ impl<S> Neo4gBuilder<S> {
     fn build_inner(self) -> (String, HashMap<String, BoltType>, u32, u32, u32, u32, Vec<(String, EntityType)>) {
         (self.query, self.params, self.node_number, self.relation_number, self.unwind_number, self.set_number, self.return_refs)
     }
+    pub fn debug() {
+        todo!()
+    }
 }
 
 impl<S> Neo4gMatchStatement<S> {
@@ -1135,6 +1138,9 @@ impl<S> Neo4gMatchStatement<S> {
             clause,
             _state: std::marker::PhantomData,
         }
+    }
+    pub fn debug() {
+        todo!()
     }
 }
 
@@ -1172,6 +1178,9 @@ impl<S> Neo4gMergeStatement<S> {
             _state: std::marker::PhantomData,
         }
     }
+    pub fn debug() {
+        todo!()
+    }
 }
 
 impl<S> Neo4gCreateStatement<S> {
@@ -1202,9 +1211,12 @@ impl<S> Neo4gCreateStatement<S> {
             _state: std::marker::PhantomData,
         }
     }
+    pub fn debug() {
+        todo!()
+    }
 }
 
-impl <S> From<Neo4gBuilder<S>> for Neo4gCreateStatement<Empty> {
+impl<S> From<Neo4gBuilder<S>> for Neo4gCreateStatement<Empty> {
     fn from(value: Neo4gBuilder<S>) -> Neo4gCreateStatement<Empty> {
         Neo4gCreateStatement::<Empty> {
             query: value.query,
@@ -1221,7 +1233,7 @@ impl <S> From<Neo4gBuilder<S>> for Neo4gCreateStatement<Empty> {
     }
 }
 
-impl <S> From<Neo4gBuilder<S>> for Neo4gMergeStatement<Empty> {
+impl<S> From<Neo4gBuilder<S>> for Neo4gMergeStatement<Empty> {
     fn from(value: Neo4gBuilder<S>) -> Neo4gMergeStatement<Empty> {
         Neo4gMergeStatement::<Empty> {
             query: value.query,
@@ -1241,7 +1253,7 @@ impl <S> From<Neo4gBuilder<S>> for Neo4gMergeStatement<Empty> {
     }
 }
 
-impl <S> From<Neo4gBuilder<S>> for Neo4gMatchStatement<Empty> {
+impl<S> From<Neo4gBuilder<S>> for Neo4gMatchStatement<Empty> {
     fn from(value: Neo4gBuilder<S>) -> Neo4gMatchStatement<Empty> {
         Neo4gMatchStatement::<Empty> {
             query: value.query,
@@ -1260,7 +1272,7 @@ impl <S> From<Neo4gBuilder<S>> for Neo4gMatchStatement<Empty> {
     }
 }
 
-impl <S> From<Neo4gMatchStatement<S>> for Neo4gBuilder<MatchedNode> {
+impl<S> From<Neo4gMatchStatement<S>> for Neo4gBuilder<MatchedNode> {
     fn from(value: Neo4gMatchStatement<S>) -> Neo4gBuilder<MatchedNode> {
         Neo4gBuilder::<MatchedNode> {
             query: value.query,
@@ -1278,7 +1290,7 @@ impl <S> From<Neo4gMatchStatement<S>> for Neo4gBuilder<MatchedNode> {
     }
 }
 
-impl <S> From<Neo4gMergeStatement<S>> for Neo4gBuilder<CreatedNode> {
+impl<S> From<Neo4gMergeStatement<S>> for Neo4gBuilder<CreatedNode> {
     fn from(value: Neo4gMergeStatement<S>) -> Neo4gBuilder<CreatedNode> {
         Neo4gBuilder::<CreatedNode> {
             query: value.query,
@@ -1296,7 +1308,7 @@ impl <S> From<Neo4gMergeStatement<S>> for Neo4gBuilder<CreatedNode> {
     }
 }
 
-impl <S> From<Neo4gCreateStatement<S>> for Neo4gBuilder<CreatedNode> {
+impl<S> From<Neo4gCreateStatement<S>> for Neo4gBuilder<CreatedNode> {
     fn from(value: Neo4gCreateStatement<S>) -> Neo4gBuilder<CreatedNode> {
         Neo4gBuilder::<CreatedNode> {
             query: value.query,
@@ -1406,10 +1418,13 @@ impl With<Empty> {
     }
 }
 
-impl <S> With<S> {
+impl<S> With<S> {
     fn transition<NewState>(self) -> With<NewState> {
         let With {string, params, with_number, ..} = self;
         With {string, params, with_number, _state: std::marker::PhantomData,}
+    }
+    pub fn debug() {
+        todo!()
     }
 }
 impl <CanBuild> With<CanBuild> {
@@ -1517,6 +1532,9 @@ impl<S> Where<S> {
     }
     fn build_inner(self) -> (String, HashMap<String, BoltType>, u32) {
         (self.string, self.params, self.condition_number)
+    }
+    pub fn debug() {
+        todo!()
     }
 }
 
