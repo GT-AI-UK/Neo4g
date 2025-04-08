@@ -1803,7 +1803,7 @@ pub enum Function {
 impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Expr(InnerExpr::Raw(s)) => write!(f, "{}", s), // instead of being a raw string, should this be a struct? Alternatively, should the Expr::new() take an Aliasable?
+            Expr(InnerExpr::Raw(s)) => write!(f, "{}", s),
             Expr(InnerExpr::Func(func)) => write!(f, "{}", func),
         }
     }
