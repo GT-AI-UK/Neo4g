@@ -1785,7 +1785,10 @@ impl From<&str> for Order {
 }
 
 #[derive(Debug, Clone)]
-pub enum Expr {
+pub struct Expr(InnerExpr);
+
+#[derive(Debug, Clone)]
+enum InnerExpr {
     Raw(String),
     Func(Function),
 }
@@ -1800,8 +1803,8 @@ pub enum Function {
 impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Expr::Raw(s) => write!(f, "{}", s), // instead of being a raw string, should this be a struct? Alternatively, should the Expr::new() take an Aliasable?
-            Expr::Func(func) => write!(f, "{}", func),
+            Expr(InnerExpr::Raw(s)) => write!(f, "{}", s), // instead of being a raw string, should this be a struct? Alternatively, should the Expr::new() take an Aliasable?
+            Expr(InnerExpr::Func(func)) => write!(f, "{}", func),
         }
     }
 }
@@ -1817,7 +1820,7 @@ impl Expr {
         } else {
             raw = aliases.join(", ");
         }
-        Expr::Raw(raw)
+        Expr(InnerExpr::Raw(raw))
     }
     pub fn from_entity_and_prop_parameterised() {
         todo!()
@@ -1835,13 +1838,13 @@ impl Expr {
 
 impl From<Function> for Expr {
     fn from(func: Function) -> Expr {
-        Expr::Func(func.clone())
+        Expr(InnerExpr::Func(func.clone()))
     }
 }
 
 impl<A: Aliasable> From<&A> for Expr {
     fn from(aliasable: &A) -> Self {
-        Expr::Raw(aliasable.get_alias())
+        Expr(InnerExpr::Raw(aliasable.get_alias()))
     }
 }
 
