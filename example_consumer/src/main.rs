@@ -74,7 +74,7 @@ async fn main() {
         .with(With::new()
             .entities(&[page3.wrap()])
             .arrays(arrays![array1])
-            .collect(&[&array1])
+            // .collect(&[&array1])
         )
         .unwind(&mut Unwinder::new(&array1))
         .get()
