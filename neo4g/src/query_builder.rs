@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::f32::consts::TAU;
 use std::hash::Hash;
 use std::marker::PhantomData;
-use std::fmt;
+use std::fmt::{self, format};
 use crate::traits::*;
 
 use std::collections::HashMap;
@@ -1806,7 +1806,45 @@ impl fmt::Display for Expr {
     }
 }
 
-// See conversation: https://chatgpt.com/c/67f2becb-e4cc-8013-8c50-c40598488122
+impl Expr {
+    pub fn from_aliasable_slice<A: Aliasable>(slice: &[&A], as_array: bool) -> Self {
+        let aliases: Vec<String> = slice.iter().map(|s| {
+            s.get_alias()
+        }).collect();
+        let raw: String;
+        if as_array {
+            raw = format!("[{}]", aliases.join(", "));
+        } else {
+            raw = aliases.join(", ");
+        }
+        Expr::Raw(raw)
+    }
+    pub fn from_entity_and_prop_parameterised() {
+        todo!()
+    }
+    pub fn from_entity_and_prop_name() {
+        todo!()
+    }
+    pub fn from_entity_and_props_parameterised() {
+        todo!()
+    }
+    pub fn from_entity_and_prop_names() {
+        todo!()
+    }
+}
+
+impl From<Function> for Expr {
+    fn from(func: Function) -> Expr {
+        Expr::Func(func.clone())
+    }
+}
+
+impl<A: Aliasable> From<&A> for Expr {
+    fn from(aliasable: &A) -> Self {
+        Expr::Raw(aliasable.get_alias())
+    }
+}
+
 impl fmt::Display for Function {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -1823,6 +1861,7 @@ impl fmt::Display for Function {
     }
 }
 
+// See conversation: https://chatgpt.com/c/67f2becb-e4cc-8013-8c50-c40598488122
 
 // REALLY NEED TO THINK ABOUT HOW TO CALL FUNCTIONS!!!
 // // pub struct Avg {

@@ -36,18 +36,6 @@ pub trait ToExpr {
     fn to_expr(&self) -> Expr;
 }
 
-impl ToExpr for Function {
-    fn to_expr(&self) -> Expr {
-        Expr::Func(self.clone())
-    }
-}
-
-impl<T: Aliasable> ToExpr for T {
-    fn to_expr(&self) -> Expr {
-        Expr::Raw(self.get_alias())
-    }
-}
-
 pub trait CanMatch {}
 pub trait CanCreate {}
 pub trait CanNode {}
