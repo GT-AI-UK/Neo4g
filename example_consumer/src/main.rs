@@ -1,6 +1,6 @@
 use example_consumer::entity_wrapper::{EntityWrapper, Label};
 use example_consumer::objects::{Group, GroupProps, MemberOf, MemberOfProps, User, UserProps, UserTemplate, Page, PageProps, PageTemplate, Component, ComponentProps, ComponentTemplate, ComponentType, HasComponent, HasComponentTemplate, HasComponentProps};
-use neo4g::query_builder::{self, Array, CompareJoiner, CompareOperator, Neo4gBuilder, Unwinder, Where, With};
+use neo4g::query_builder::{self, Array, CompareJoiner, CompareOperator, Neo4gBuilder, Unwinder, Where, With, Function, Expr};
 use neo4rs::Graph;
 use dotenv::dotenv; 
 use std::{env, result, vec};
@@ -97,7 +97,12 @@ async fn main() {
                 .join(CompareJoiner::And)
                 .condition(&page1, |_| PageProps::Id("pid4".into()), CompareOperator::Eq)
                 .join(CompareJoiner::And)
-                .condition(&component1, prop!(component1.id), CompareOperator::In(array1.list()))
+                .condition_fn_prop(&component1, prop!(component1.id), CompareOperator::Eq, Function::Id(
+                    Box::new(
+                        Expr::from(Function::Coalesce(vec![Expr::from(&component1), Expr::from(&page1)]))
+                    )
+                ))
+                //.condition(&component1, prop!(component1.id), CompareOperator::In(array1.list()))
             )
             .end_statement()
         .run_query(graph, EntityWrapper::from_db_entity).await;

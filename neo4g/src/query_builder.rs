@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Error};
 use neo4rs::{query, BoltNull, BoltType, Graph, Node, Query, Relation};
+use serde::de::value;
 use serde::{Deserialize, Serialize};
 use std::f32::consts::TAU;
 use std::hash::Hash;
@@ -1573,7 +1574,6 @@ impl<Q: CanCondition> Where<Q> {
     /// entityalias.prop = $where_prop11
     /// ```
     /// and asociated params.
-    /// 
     pub fn condition<T, F>(mut self, entity: &T, prop_macro: F, operator: CompareOperator) -> Where<Condition>
     where T: Neo4gEntity, T::Props: Clone, F: FnOnce(&T) -> T::Props {
         self.condition_number += 1;
@@ -1589,6 +1589,27 @@ impl<Q: CanCondition> Where<Q> {
             self.params.insert(param_name, value);
         }
         // println!("{}: number{}", alias, self.condition_number);
+        self.transition::<Condition>()
+    }
+    /// Generates a condition string with an Expr.
+    /// # Example
+    /// ```rust
+    /// .condition_expr(&entity, prop!(entity.prop), CompareOperator::Gt, Expr::from(Function::Floor(Expr::from_entity_and_prop_name(&entity, prop!(entity.prop)))))
+    /// ```
+    /// The example above generates the following string:
+    /// ```rust
+    /// entityalias.prop > floor(entityalias.prop)
+    /// ```
+    /// and asociated params.
+    pub fn condition_fn_prop<T, F>(mut self, entity: &T, prop_macro: F, operator: CompareOperator, function: Function) -> Where<Condition>
+    where T: Neo4gEntity, T::Props: Clone, F: FnOnce(&T) -> T::Props {
+        self.condition_number += 1;
+        let prop = prop_macro(entity);
+        let (name, _) = prop.to_query_param();
+        let alias = entity.get_alias();
+        let (query, params) = function.to_query_param();
+        self.string.push_str(&format!("{}.{} {} {}", &alias, name, operator, query));
+        self.params.extend(params);
         self.transition::<Condition>()
     }
     /// Generates a call to the size() cypher function.
@@ -1803,66 +1824,34 @@ impl From<&str> for Order {
 }
 
 #[derive(Debug, Clone)]
-pub struct Expr(InnerExpr);
-
-#[derive(Debug, Clone)]
-enum InnerExpr {
-    Raw(String),
-    Func(Function),
-}
-
-#[derive(Debug, Clone)]
 pub enum Function {
     Id(Box<Expr>),
     Coalesce(Vec<Expr>),
     Exists(Box<Expr>),
 }
 
-impl fmt::Display for Expr {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Expr(InnerExpr::Raw(s)) => write!(f, "{}", s),
-            Expr(InnerExpr::Func(func)) => write!(f, "{}", func),
+impl Function {
+    fn to_query_param(&self) -> (String, HashMap<String, BoltType>) {
+        match &self {
+            Function::Id(expr) => {
+                let (query, params) = expr.to_query_param();
+                return (format!("id({})", query), params);
+            },
+            Function::Coalesce(exprs) => {
+                let mut params = HashMap::new();
+                let query = exprs.iter().map(|e| {
+                    let (q, p) = e.to_query_param();
+                    params.extend(p);
+                    q
+                }).collect::<Vec<_>>()
+                .join(", ");
+                return (format!("coalesce({})", query), params);
+            },
+            Function::Exists(expr) => {
+                let (query, params) = expr.to_query_param();
+                return (format!("exists({})", query), params);
+            }
         }
-    }
-}
-
-impl Expr {
-    pub fn from_aliasable_slice<A: Aliasable>(slice: &[&A], as_array: bool) -> Self {
-        let aliases: Vec<String> = slice.iter().map(|s| {
-            s.get_alias()
-        }).collect();
-        let raw: String;
-        if as_array {
-            raw = format!("[{}]", aliases.join(", "));
-        } else {
-            raw = aliases.join(", ");
-        }
-        Expr(InnerExpr::Raw(raw))
-    }
-    pub fn from_entity_and_prop_parameterised() {
-        todo!()
-    }
-    pub fn from_entity_and_prop_name() {
-        todo!()
-    }
-    pub fn from_entity_and_props_parameterised() {
-        todo!()
-    }
-    pub fn from_entity_and_prop_names() {
-        todo!()
-    }
-}
-
-impl From<Function> for Expr {
-    fn from(func: Function) -> Expr {
-        Expr(InnerExpr::Func(func.clone()))
-    }
-}
-
-impl<A: Aliasable> From<&A> for Expr {
-    fn from(aliasable: &A) -> Self {
-        Expr(InnerExpr::Raw(aliasable.get_alias()))
     }
 }
 
@@ -1882,159 +1871,78 @@ impl fmt::Display for Function {
     }
 }
 
+impl fmt::Display for Expr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.expr {
+            InnerExpr::Raw(s) => write!(f, "{}", s),
+            InnerExpr::Func(func) => write!(f, "{}", func),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Expr{
+    expr: InnerExpr,
+    params: HashMap<String, BoltType>,
+}
+
+#[derive(Debug, Clone)]
+enum InnerExpr {
+    Raw(String),
+    Func(Function),
+}
+
+impl Expr {
+    fn new(expr: InnerExpr, params: HashMap<String, BoltType>) -> Self {
+        Self {
+            expr,
+            params,
+        }
+    }
+    fn to_query_param(&self) -> (String, HashMap<String, BoltType>) {
+        match &self.expr {
+            InnerExpr::Raw(s) => (s.to_owned(), self.params.to_owned()),
+            InnerExpr::Func(func) => func.to_query_param(),
+        }
+    }
+    pub fn from_aliasable_slice<A: Aliasable>(slice: &[&A], as_array: bool) -> Self {
+        let aliases: Vec<String> = slice.iter().map(|s| {
+            s.get_alias()
+        }).collect();
+        let raw: String;
+        if as_array {
+            raw = format!("[{}]", aliases.join(", "));
+        } else {
+            raw = aliases.join(", ");
+        }
+        Expr::new(InnerExpr::Raw(raw), HashMap::new())
+    }
+    pub fn from_entity_and_prop_parameterised() {
+        todo!()
+    }
+    pub fn from_entity_and_prop_name() {
+        todo!()
+    }
+    pub fn from_entity_and_props_parameterised() {
+        todo!()
+    }
+    pub fn from_entity_and_prop_names() {
+        todo!()
+    }
+}
+
+impl From<Function> for Expr {
+    fn from(func: Function) -> Expr {
+        Expr::new(InnerExpr::Func(func.clone()), HashMap::new())
+    }
+}
+
+impl<A: Aliasable> From<&A> for Expr {
+    fn from(aliasable: &A) -> Self {
+        Expr::new(InnerExpr::Raw(aliasable.get_alias()), HashMap::new())
+    }
+}
+
+
 // See conversation: https://chatgpt.com/c/67f2becb-e4cc-8013-8c50-c40598488122
 
-// REALLY NEED TO THINK ABOUT HOW TO CALL FUNCTIONS!!!
-// // pub struct Avg {
-// //     alias: Option<String>,
-// //     props: Option<Vec<PropsWrapper>>,
-// // }
-
-// // impl Avg {
-// //     pub fn new(alias: &str, props: &[PropsWrapper]) -> Self {
-// //         Self {
-// //             alias: Some(alias.into()),
-// //             props: Some(props.into()),
-// //         }
-// //     }
-// //     fn to_query_part(self) -> (String, (String, BoltType)) {
-// //         ("Example".to_string(), HashMap::new())
-// //     }
-// // }
-
-// // pub struct Count {
-// //     alias: Option<String>,
-// //     props: Option<Vec<PropsWrapper>>,
-// // }
-
-// // impl Count {
-// //     pub fn new(alias: &str, props: &[PropsWrapper]) -> Self {
-// //         Self {
-// //             alias: Some(alias.into()),
-// //             props: Some(props.into()),
-// //         }
-// //     }
-// //     fn to_query_part(self) -> (String, (String, BoltType)) {
-// //         ("Example".to_string(), HashMap::new())
-// //     }
-// // }
-
-// // pub struct Max {
-// //     alias: Option<String>,
-// //     props: Option<Vec<PropsWrapper>>,
-// // }
-
-// // impl Max {
-// //     pub fn new(alias: &str, props: &[PropsWrapper]) -> Self {
-// //         Self {
-// //             alias: Some(alias.into()),
-// //             props: Some(props.into()),
-// //         }
-// //     }
-// //     fn to_query_part(self) -> (String, (String, BoltType)) {
-// //         ("Example".to_string(), HashMap::new())
-// //     }
-// // }
-
-// // pub struct Min {
-// //     alias: Option<String>,
-// //     props: Option<Vec<PropsWrapper>>,
-// // }
-
-// // impl Min {
-// //     pub fn new(alias: &str, props: &[PropsWrapper]) -> Self {
-// //         Self {
-// //             alias: Some(alias.into()),
-// //             props: Some(props.into()),
-// //         }
-// //     }
-// //     fn to_query_part(self) -> (String, (String, BoltType)) {
-// //         ("Example".to_string(), HashMap::new())
-// //     }
-// // }
-
-// // pub struct Sum {
-// //     alias: Option<String>,
-// //     props: Option<Vec<PropsWrapper>>,
-// // }
-
-// // impl Sum {
-// //     pub fn new(alias: &str, props: &[PropsWrapper]) -> Self {
-// //         Self {
-// //             alias: Some(alias.into()),
-// //             props: Some(props.into()),
-// //         }
-// //     }
-// //     fn to_query_part(self) -> (String, (String, BoltType)) {
-// //         ("Example".to_string(), HashMap::new())
-// //     }
-// // }
-
-// pub enum Function {
-//     Coalesce(PropsWrapper),
-//     // Avg(Avg),
-//     // Count(Count),
-//     // Max(Max),
-//     // Min(Min),
-//     // Sum(Sum),
-// }
-
-
-// // impl From<Avg> for Function {
-// //     fn from(value: Avg) -> Self {
-// //         Self::Avg(value)
-// //     }
-// // }
-
-// // impl From<Count> for Function {
-// //     fn from(value: Count) -> Self {
-// //         Self::Count(value)
-// //     }
-// // }
-
-// // impl From<Max> for Function {
-// //     fn from(value: Max) -> Self {
-// //         Self::Max(value)
-// //     }
-// // }
-
-// // impl From<Min> for Function {
-// //     fn from(value: Min) -> Self {
-// //         Self::Min(value)
-// //     }
-// // }
-
-// // impl From<Sum> for Function {
-// //     fn from(value: Sum) -> Self {
-// //         Self::Sum(value)
-// //     }
-// // }
-
-// impl Function {
-//     ///Returns a query part and a params HashMap. Params is not supported within Where predicates.
-//     pub fn to_query_part(self) -> (String, (String, BoltType)) {
-//         match self {
-//             Function::Coalesce(prop) => {
-//                 let (name, _) = prop.to_query_param();
-//                 let param_name = format!("coalesce_{}", name);
-//                 let return_string = format!("coalesce(${}, {}.{})", &param_name, name);
-//                 (return_string, (param_name, BoltType::Null(BoltNull)))
-//             },
-//             // Function::Avg(obj) => {
-//             //     obj.to_query_part()
-//             // },
-//             // Function::Count(obj) => {
-//             //     obj.to_query_part()
-//             // },
-//             // Function::Max(obj) => {
-//             //     obj.to_query_part()
-//             // },
-//             // Function::Min(obj) => {
-//             //     obj.to_query_part()
-//             // },
-//             // Function::Sum(obj) => {
-//             //     obj.to_query_part()
-//             // },
-//         }
-//     }
-// }
