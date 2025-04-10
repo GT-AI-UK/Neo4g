@@ -1573,10 +1573,10 @@ impl<Q: CanCondition> Where<Q> {
     /// entityalias.prop = $where_prop11
     /// ```
     /// and asociated params.
-    pub fn condition<T, F>(mut self, entity: &T, prop_macro: F, operator: CompareOperator) -> Where<Condition>
-    where T: Neo4gEntity, T::Props: Clone, F: FnOnce(&T) -> T::Props {
+    pub fn condition<T: Neo4gEntity>(mut self, entity: &T, prop: &T::Props, operator: CompareOperator) -> Where<Condition> {
+    //where T: Neo4gEntity, T::Props: Clone, F: FnOnce(&T) -> T::Props {
         self.condition_number += 1;
-        let prop = prop_macro(entity);
+        //let prop = prop_macro(entity);
         let (name, value) = prop.to_query_param();
         let param_name = format!("where_{}{}", name, self.condition_number);
         let alias = entity.get_alias();
@@ -1593,17 +1593,37 @@ impl<Q: CanCondition> Where<Q> {
     /// Generates a condition string with an Expr.
     /// # Example
     /// ```rust
-    /// .condition_expr(&entity, prop!(entity.prop), CompareOperator::Gt, Expr::from(Function::Floor(Expr::from_entity_and_prop_name(&entity, prop!(entity.prop)))))
+    /// .condition_expr(&entity1, prop!(entity1.prop), CompareOperator::Gt, Expr::from(Function::Floor(Expr::from_entity_and_prop_name(&entity2, prop!(entity2.prop)))))
     /// ```
     /// The example above generates the following string:
     /// ```rust
-    /// entityalias.prop > floor(entityalias.prop)
+    /// entity1alias.prop > floor(entity2alias.prop)
     /// ```
     /// and asociated params.
-    pub fn condition_fn_prop<T, F>(mut self, entity: &T, prop_macro: F, operator: CompareOperator, function: Function) -> Where<Condition>
-    where T: Neo4gEntity, T::Props: Clone, F: FnOnce(&T) -> T::Props {
+    pub fn condition_fn_alias<T: Neo4gEntity>(mut self, entity: &T, operator: CompareOperator, function: Function) -> Where<Condition> {
         self.condition_number += 1;
-        let prop = prop_macro(entity);
+        //let prop = prop_macro(entity);
+        //let (name, _) = prop.to_query_param();
+        let alias = entity.get_alias();
+        let (query, params) = function.to_query_param();
+        self.string.push_str(&format!("{} {} {}", &alias, operator, query));
+        self.params.extend(params);
+        self.transition::<Condition>()
+    }
+    /// Generates a condition string with an Expr.
+    /// # Example
+    /// ```rust
+    /// .condition_expr(&entity1, prop!(entity1.prop), CompareOperator::Gt, Expr::from(Function::Floor(Expr::from_entity_and_prop_name(&entity2, prop!(entity2.prop)))))
+    /// ```
+    /// The example above generates the following string:
+    /// ```rust
+    /// entity1alias.prop > floor(entity2alias.prop)
+    /// ```
+    /// and asociated params.
+    pub fn condition_fn_prop<T: Neo4gEntity>(mut self, entity: &T, prop: &T::Props, operator: CompareOperator, function: Function) -> Where<Condition> {
+    // where T: Neo4gEntity, T::Props: Clone, F: FnOnce(&T) -> T::Props {
+        self.condition_number += 1;
+        //let prop = prop_macro(entity);
         let (name, _) = prop.to_query_param();
         let alias = entity.get_alias();
         let (query, params) = function.to_query_param();
@@ -1839,21 +1859,6 @@ impl Aliasable for FnArg {
 }
    
 impl FnArg {
-    fn from_props_macro<T, F>(entity: &T, props_macro: F) -> Self
-    where T: Neo4gEntity, T::Props: Clone, F: FnOnce(&T) -> Vec<T::Props> {
-        let props: Vec<T::Props> = props_macro(entity);
-        let mut params: HashMap<String, BoltType> = HashMap::new();
-        let prop_names = props.iter().map(|prop| {
-            let (name, value) = prop.to_query_param();
-            params.insert(format!("fnarg_{}_{}", entity.get_alias(), name), value);
-            name.to_string()
-        }).collect::<Vec<String>>();
-        Self {
-            alias: entity.get_alias(),
-            prop_names,
-            params,
-        }
-    }
     pub fn from_props<T: Neo4gEntity>(entity: &T, props: &[&T::Props]) -> Self {
         let mut params: HashMap<String, BoltType> = HashMap::new();
         let prop_names = props.iter().map(|prop| {
@@ -1874,6 +1879,8 @@ pub enum Function {
     Id(Box<Expr>),
     Coalesce(Vec<Expr>),
     Exists(Box<Expr>),
+    Size(Box<Expr>),
+    Collect(Box<Expr>),
 }
 
 impl Function {
@@ -1897,31 +1904,14 @@ impl Function {
                 let (query, params) = expr.to_query_param();
                 return (format!("exists({})", query), params);
             }
-        }
-    }
-}
-
-impl fmt::Display for Function {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Function::Id(expr) => write!(f, "id({})", expr),
-            Function::Coalesce(exprs) => {
-                let joined = exprs.iter()
-                    .map(|e| e.to_string())
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                write!(f, "coalesce({})", joined)
+            Function::Size(expr) => {
+                let (query, params) = expr.to_query_param();
+                return (format!("size({})", query), params);
             }
-            Function::Exists(expr) => write!(f, "exists({})", expr),
-        }
-    }
-}
-
-impl fmt::Display for Expr {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self.expr {
-            InnerExpr::Raw(s) => write!(f, "{}", s),
-            InnerExpr::Func(func) => write!(f, "{}", func),
+            Function::Collect(expr) => {
+                let (query, params) = expr.to_query_param();
+                return (format!("collect({})", query), params);
+            }
         }
     }
 }
@@ -2004,3 +1994,28 @@ impl<A: Aliasable> From<&A> for Expr {
 
 // See conversation: https://chatgpt.com/c/67f2becb-e4cc-8013-8c50-c40598488122
 
+
+// impl fmt::Display for Function {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         match self {
+//             Function::Id(expr) => write!(f, "id({})", expr),
+//             Function::Coalesce(exprs) => {
+//                 let joined = exprs.iter()
+//                     .map(|e| e.to_string())
+//                     .collect::<Vec<_>>()
+//                     .join(", ");
+//                 write!(f, "coalesce({})", joined)
+//             }
+//             Function::Exists(expr) => write!(f, "exists({})", expr),
+//         }
+//     }
+// }
+
+// impl fmt::Display for Expr {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         match &self.expr {
+//             InnerExpr::Raw(s) => write!(f, "{}", s),
+//             InnerExpr::Func(func) => write!(f, "{}", func),
+//         }
+//     }
+// }

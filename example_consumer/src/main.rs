@@ -37,10 +37,12 @@ async fn main() {
     let mut page2 = Page::new("pid99", "DID IT WORK?!", Vec::new());
     let mut page3 = Page::new("pid6", "DID IT WORK?!", Vec::new());
     let mut array1 = Array::new("array1", vec!["cid3".into(), "cid4".into()]);
-    page1.set_entity_alias("Test");
-    let test = FnArg::from_props(&page1, &[&page1.id]);
-    let fnargexpr = Expr::from(test);
-    dbg!(fnargexpr);
+
+
+
+    // let test = FnArg::from_props(&page1, &[&page1.id]);
+    // let fnargexpr = Expr::from(test);
+    // dbg!(fnargexpr);
     // !!Functional MERGE Query:
     // let result = Neo4gBuilder::new()
     // .merge()
@@ -63,54 +65,54 @@ async fn main() {
     // println!("{:?}", result);
 
     // !! Functional MATCH Query:
-    // let result = Neo4gBuilder::new()
-    //     .get()
-    //         .node(&mut page3, props!(page3 => page3.id)).add_to_return()
-    //         .set(&page3, props!(page3 => page3.path))
-    //     .end_statement()
-    //     .call(wrap![page3], |inner| {
-    //         inner.get()
-    //             .node(&mut page2, props!(page2 => page2.id))
-    //             .set(&page2, props!(page2 => page2.path))
-    //             .set(&page3, props!(page3 => PageProps::Path("TEST!!!".into())))
-    //         .end_statement()
-    //     })
-    //     .with(With::new()
-    //         .entities(&[page3.wrap()])
-    //         .arrays(arrays![array1])
-    //         // .collect(&[&array1])
-    //     )
-    //     .unwind(&mut Unwinder::new(&array1))
-    //     .get()
-    //         .node(&mut page1, props!(page1 => page1.id)).add_to_return()
-    //         .relation(&mut hcrel1, no_props!()).add_to_return()
-    //         .node(&mut component1, |component1| vec![component1.id.clone()]).add_to_return()
-    //         .set(&hcrel1, props!(hcrel1 => hcrel1.deleted))
-    //         .set(&component1, props!(component1 => component1.path))
-    //     .end_statement()
-    //     .get()
-    //         .node_ref(&page1)
-    //         .relation(&mut hcrel2, no_props!()).add_to_return()
-    //         .node(&mut component2, props!(component2 => component2.path, ComponentProps::Id("cid4".to_string()))).add_to_return()
-    //         .filter(Where::new()
-    //             .nest(|inner| {inner
-    //                 .condition(&component1, prop!(component1.id), CompareOperator::Eq)
-    //                 .join(CompareJoiner::And)
-    //                 .condition(&component2, |_| ComponentProps::Id("pid99".into()), CompareOperator::Ne)
-    //             })
-    //             .join(CompareJoiner::And)
-    //             .condition(&page1, |_| PageProps::Id("pid4".into()), CompareOperator::Eq)
-    //             .join(CompareJoiner::And)
-    //             .condition_fn_prop(&component1, prop!(component1.id), CompareOperator::Eq, Function::Id(
-    //                 Box::new(
-    //                     Expr::from(Function::Coalesce(vec![Expr::from(&component1), Expr::from(&page1)]))
-    //                 )
-    //             ))
-    //             //.condition(&component1, prop!(component1.id), CompareOperator::In(array1.list()))
-    //         )
-    //         .end_statement()
-    //     .run_query(graph, EntityWrapper::from_db_entity).await;
-    // println!("{:?}", result);
+    let result = Neo4gBuilder::new()
+        .get()
+            .node(&mut page3, props!(page3 => page3.id)).add_to_return()
+            .set(&page3, props!(page3 => page3.path))
+        .end_statement()
+        .call(wrap![page3], |inner| {
+            inner.get()
+                .node(&mut page2, props!(page2 => page2.id))
+                .set(&page2, props!(page2 => page2.path))
+                .set(&page3, props!(page3 => PageProps::Path("TEST!!!".into())))
+            .end_statement()
+        })
+        .with(With::new()
+            .entities(&[page3.wrap()])
+            .arrays(arrays![array1])
+            // .collect(&[&array1])
+        )
+        .unwind(&mut Unwinder::new(&array1))
+        .get()
+            .node(&mut page1, props!(page1 => page1.id)).add_to_return()
+            .relation(&mut hcrel1, no_props!()).add_to_return()
+            .node(&mut component1, |component1| vec![component1.id.clone()]).add_to_return()
+            .set(&hcrel1, props!(hcrel1 => hcrel1.deleted))
+            .set(&component1, props!(component1 => component1.path))
+        .end_statement()
+        .get()
+            .node_ref(&page1)
+            .relation(&mut hcrel2, no_props!()).add_to_return()
+            .node(&mut component2, props!(component2 => component2.path, ComponentProps::Id("cid4".to_string()))).add_to_return()
+            .filter(Where::new()
+                .nest(|inner| {inner
+                    .condition(&component1, &component1.id, CompareOperator::Eq)
+                    .join(CompareJoiner::And)
+                    .condition(&component2, &ComponentProps::Id("pid99".into()), CompareOperator::Ne)
+                })
+                .join(CompareJoiner::And)
+                .condition(&page1, &PageProps::Id("pid4".into()), CompareOperator::Eq)
+                .join(CompareJoiner::And)
+                // .condition_fn_prop(&component1, prop!(component1.id), CompareOperator::Eq, Function::Id(
+                //     Box::new(
+                //         Expr::from(Function::Coalesce(vec![Expr::from(&component1), Expr::from(&page1)]))
+                //     )
+                // ))
+                .condition(&component1, &component1.id, CompareOperator::In(array1.list()))
+            )
+            .end_statement()
+        .run_query(graph, EntityWrapper::from_db_entity).await;
+    println!("{:?}", result);
     
     
     // !! Functional CREATE Query:
