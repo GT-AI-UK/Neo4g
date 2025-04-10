@@ -686,7 +686,6 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
             fn set_alias(&mut self, alias: &str) {
                 self.set_entity_alias(alias);
             }
-
             fn get_alias(&self) -> String {
                 self.get_entity_alias()
             }

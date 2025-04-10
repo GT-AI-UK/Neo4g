@@ -2,7 +2,6 @@ use anyhow::{anyhow, Error};
 use neo4rs::{query, BoltNull, BoltType, Graph, Node, Query, Relation};
 use serde::de::value;
 use serde::{Deserialize, Serialize};
-use std::f32::consts::TAU;
 use std::hash::Hash;
 use std::marker::PhantomData;
 use std::fmt::{self, format};
@@ -1824,6 +1823,53 @@ impl From<&str> for Order {
 }
 
 #[derive(Debug, Clone)]
+pub struct FnArg {
+    alias: String,
+    prop_names: Vec<String>,
+    params: HashMap<String, BoltType>,
+}
+
+impl Aliasable for FnArg {
+    fn get_alias(&self) -> String {
+        self.alias.clone()
+    }
+    fn set_alias(&mut self, alias: &str) -> () {
+        self.alias = alias.to_owned();
+    }
+}
+   
+impl FnArg {
+    fn from_props_macro<T, F>(entity: &T, props_macro: F) -> Self
+    where T: Neo4gEntity, T::Props: Clone, F: FnOnce(&T) -> Vec<T::Props> {
+        let props: Vec<T::Props> = props_macro(entity);
+        let mut params: HashMap<String, BoltType> = HashMap::new();
+        let prop_names = props.iter().map(|prop| {
+            let (name, value) = prop.to_query_param();
+            params.insert(format!("fnarg_{}_{}", entity.get_alias(), name), value);
+            name.to_string()
+        }).collect::<Vec<String>>();
+        Self {
+            alias: entity.get_alias(),
+            prop_names,
+            params,
+        }
+    }
+    pub fn from_props<T: Neo4gEntity>(entity: &T, props: &[&T::Props]) -> Self {
+        let mut params: HashMap<String, BoltType> = HashMap::new();
+        let prop_names = props.iter().map(|prop| {
+            let (name, value) = prop.to_query_param();
+            params.insert(format!("fnarg_{}_{}", entity.get_alias(), name), value);
+            name.to_string()
+        }).collect::<Vec<String>>();
+        Self {
+            alias: entity.get_alias(),
+            prop_names,
+            params,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum Function {
     Id(Box<Expr>),
     Coalesce(Vec<Expr>),
@@ -1881,7 +1927,7 @@ impl fmt::Display for Expr {
 }
 
 #[derive(Debug, Clone)]
-pub struct Expr{
+pub struct Expr {
     expr: InnerExpr,
     params: HashMap<String, BoltType>,
 }
@@ -1934,6 +1980,18 @@ impl Expr {
 impl From<Function> for Expr {
     fn from(func: Function) -> Expr {
         Expr::new(InnerExpr::Func(func.clone()), HashMap::new())
+    }
+}
+
+impl From<FnArg> for Expr {
+    fn from(value: FnArg) -> Self {
+        let expr = value.prop_names.iter().map(|prop|{
+            format!("{}.{}", &value.alias, prop)
+        }).collect::<Vec<String>>().join(", ");
+        Self {
+            expr: InnerExpr::Raw(expr),
+            params: value.params,
+        }
     }
 }
 
