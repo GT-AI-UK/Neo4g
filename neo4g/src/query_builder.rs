@@ -1983,13 +1983,22 @@ impl From<Function> for Expr {
     }
 }
 
+// impl From<Vec<Expr>> for Expr {
+//     fn from(list: Vec<Expr>) -> Self {
+//         let expr = 
+//         Self {
+
+//         }
+//     }
+// }
+
 impl From<FnArg> for Expr {
     fn from(value: FnArg) -> Self {
-        let expr = value.prop_names.iter().map(|prop|{
+        let expr = InnerExpr::Raw(value.prop_names.iter().map(|prop|{
             format!("{}.{}", &value.alias, prop)
-        }).collect::<Vec<String>>().join(", ");
+        }).collect::<Vec<String>>().join(", "));
         Self {
-            expr: InnerExpr::Raw(expr),
+            expr,
             params: value.params,
         }
     }
