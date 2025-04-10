@@ -1983,15 +1983,6 @@ impl From<Function> for Expr {
     }
 }
 
-// impl From<Vec<Expr>> for Expr {
-//     fn from(list: Vec<Expr>) -> Self {
-//         let expr = 
-//         Self {
-
-//         }
-//     }
-// }
-
 impl From<FnArg> for Expr {
     fn from(value: FnArg) -> Self {
         let expr = InnerExpr::Raw(value.prop_names.iter().map(|prop|{
