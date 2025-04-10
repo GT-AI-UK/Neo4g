@@ -23,7 +23,7 @@ pub trait Neo4gEntity: Aliasable {
 
 pub trait Prop: Default + Clone + std::fmt::Debug + Serialize + for <'a> Deserialize<'a> {}
 
-pub trait Aliasable {
+pub trait Aliasable: std::fmt::Debug + Clone {
     fn get_alias(&self) -> String;
     fn set_alias(&mut self, alias: &str) -> ();
 }

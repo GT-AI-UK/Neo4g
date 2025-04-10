@@ -1,6 +1,6 @@
 use example_consumer::entity_wrapper::{EntityWrapper, Label};
 use example_consumer::objects::{Group, GroupProps, MemberOf, MemberOfProps, User, UserProps, UserTemplate, Page, PageProps, PageTemplate, Component, ComponentProps, ComponentTemplate, ComponentType, HasComponent, HasComponentTemplate, HasComponentProps};
-use neo4g::query_builder::{self, Array, CompareJoiner, CompareOperator, Expr, FnArg, Function, Neo4gBuilder, Unwinder, Where, With};
+use neo4g::query_builder::{self, Array, CompareJoiner, CompareOperator, Expr, FnArg, Function, FunctionCall, Neo4gBuilder, Unwinder, Where, With};
 use neo4rs::Graph;
 use dotenv::dotenv; 
 use std::{env, result, vec};
@@ -37,7 +37,7 @@ async fn main() {
     let mut page2 = Page::new("pid99", "DID IT WORK?!", Vec::new());
     let mut page3 = Page::new("pid6", "DID IT WORK?!", Vec::new());
     let mut array1 = Array::new("array1", vec!["cid3".into(), "cid4".into()]);
-
+    let mut collect_page2 = FunctionCall::from(Function::Collect(Box::new(Expr::from(&page2))));
 
 
     // let test = FnArg::from_props(&page1, &[&page1.id]);
@@ -80,7 +80,7 @@ async fn main() {
         .with(With::new()
             .entities(&[page3.wrap()])
             .arrays(arrays![array1])
-            // .collect(&[&array1])
+            .function(&mut collect_page2)
         )
         .unwind(&mut Unwinder::new(&array1))
         .get()
@@ -96,19 +96,19 @@ async fn main() {
             .node(&mut component2, props!(component2 => component2.path, ComponentProps::Id("cid4".to_string()))).add_to_return()
             .filter(Where::new()
                 .nest(|inner| {inner
-                    .condition(&component1, &component1.id, CompareOperator::Eq)
+                    .condition(&component1, Some(&component1.id), CompareOperator::Eq)
                     .join(CompareJoiner::And)
-                    .condition(&component2, &ComponentProps::Id("pid99".into()), CompareOperator::Ne)
+                    .condition(&component2, Some(&ComponentProps::Id("pid99".into())), CompareOperator::Ne)
                 })
                 .join(CompareJoiner::And)
-                .condition(&page1, &PageProps::Id("pid4".into()), CompareOperator::Eq)
+                .condition(&page1, Some(&PageProps::Id("pid4".into())), CompareOperator::Eq)
                 .join(CompareJoiner::And)
                 // .condition_fn_prop(&component1, prop!(component1.id), CompareOperator::Eq, Function::Id(
                 //     Box::new(
                 //         Expr::from(Function::Coalesce(vec![Expr::from(&component1), Expr::from(&page1)]))
                 //     )
                 // ))
-                .condition(&component1, &component1.id, CompareOperator::In(array1.list()))
+                .condition(&component1, Some(&component1.id), CompareOperator::InVec(array1.list()))
             )
             .end_statement()
         .run_query(graph, EntityWrapper::from_db_entity).await;
