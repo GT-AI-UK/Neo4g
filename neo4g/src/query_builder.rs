@@ -1484,11 +1484,13 @@ impl <CanBuild> With<CanBuild> {
     /// )
     /// ```
     /// The example above generates `collect(entityalias) as collected_entity1`.
-    pub fn function(mut self, function: &mut FunctionCall) -> With<Condition> {
+    pub fn function<T: Neo4gEntity>(mut self, function: &mut FunctionCall, entity: &T) -> With<Condition> {
         self.with_number += 1;
-        let alias = format!("with_fn_{}", self.with_number);
+        let alias = format!("with_fn_{}", entity.get_alias());
         function.set_alias(&alias);
-        let (string, params) = function.function.to_query_param();
+        let (mut string, params) = function.function.to_query_param();
+        println!("\n########\nFUNCTION STRING!!!  {}\n#########\n", &string);
+        string = string.replace("NotSet", &entity.get_alias());
         if !self.string.is_empty() {
             self.string.push_str(", ");
         }
@@ -1819,7 +1821,13 @@ impl From<&Array> for CompareOperator {
 
 impl From<&FunctionCall> for CompareOperator {
     fn from(fn_call: &FunctionCall) -> Self {
-        Self::InAlias(fn_call.get_alias())
+        let alias: String;
+        if !fn_call.get_alias().is_empty() {
+            alias = fn_call.get_alias();
+        } else {
+            alias = "NotSet".to_owned();
+        }
+        Self::InAlias(alias)
     }
 }
 
@@ -1923,6 +1931,8 @@ impl FnArg {
 pub struct FunctionCall {
     alias: String,
     function: Function,
+    args: Option<Vec<String>>,
+    needs_args: bool,
 }
 
 impl From<Function> for FunctionCall {
@@ -1988,7 +1998,6 @@ impl Function {
 pub struct Expr {
     expr: InnerExpr,
     params: HashMap<String, BoltType>,
-    lazy_alias: Option<Box<dyn Fn() -> String>>,
 }
 
 impl Debug for Expr {
@@ -2002,7 +2011,6 @@ impl Clone for Expr {
         Self {
             expr: self.expr.clone(),
             params: self.params.clone(),
-            lazy_alias: None,
         }
     }
 }
@@ -2018,7 +2026,6 @@ impl Expr {
         Self {
             expr,
             params,
-            lazy_alias: None,
         }
     }
     fn to_query_param(&self) -> (String, HashMap<String, BoltType>) {
@@ -2067,24 +2074,15 @@ impl From<FnArg> for Expr {
         Self {
             expr,
             params: value.params,
-            lazy_alias: None
         }
     }
 }
 
 impl<A: Aliasable> From<&A> for Expr {
     fn from(aliasable: &A) -> Self {
-        let alias = aliasable.get_alias();
-        let mut fun: Option<Box<dyn Fn() -> String>>;
-        if alias.is_empty() {
-            fun = Some(Box::new(|| aliasable.get_alias()));
-        } else {
-            fun = None;
-        }
         Self {
-            expr: InnerExpr::Raw(alias),
+            expr: InnerExpr::Raw(String::new()),
             params: HashMap::new(),
-            lazy_alias: fun,
         }
     }
 }

@@ -80,7 +80,7 @@ async fn main() {
         .with(With::new()
             .entities(&[page3.wrap()])
             .arrays(arrays![array1])
-            .function(&mut collect_page2)
+            .function(&mut collect_page2, &page2)
         )
         .unwind(&mut Unwinder::new(&array1))
         .get()
