@@ -35,6 +35,7 @@ use serde::{Serialize, Deserialize};
 use neo4g::traits::QueryParam;
 use neo4g::traits::Aliasable;
 use neo4g::query_builder::DbEntityWrapper;
+use uuid::Uuid;
 
 #[derive(Neo4gNode, Serialize, Deserialize, Debug, Clone)]
 pub struct GroupTemplate {

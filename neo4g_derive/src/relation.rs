@@ -415,6 +415,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
             pub fn new( #(#constructor_params),* ) -> Self {
                 Self {
                     alias: String::new(),
+                    uuid: Uuid::new_v4(),
                     entity_type: EntityType::Relation,
                     #(#constructor_body),*
                 }
@@ -427,6 +428,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
             fn default() -> Self {
                 Self {
                     alias: String::new(),
+                    uuid: Uuid::new_v4(),
                     entity_type: EntityType::Relation,
                     #(#default_body),*
                 }
@@ -542,6 +544,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
                     EntityWrapper::#new_struct_name(
                         #new_struct_name {
                             alias: String::new(),
+                            uuid: Uuid::new_v4(),
                             entity_type: EntityType::Relation,
                             #(#field_inits),*
                         }
@@ -603,6 +606,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
                 fn from(template: #struct_name) -> Self {
                     Self {
                         alias: String::new(),
+                        uuid: Uuid::new_v4(),
                         entity_type: EntityType::Relation,
                         #(#from_template_fields),*
                     }
@@ -655,6 +659,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
         #[derive(Debug, Clone, Serialize, Deserialize)]
         pub struct #new_struct_name {
             pub alias: String,
+            pub uuid: Uuid,
             pub entity_type: EntityType,
             #(#new_struct_fields),*
         }
@@ -688,6 +693,9 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
             }
             fn get_alias(&self) -> String {
                 self.get_entity_alias()
+            }
+            fn get_uuid(&self) -> Uuid {
+                self.uuid.clone()
             }
         }
         

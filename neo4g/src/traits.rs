@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use neo4rs::{BoltType, Node, Relation};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::query_builder::{DbEntityWrapper, EntityType, Expr, Function};
 
@@ -26,6 +27,7 @@ pub trait Prop: Default + Clone + std::fmt::Debug + Serialize + for <'a> Deseria
 pub trait Aliasable: std::fmt::Debug + Clone {
     fn get_alias(&self) -> String;
     fn set_alias(&mut self, alias: &str) -> ();
+    fn get_uuid(&self) -> Uuid;
 }
 
 pub trait QueryParam {

@@ -7,6 +7,7 @@ use neo4g::traits::{Neo4gEntity, QueryParam, WrappedNeo4gEntity, Aliasable, Neo4
 use serde::{Serialize, Deserialize};
 use neo4g::query_builder::EntityType;
 use neo4g::query_builder::DbEntityWrapper;
+use uuid::Uuid;
 
 use neo4rs::{
     Node,

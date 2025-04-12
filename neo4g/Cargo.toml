@@ -14,3 +14,4 @@ paste = "1.0.15"
 tokio = { version = "1.43.0", features = ["full"] }
 heck = "0.5.0"
 serde = { version = "1.0.219", features = ["derive"] }
+uuid = { version = "1.16.0", features = ["v4", "serde"] }

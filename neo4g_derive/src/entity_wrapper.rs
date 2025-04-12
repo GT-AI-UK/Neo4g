@@ -27,6 +27,7 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
     let mut call_get_entity_type_arms = Vec::new();
     let mut db_from_node_checks = Vec::new();
     let mut db_from_relation_checks = Vec::new();
+    let mut call_get_uuid_arms = Vec::new();
 
     for variant in data_enum.variants.iter() {
         let var_name = &variant.ident;
@@ -84,6 +85,10 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
             #enum_name::#var_name(inner) => inner.get_entity_type(),
         };
         call_get_entity_type_arms.push(call_get_entity_type_arm);
+        let call_get_uuid_arm = quote! {
+            #enum_name::#var_name(inner) => inner.get_uuid(),
+        };
+        call_get_uuid_arms.push(call_get_uuid_arm);
 
         let dbcheck = quote! {
             if labels.contains(&#var_name_str) {
@@ -123,6 +128,14 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
             }
         }
     };
+    let get_entity_uuid_fn = quote! {
+        fn get_uuid(&self) -> Uuid {
+            match self {
+                #(#call_get_uuid_arms)*
+                _ => Uuid::new_v4()
+            }
+        }
+    };
 
     let from_db_entity_fn = quote! {
         fn from_db_entity(db_entity: DbEntityWrapper) -> Self {
@@ -147,6 +160,7 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
         impl Aliasable for EntityWrapper {
             #get_alias_fn
             #set_alias_fn
+            #get_entity_uuid_fn
         }
 
         impl WrappedNeo4gEntity for EntityWrapper {

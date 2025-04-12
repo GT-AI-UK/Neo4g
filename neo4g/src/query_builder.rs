@@ -2,9 +2,10 @@ use anyhow::{anyhow, Error};
 use neo4rs::{query, BoltNull, BoltType, Graph, Node, Query, Relation};
 use serde::de::value;
 use serde::{Deserialize, Serialize};
-use std::hash::Hash;
 use std::marker::PhantomData;
 use std::fmt::{self, format, Debug};
+use std::vec;
+use uuid::Uuid;
 use crate::traits::*;
 
 use std::collections::HashMap;
@@ -13,6 +14,7 @@ use std::collections::HashMap;
 pub struct Neo4gBuilder<State> {
     query: String,
     params: HashMap<String, BoltType>,
+    entity_aliases: HashMap<Uuid, String>,
     node_number: u32,
     relation_number: u32,
     unwind_number: u32,
@@ -29,6 +31,7 @@ impl Neo4gBuilder<Empty> {
         Self {
             query: String::new(),
             params: HashMap::new(),
+            entity_aliases: HashMap::new(),
             node_number: 0,
             relation_number: 0,
             unwind_number: 0,
@@ -44,6 +47,7 @@ impl Neo4gBuilder<Empty> {
         Self {
             query: String::new(),
             params: HashMap::new(),
+            entity_aliases: HashMap::new(),
             node_number: parent.node_number,
             relation_number: parent.relation_number,
             unwind_number: parent.unwind_number,
@@ -142,12 +146,14 @@ impl<Q: CanMatch> Neo4gBuilder<Q> {
         let (
             query,
             params,
+            entity_aliases,
             node_number,
             relation_number,
             set_number,
             unwind_number,
             return_refs,
         ) = inner_builder_closure(inner_builder).build_inner();
+        self.entity_aliases = entity_aliases;
         self.node_number = node_number;
         self.relation_number = relation_number;
         self.set_number = set_number;
@@ -254,7 +260,8 @@ impl<Q: CanWith> Neo4gBuilder<Q> {
     /// ```
     /// and asociated params.
     pub fn with<W: CanBuild>(mut self, with: With<W>) -> Neo4gBuilder<Withed> {
-        let (query, params) = with.build();
+        let (query, uuids, params) = with.build();
+        self.entity_aliases.extend(uuids);
         self.query.push_str(&format!("\nWITH {}", query));
         self.params.extend(params);
         self.transition::<Withed>()
@@ -278,7 +285,9 @@ impl<Q: CanNode> Neo4gCreateStatement<Q> {
     { //where EntityWrapper: From<T>, T: Clone {
         self.node_number += 1;
         let label = entity.get_label();
-        entity.set_alias(&format!("{}{}", label.to_lowercase(), self.node_number));
+        let alias = format!("{}{}", label.to_lowercase(), self.node_number);
+        entity.set_alias(&alias);
+        self.entity_aliases.insert(entity.get_uuid(), alias);
         let name = format!("{}{}:AdditionalLabels", label.to_lowercase(), self.node_number);
         self.previous_entity = Some((name.clone(), EntityType::Node));
         let (query_part, params) = entity.create_from_self();
@@ -318,7 +327,9 @@ impl Neo4gCreateStatement<CreatedNode> {
     { //where EntityWrapper: From<T>, T: Clone {
         self.relation_number += 1;
         let label = entity.get_label();
-        entity.set_alias(&format!("{}{}", label.to_lowercase(), self.relation_number));
+        let alias = format!("{}{}", label.to_lowercase(), self.relation_number);
+        entity.set_alias(&alias);
+        self.entity_aliases.insert(entity.get_uuid(), alias);
         let name = format!("{}{}", label.to_lowercase(), self.relation_number);
         self.previous_entity = Some((name.clone(), EntityType::Relation));
         let (query_part, params) = entity.create_from_self();
@@ -402,6 +413,7 @@ impl<Q: CanNode> Neo4gMergeStatement<Q> {
             self.query.push_str(&query_part);
             self.params.extend(params);
         }
+        self.entity_aliases.insert(entity.get_uuid(), alias);
         self.transition::<CreatedNode>()
     }
     /// Provides a node alias for use in a query string. 
@@ -444,6 +456,7 @@ impl Neo4gMergeStatement<CreatedNode> {
         let (query_part, params) = entity.entity_by(&alias, &props);
         self.query.push_str(&query_part.replace("min_hops", &format!("{}", min_hops)));
         self.params.extend(params);
+        self.entity_aliases.insert(entity.get_uuid(), alias);
         self.transition::<CreatedRelation>()
     }
     /// Generates a relation query object. 
@@ -469,6 +482,7 @@ impl Neo4gMergeStatement<CreatedNode> {
         let (query_part, params) = entity.entity_by(&alias, &props);
         self.query.push_str(&query_part.replace("*min_hops..", ""));
         self.params.extend(params);
+        self.entity_aliases.insert(entity.get_uuid(), alias);
         self.transition::<CreatedRelation>()
     }
     /// Generates a relation query object with the arrow going right to left. 
@@ -495,6 +509,7 @@ impl Neo4gMergeStatement<CreatedNode> {
         let (query_part, params) = entity.entity_by(&alias,&props);
         self.query.push_str(&query_part.replace("-[", "<-[").replace("]->", "]-"));
         self.params.extend(params);
+        self.entity_aliases.insert(entity.get_uuid(), alias);
         self.transition::<CreatedRelation>()
     }
     pub fn relation_undirected(mut self) -> Neo4gMergeStatement<CreatedRelation> {
@@ -654,6 +669,7 @@ impl<Q: CanNode> Neo4gMatchStatement<Q> {
             self.query.push_str(&query_part);
             self.params.extend(params);
         }
+        self.entity_aliases.insert(entity.get_uuid(), alias);
         self.transition::<MatchedNode>()
     }
     /// Provides a node alias for use in a query string. 
@@ -696,6 +712,7 @@ impl Neo4gMatchStatement<MatchedNode> {
         let (query_part, params) = entity.entity_by(&alias, &props);
         self.query.push_str(&query_part.replace("min_hops", &format!("{}", min_hops)));
         self.params.extend(params);
+        self.entity_aliases.insert(entity.get_uuid(), alias);
         self.transition::<MatchedRelation>()
     }
     /// Generates a relation query object. 
@@ -725,6 +742,7 @@ impl Neo4gMatchStatement<MatchedNode> {
         let (query_part, params) = entity.entity_by(&alias, &props);
         self.query.push_str(&query_part.replace("*min_hops..", ""));
         self.params.extend(params);
+        self.entity_aliases.insert(entity.get_uuid(), alias);
         self.transition::<MatchedRelation>()
     }
     /// Generates a relation query object with the arrow going right to left. 
@@ -743,12 +761,13 @@ impl Neo4gMatchStatement<MatchedNode> {
         self.relation_number += 1;
         let props = props_macro(entity);
         let label = entity.get_label();
-        entity.set_alias(&format!("{}{}", label.to_lowercase(), self.relation_number));
-        let name = format!("{}{}", label.to_lowercase(), self.relation_number);
-        self.previous_entity = Some((name.clone(), EntityType::Relation));
+        let alias = format!("{}{}", label.to_lowercase(), self.relation_number);
+        entity.set_alias(&alias);
+        self.previous_entity = Some((alias.clone(), EntityType::Relation));
         let (query_part, params) = entity.create_from_self();
         self.query.push_str(&query_part.replace("-[", "<-[").replace("]->", "]-"));
         self.params.extend(params);
+        self.entity_aliases.insert(entity.get_uuid(), alias);
         self.transition::<MatchedRelation>()
     }
     /// Provides an empty relation with no direction, simply -- . 
@@ -1026,6 +1045,7 @@ pub enum Clause {
 pub struct Neo4gMatchStatement<State> {
     query: String,
     params: HashMap<String, BoltType>,
+    entity_aliases: HashMap<Uuid, String>,
     node_number: u32,
     relation_number: u32,
     unwind_number: u32,
@@ -1042,6 +1062,7 @@ pub struct Neo4gMatchStatement<State> {
 pub struct Neo4gMergeStatement<State> {
     query: String,
     params: HashMap<String, BoltType>,
+    entity_aliases: HashMap<Uuid, String>,
     node_number: u32,
     relation_number: u32,
     unwind_number: u32,
@@ -1059,6 +1080,7 @@ pub struct Neo4gMergeStatement<State> {
 pub struct Neo4gCreateStatement<State> {
     query: String,
     params: HashMap<String, BoltType>,
+    entity_aliases: HashMap<Uuid, String>,
     node_number: u32,
     relation_number: u32,
     unwind_number: u32,
@@ -1075,6 +1097,7 @@ impl<S> Neo4gBuilder<S> {
         let Neo4gBuilder {
             query,
             params,
+            entity_aliases,
             node_number,
             relation_number,
             unwind_number,
@@ -1088,6 +1111,7 @@ impl<S> Neo4gBuilder<S> {
         Neo4gBuilder {
             query,
             params,
+            entity_aliases,
             node_number,
             relation_number,
             unwind_number,
@@ -1099,8 +1123,8 @@ impl<S> Neo4gBuilder<S> {
             _state: std::marker::PhantomData,
         }
     }
-    fn build_inner(self) -> (String, HashMap<String, BoltType>, u32, u32, u32, u32, Vec<(String, EntityType)>) {
-        (self.query, self.params, self.node_number, self.relation_number, self.unwind_number, self.set_number, self.return_refs)
+    fn build_inner(self) -> (String, HashMap<String, BoltType>, HashMap<Uuid, String>, u32, u32, u32, u32, Vec<(String, EntityType)>) {
+        (self.query, self.params, self.entity_aliases, self.node_number, self.relation_number, self.unwind_number, self.set_number, self.return_refs)
     }
     pub fn debug() {
         todo!()
@@ -1113,6 +1137,7 @@ impl<S> Neo4gMatchStatement<S> {
         let Neo4gMatchStatement {
             query,
             params,
+            entity_aliases,
             node_number,
             relation_number,
             unwind_number,
@@ -1127,6 +1152,7 @@ impl<S> Neo4gMatchStatement<S> {
         Neo4gMatchStatement {
             query,
             params,
+            entity_aliases,
             node_number,
             relation_number,
             unwind_number,
@@ -1150,6 +1176,7 @@ impl<S> Neo4gMergeStatement<S> {
         let Neo4gMergeStatement {
             query,
             params,
+            entity_aliases,
             node_number,
             relation_number,
             unwind_number,
@@ -1165,6 +1192,7 @@ impl<S> Neo4gMergeStatement<S> {
         Neo4gMergeStatement {
             query,
             params,
+            entity_aliases,
             node_number,
             relation_number,
             unwind_number,
@@ -1189,6 +1217,7 @@ impl<S> Neo4gCreateStatement<S> {
         let Neo4gCreateStatement {
             query,
             params,
+            entity_aliases,
             node_number,
             relation_number,
             unwind_number,
@@ -1201,6 +1230,7 @@ impl<S> Neo4gCreateStatement<S> {
         Neo4gCreateStatement {
             query,
             params,
+            entity_aliases,
             node_number,
             relation_number,
             unwind_number,
@@ -1221,6 +1251,7 @@ impl<S> From<Neo4gBuilder<S>> for Neo4gCreateStatement<Empty> {
         Neo4gCreateStatement::<Empty> {
             query: value.query,
             params: value.params,
+            entity_aliases: value.entity_aliases,
             node_number: value.node_number,
             relation_number: value.relation_number,
             unwind_number: value.unwind_number,
@@ -1238,6 +1269,7 @@ impl<S> From<Neo4gBuilder<S>> for Neo4gMergeStatement<Empty> {
         Neo4gMergeStatement::<Empty> {
             query: value.query,
             params: value.params,
+            entity_aliases: value.entity_aliases,
             node_number: value.node_number,
             relation_number: value.relation_number,
             unwind_number: value.unwind_number,
@@ -1258,6 +1290,7 @@ impl<S> From<Neo4gBuilder<S>> for Neo4gMatchStatement<Empty> {
         Neo4gMatchStatement::<Empty> {
             query: value.query,
             params: value.params,
+            entity_aliases: value.entity_aliases,
             node_number: value.node_number,
             relation_number: value.relation_number,
             unwind_number: value.unwind_number,
@@ -1277,6 +1310,7 @@ impl<S> From<Neo4gMatchStatement<S>> for Neo4gBuilder<MatchedNode> {
         Neo4gBuilder::<MatchedNode> {
             query: value.query,
             params: value.params,
+            entity_aliases: value.entity_aliases,
             node_number: value.node_number,
             relation_number: value.relation_number,
             unwind_number: value.unwind_number,
@@ -1295,6 +1329,7 @@ impl<S> From<Neo4gMergeStatement<S>> for Neo4gBuilder<CreatedNode> {
         Neo4gBuilder::<CreatedNode> {
             query: value.query,
             params: value.params,
+            entity_aliases: value.entity_aliases,
             node_number: value.node_number,
             relation_number: value.relation_number,
             unwind_number: value.unwind_number,
@@ -1313,6 +1348,7 @@ impl<S> From<Neo4gCreateStatement<S>> for Neo4gBuilder<CreatedNode> {
         Neo4gBuilder::<CreatedNode> {
             query: value.query,
             params: value.params,
+            entity_aliases: value.entity_aliases,
             node_number: value.node_number,
             relation_number: value.relation_number,
             unwind_number: value.unwind_number,
@@ -1329,6 +1365,7 @@ impl<S> From<Neo4gCreateStatement<S>> for Neo4gBuilder<CreatedNode> {
 #[derive(Debug, Clone, Default)]
 pub struct Unwinder {
     alias: String,
+    uuid: Uuid,
     array: Array,
 }
 
@@ -1336,6 +1373,7 @@ impl Unwinder {
     pub fn new(array: &Array) -> Self {
         Self {
             alias: String::new(),
+            uuid: Uuid::new_v4(),
             array: array.clone(),
         }
     }
@@ -1360,11 +1398,15 @@ impl Aliasable for Unwinder {
     fn set_alias(&mut self, alias: &str) {
         self.alias = alias.to_string();
     }
+    fn get_uuid(&self) -> Uuid {
+        self.uuid.clone()
+    }
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct Array {
     alias: String,
+    uuid: Uuid,
     list: Vec<BoltType>,
     is_built: bool,
 }
@@ -1373,16 +1415,17 @@ impl Array {
     pub fn new(alias: &str, list: Vec<BoltType>) -> Self {
         Self {
             alias: alias.to_string(),
+            uuid: Uuid::new_v4(),
             list,
             is_built: false,
         }
     }
-    fn build(&mut self) -> (String, HashMap<String, BoltType>) {
+    fn build(&mut self) -> (String, Uuid, HashMap<String, BoltType>) {
         if self.is_built {
-            return (self.get_alias(), HashMap::new());
+            return (self.get_alias(), self.uuid.clone(), HashMap::new());
         } else {
             self.is_built = true; 
-            return (format!("${} AS {}", &self.alias, &self.alias), HashMap::from([(self.alias.clone(), BoltType::from(self.list.clone()))]));
+            return (format!("${} AS {}", &self.alias, &self.alias), self.uuid.clone(), HashMap::from([(self.alias.clone(), BoltType::from(self.list.clone()))]));
         }
     }
     pub fn list(&self) -> Vec<BoltType> {
@@ -1397,12 +1440,17 @@ impl Aliasable for Array {
     fn set_alias(&mut self, alias: &str) -> () {
         self.alias = alias.to_string();
     }
+    fn get_uuid(&self) -> Uuid {
+        self.uuid.clone()
+    }
 }
 
+// is there any reason to keep With as a separate builder now that I'm tracking things within the query builder via entity_aliases hashmap?
 #[derive(Debug, Clone)]
 pub struct With<State> {
     string: String,
     params: HashMap<String, BoltType>,
+    entity_aliases: HashMap<Uuid, String>,
     with_number: u32,
     _state: PhantomData<State>,
 }
@@ -1412,6 +1460,7 @@ impl With<Empty> {
         Self {
             string: String::new(),
             params: HashMap::new(),
+            entity_aliases: HashMap::new(),
             with_number: 0,
             _state: PhantomData,
         }
@@ -1420,8 +1469,8 @@ impl With<Empty> {
 
 impl<S> With<S> {
     fn transition<NewState>(self) -> With<NewState> {
-        let With {string, params, with_number, ..} = self;
-        With {string, params, with_number, _state: std::marker::PhantomData,}
+        let With {string, params, entity_aliases, with_number, ..} = self;
+        With {string, params, entity_aliases, with_number, _state: std::marker::PhantomData,}
     }
     pub fn debug() {
         todo!()
@@ -1459,7 +1508,7 @@ impl <CanBuild> With<CanBuild> {
     pub fn arrays(mut self, arrays: &mut [&mut Array]) -> With<Condition> {
         self.with_number += 1;
         let aliases: Vec<String> = arrays.iter_mut().map(|array|{
-            let (string, params) = array.build();
+            let (string, uuid, params) = array.build();
             self.params.extend(params);
             string
         }).collect();
@@ -1484,17 +1533,18 @@ impl <CanBuild> With<CanBuild> {
     /// )
     /// ```
     /// The example above generates `collect(entityalias) as collected_entity1`.
-    pub fn function<T: Neo4gEntity>(mut self, function: &mut FunctionCall, entity: &T) -> With<Condition> {
+    pub fn function(mut self, function: &mut FunctionCall) -> With<Condition> {
         self.with_number += 1;
-        let alias = format!("with_fn_{}", entity.get_alias());
+        let alias = format!("with_fn_{}", self.with_number);
         function.set_alias(&alias);
         let (mut string, params) = function.function.to_query_param();
         println!("\n########\nFUNCTION STRING!!!  {}\n#########\n", &string);
-        string = string.replace("NotSet", &entity.get_alias());
+        //string = string.replace("NotSet", &entity.get_alias());
         if !self.string.is_empty() {
             self.string.push_str(", ");
         }
-        self.string.push_str(&format!("{} AS {}", &string, function.alias));
+        self.string.push_str(&format!("{} AS {}", &string, &alias));
+        self.entity_aliases.insert(function.uuid, alias);
         self.params.extend(params);
         self.transition::<Condition>()
     }
@@ -1517,8 +1567,8 @@ impl <CanBuild> With<CanBuild> {
     //     self.string.push_str(&strings.join(", "));
     //     self.transition::<Condition>()
     // }
-    fn build(self) -> (String, HashMap<String, BoltType>) {
-        (self.string, self.params)
+    fn build(self) -> (String, HashMap<Uuid, String>, HashMap<String, BoltType>) {
+        (self.string, self.entity_aliases, self.params)
     }
 }
 
@@ -1898,6 +1948,7 @@ impl From<&str> for Order {
 #[derive(Debug, Clone)]
 pub struct FnArg {
     alias: String,
+    uuid: Uuid,
     prop_names: Vec<String>,
     params: HashMap<String, BoltType>,
 }
@@ -1908,6 +1959,9 @@ impl Aliasable for FnArg {
     }
     fn set_alias(&mut self, alias: &str) -> () {
         self.alias = alias.to_owned();
+    }
+    fn get_uuid(&self) -> Uuid {
+        self.uuid.clone()
     }
 }
    
@@ -1921,6 +1975,7 @@ impl FnArg {
         }).collect::<Vec<String>>();
         Self {
             alias: entity.get_alias(),
+            uuid: Uuid::new_v4(),
             prop_names,
             params,
         }
@@ -1930,15 +1985,15 @@ impl FnArg {
 #[derive(Clone, Debug)]
 pub struct FunctionCall {
     alias: String,
+    uuid: Uuid,
     function: Function,
-    args: Option<Vec<String>>,
-    needs_args: bool,
 }
 
 impl From<Function> for FunctionCall {
     fn from(function: Function) -> Self {
         Self {
             alias: String::new(),
+            uuid: Uuid::new_v4(),
             function,
         }
     }
@@ -1950,6 +2005,9 @@ impl Aliasable for FunctionCall {
     }
     fn set_alias(&mut self, alias: &str) -> () {
         self.alias = alias.to_owned();
+    }
+    fn get_uuid(&self) -> Uuid {
+        self.uuid.clone()
     }
 }
 
@@ -1995,25 +2053,27 @@ impl Function {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Expr {
     expr: InnerExpr,
+    uuids: Vec<Uuid>, // is this required?
     params: HashMap<String, BoltType>,
 }
 
-impl Debug for Expr {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Expr:\n  expr: {:?}\n  params: {:?}", self.expr, self.params)
-    }
-}
+// impl Debug for Expr {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         write!(f, "Expr:\n  expr: {:?}\n  params: {:?}", self.expr, self.params)
+//     }
+// }
 
-impl Clone for Expr {
-    fn clone(&self) -> Self {
-        Self {
-            expr: self.expr.clone(),
-            params: self.params.clone(),
-        }
-    }
-}
+// impl Clone for Expr {
+//     fn clone(&self) -> Self {
+//         Self {
+//             expr: self.expr.clone(),
+//             params: self.params.clone(),
+//         }
+//     }
+// }
 
 #[derive(Debug, Clone)]
 enum InnerExpr {
@@ -2022,9 +2082,10 @@ enum InnerExpr {
 }
 
 impl Expr {
-    fn new(expr: InnerExpr, params: HashMap<String, BoltType>) -> Self {
+    fn new(expr: InnerExpr, uuids: Vec<Uuid>, params: HashMap<String, BoltType>) -> Self {
         Self {
             expr,
+            uuids,
             params,
         }
     }
@@ -2035,8 +2096,11 @@ impl Expr {
         }
     }
     pub fn from_aliasable_slice<A: Aliasable>(slice: &[&A], as_array: bool) -> Self {
-        let aliases: Vec<String> = slice.iter().map(|s| {
-            s.get_alias()
+        let aliases: Vec<String> = slice.iter().map(|a: &&A| {
+            a.get_alias()
+        }).collect();
+        let uuids: Vec<Uuid> = slice.iter().map(|a| {
+            a.get_uuid()
         }).collect();
         let raw: String;
         if as_array {
@@ -2044,7 +2108,7 @@ impl Expr {
         } else {
             raw = aliases.join(", ");
         }
-        Expr::new(InnerExpr::Raw(raw), HashMap::new())
+        Expr::new(InnerExpr::Raw(raw), uuids, HashMap::new())
     }
     pub fn from_entity_and_prop_parameterised() {
         todo!()
@@ -2062,7 +2126,7 @@ impl Expr {
 
 impl From<Function> for Expr {
     fn from(func: Function) -> Expr {
-        Expr::new(InnerExpr::Func(func.clone()), HashMap::new())
+        Expr::new(InnerExpr::Func(func.clone()), Vec::new(), HashMap::new())
     }
 }
 
@@ -2073,6 +2137,7 @@ impl From<FnArg> for Expr {
         }).collect::<Vec<String>>().join(", "));
         Self {
             expr,
+            uuids: Vec::new(),
             params: value.params,
         }
     }
@@ -2080,8 +2145,10 @@ impl From<FnArg> for Expr {
 
 impl<A: Aliasable> From<&A> for Expr {
     fn from(aliasable: &A) -> Self {
+        let uuid = aliasable.get_uuid();
         Self {
             expr: InnerExpr::Raw(String::new()),
+            uuids: vec![uuid],
             params: HashMap::new(),
         }
     }

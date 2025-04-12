@@ -3,6 +3,7 @@ use crate::objects::{Group, GroupProps, MemberOf, MemberOfProps, User, UserProps
 use neo4g::query_builder::{self, CompareJoiner, CompareOperator, EntityType, Neo4gBuilder, Where};
 use neo4rs::{query, Graph, BoltString, Node, Relation};
 use dotenv::dotenv;
+use uuid::Uuid;
 use std::{env, result};
 use heck::ToShoutySnakeCase;
 
@@ -42,6 +43,7 @@ pub async fn static_query_bench() {
                 if let (Ok(id), Ok(path)) = (node.get::<String>("id"), node.get::<String>("path")) {
                     let wrapped_entity = EntityWrapper::Page(Page {
                         alias: "page1".into(),
+                        uuid: Uuid::new_v4(),
                         entity_type: EntityType::Node,
                         id: PageProps::Id(id),
                         path: PageProps::Path(path),
@@ -54,6 +56,7 @@ pub async fn static_query_bench() {
                 if let Ok(deleted) = node.get::<bool>("deleted") {
                     let wrapped_entity = EntityWrapper::HasComponent(HasComponent {
                         alias: "has_component1".into(),
+                        uuid: Uuid::new_v4(),
                         entity_type: EntityType::Relation,
                         deleted: HasComponentProps::Deleted(deleted),
                     });
@@ -64,6 +67,7 @@ pub async fn static_query_bench() {
                 if let (Ok(id), Ok(path), Ok(component_type)) = (node.get::<String>("id"), node.get::<String>("path"), node.get::<String>("component_type")) {
                     let wrapped_entity = EntityWrapper::Component(Component {
                         alias: "component2".into(),
+                        uuid: Uuid::new_v4(),
                         entity_type: EntityType::Node,
                         id: ComponentProps::Id(id),
                         path: ComponentProps::Path(path),
@@ -76,6 +80,7 @@ pub async fn static_query_bench() {
                 if let Ok(deleted) = node.get::<bool>("deleted") {
                     let wrapped_entity = EntityWrapper::HasComponent(HasComponent {
                         alias: "has_component2".into(),
+                        uuid: Uuid::new_v4(),
                         entity_type: EntityType::Relation,
                         deleted: HasComponentProps::Deleted(deleted),
                     });
@@ -86,6 +91,7 @@ pub async fn static_query_bench() {
                 if let (Ok(id), Ok(path), Ok(component_type)) = (node.get::<String>("id"), node.get::<String>("path"), node.get::<String>("component_type")) {
                     let wrapped_entity = EntityWrapper::Component(Component {
                         alias: "component3".into(),
+                        uuid: Uuid::new_v4(),
                         entity_type: EntityType::Node,
                         id: ComponentProps::Id(id),
                         path: ComponentProps::Path(path),

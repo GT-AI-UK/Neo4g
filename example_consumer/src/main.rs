@@ -7,6 +7,7 @@ use std::{env, result, vec};
 use heck::ToShoutySnakeCase;
 use neo4g::traits::WrappedNeo4gEntity;
 use neo4g_macro_rules::{arrays, no_props, prop, props, wrap};
+use uuid::Uuid;
 
 pub async fn connect_neo4j() -> Graph { //return db object, run on startup, bind to state var
     let test = "CamalCase".to_shouty_snake_case();
@@ -80,7 +81,7 @@ async fn main() {
         .with(With::new()
             .entities(&[page3.wrap()])
             .arrays(arrays![array1])
-            .function(&mut collect_page2, &page2)
+            .function(&mut collect_page2)
         )
         .unwind(&mut Unwinder::new(&array1))
         .get()
