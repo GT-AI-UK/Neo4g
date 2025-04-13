@@ -265,7 +265,7 @@ impl<Q: CanWith> Neo4gBuilder<Q> {
     pub fn with(mut self) -> Neo4gBuilder<Withed> {
         //let (query, uuids, params) = with.build();
         //self.entity_aliases.extend(uuids);
-        self.query.push_str("\nWITH");
+        self.query.push_str("\nWITH ");
         //self.params.extend(params);
         self.transition::<Withed>()
     }
@@ -287,7 +287,7 @@ impl<Q: CanSetWith> Neo4gBuilder<Q> {
             let aliases: Vec<String> = entities.iter().map(|entity| {
                 entity.get_alias()
             }).collect();
-            if !self.query.ends_with("WITH") {
+            if !self.query.ends_with("WITH ") {
                 self.query.push_str(", ");
             }
             self.query.push_str(&aliases.join(", "));
@@ -307,7 +307,7 @@ impl<Q: CanSetWith> Neo4gBuilder<Q> {
                 self.params.extend(params);
                 string
             }).collect();
-            if !self.query.ends_with("WITH") {
+            if !self.query.ends_with("WITH ") {
                 self.query.push_str(", ");
             }
             self.query.push_str(&aliases.join(", "));
@@ -332,10 +332,13 @@ impl<Q: CanSetWith> Neo4gBuilder<Q> {
             self.with_number += 1;
             let alias = format!("with_fn_{}", self.with_number);
             function.set_alias(&alias);
-            let (mut string, params) = function.function.to_query_param();
+            let (mut string, uuids, params) = function.function.to_query_uuid_param();
             println!("\n########\nFUNCTION STRING!!!  {}\n#########\n", &string);
-            //string = string.replace("NotSet", &entity.get_alias());
-            if !self.query.ends_with("WITH") {
+            for u in uuids {
+                string = string.replace(&u.to_string(), self.entity_aliases.get(&u).unwrap_or(&"WTF?".to_owned()));
+            }
+                
+            if !self.query.ends_with("WITH ") {
                 self.query.push_str(", ");
             }
             self.query.push_str(&format!("{} AS {}", &string, &alias));
@@ -384,7 +387,10 @@ impl Neo4gBuilder<WithCondition> {
     /// and asociated params.
     pub fn filter(mut self, filter: Where<Condition>) -> Neo4gBuilder<WithConditioned> {
         self.query.push_str(" WHERE ");
-        let (query_part, where_params) = filter.build();
+        let (mut query_part, uuids, where_params) = filter.build();
+        for u in uuids {
+            query_part = query_part.replace(&u.to_string(), self.entity_aliases.get(&u).unwrap_or(&"WTF?".to_owned()));
+        }
         self.query.push_str(&query_part);
         self.params.extend(where_params);
         self.transition::<WithConditioned>()
@@ -959,7 +965,10 @@ impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> {
         if self.where_str.is_empty() {
             self.where_str.push_str("\nWHERE ")
         }
-        let (query_part, where_params) = filter.build();
+        let (mut query_part, uuids, where_params) = filter.build();
+        for u in uuids {
+            query_part = query_part.replace(&u.to_string(), self.entity_aliases.get(&u).unwrap_or(&"WTF?".to_owned()));
+        }
         self.where_str.push_str(&query_part);
         self.params.extend(where_params);
         self
@@ -1740,17 +1749,18 @@ impl Aliasable for Array {
 pub struct Where<State> {
     string: String,
     params: HashMap<String, BoltType>,
+    uuids: Vec<Uuid>,
     condition_number: u32,
     _state: PhantomData<State>,
 }
 
 impl<S> Where<S> {
     fn transition<NewState>(self) -> Where<NewState> {
-        let Where {string, params, condition_number, ..} = self;
-        Where {string, params, condition_number, _state: std::marker::PhantomData,}
+        let Where {string, params, uuids, condition_number, ..} = self;
+        Where {string, params, uuids, condition_number, _state: std::marker::PhantomData,}
     }
-    fn build_inner(self) -> (String, HashMap<String, BoltType>, u32) {
-        (self.string, self.params, self.condition_number)
+    fn build_inner(self) -> (String, HashMap<String, BoltType>, Vec<Uuid>, u32) {
+        (self.string, self.params, self.uuids, self.condition_number)
     }
     pub fn debug() {
         todo!()
@@ -1762,6 +1772,7 @@ impl Where<Empty> {
         Self {
             string: String::new(),
             params: HashMap::new(),
+            uuids: Vec::new(),
             condition_number: 0,
             _state: PhantomData,
         }
@@ -1770,6 +1781,7 @@ impl Where<Empty> {
         Self {
             string: String::new(),
             params: HashMap::new(),
+            uuids: Vec::new(),
             condition_number: parent.condition_number,
             _state: PhantomData,
         }
@@ -1849,7 +1861,8 @@ impl<Q: CanCondition> Where<Q> {
             dotname = format!(".{}", prop_name);
         }
         let alias = entity.get_alias();
-        let (query, params) = function.to_query_param();
+        let (query, uuids, params) = function.to_query_uuid_param();
+        self.uuids.extend(uuids);
         self.string.push_str(&format!("{}{} {} {}", &alias, dotname, operator, query));
         self.params.extend(params);
         self.transition::<Condition>()
@@ -1926,9 +1939,11 @@ impl<Q: CanCondition> Where<Q> {
         let inner_builder = Where::new_with_parent(&self);
         let (query,
             params,
+            uuids,
             condition_number
         ) = inner_builder_closure(inner_builder).build_inner();
         self.condition_number = condition_number;
+        self.uuids.extend_from_slice(&uuids);
         self.string.push_str(&format!("({})", query));
         self.params.extend(params);
         self.transition::<Condition>()
@@ -1949,8 +1964,8 @@ impl<Q: CanJoin> Where<Q> {
 
 impl Where<Condition> {
     /// Builds the filter and params. This is used by .filter(), and should otherwise not be used unless you know what you're doing. 
-    fn build(self) -> (String, HashMap<String, BoltType>) {
-        (self.string, self.params)
+    fn build(self) -> (String, Vec<Uuid>, HashMap<String, BoltType>) {
+        (self.string, self.uuids, self.params)
     }
 }
 
@@ -2161,33 +2176,50 @@ pub enum Function {
 }
 
 impl Function {
-    fn to_query_param(&self) -> (String, HashMap<String, BoltType>) {
+    fn to_query_uuid_param(&self) -> (String, Vec<Uuid>, HashMap<String, BoltType>) {
         match &self {
             Function::Id(expr) => {
-                let (query, params) = expr.to_query_param();
-                return (format!("id({})", query), params);
+                let (mut query, uuids, params) = expr.to_query_uuid_param();
+                if query.is_empty() && !uuids.is_empty() {
+                    query = uuids.iter().map(|u| u.to_string()).collect::<Vec<String>>().join(", ");
+                }
+                return (format!("id({})", query), uuids, params);
             },
             Function::Coalesce(exprs) => {
                 let mut params = HashMap::new();
+                let mut uuids = Vec::new();
                 let query = exprs.iter().map(|e| {
-                    let (q, p) = e.to_query_param();
+                    let (mut q, u, p) = e.to_query_uuid_param();
+                    if q.is_empty() && !u.is_empty() {
+                        q = u.iter().map(|uuid| uuid.to_string()).collect::<Vec<String>>().join(", ");
+                    }
+                    uuids.extend_from_slice(&u);
                     params.extend(p);
                     q
                 }).collect::<Vec<_>>()
                 .join(", ");
-                return (format!("coalesce({})", query), params);
+                return (format!("coalesce({})", query), uuids, params);
             },
             Function::Exists(expr) => {
-                let (query, params) = expr.to_query_param();
-                return (format!("exists({})", query), params);
+                let (mut query, uuids, params) = expr.to_query_uuid_param();
+                if query.is_empty() && !uuids.is_empty() {
+                    query = uuids.iter().map(|u| u.to_string()).collect::<Vec<String>>().join(", ");
+                }
+                return (format!("exists({})", query), uuids, params);
             }
             Function::Size(expr) => {
-                let (query, params) = expr.to_query_param();
-                return (format!("size({})", query), params);
+                let (mut query, uuids, params) = expr.to_query_uuid_param();
+                if query.is_empty() && !uuids.is_empty() {
+                    query = uuids.iter().map(|u| u.to_string()).collect::<Vec<String>>().join(", ");
+                }
+                return (format!("size({})", query), uuids, params);
             }
             Function::Collect(expr) => {
-                let (query, params) = expr.to_query_param();
-                return (format!("collect({})", query), params);
+                let (mut query, uuids, params) = expr.to_query_uuid_param();
+                if query.is_empty() && !uuids.is_empty() {
+                    query = uuids.iter().map(|u| u.to_string()).collect::<Vec<String>>().join(", ");
+                }
+                return (format!("collect({})", query), uuids, params);
             }
         }
     }
@@ -2229,10 +2261,10 @@ impl Expr {
             params,
         }
     }
-    fn to_query_param(&self) -> (String, HashMap<String, BoltType>) {
+    fn to_query_uuid_param(&self) -> (String, Vec<Uuid>, HashMap<String, BoltType>) {
         match &self.expr {
-            InnerExpr::Raw(s) => (s.to_owned(), self.params.to_owned()),
-            InnerExpr::Func(func) => func.to_query_param(),
+            InnerExpr::Raw(s) => (s.to_owned(), self.uuids.clone(), self.params.to_owned()),
+            InnerExpr::Func(func) => func.to_query_uuid_param(),
         }
     }
     pub fn from_aliasable_slice<A: Aliasable>(slice: &[&A], as_array: bool) -> Self {
