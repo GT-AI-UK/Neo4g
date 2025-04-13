@@ -38,8 +38,9 @@ async fn main() {
     let mut page2 = Page::new("pid99", "DID IT WORK?!", Vec::new());
     let mut page3 = Page::new("pid6", "DID IT WORK?!", Vec::new());
     let mut array1 = Array::new("array1", vec!["cid3".into(), "cid4".into()]);
-    let mut collect_page2 = FunctionCall::from(Function::Collect(Box::new(Expr::from(&page2))));
-
+    //let mut collect_page2 = FunctionCall::from(Function::Id(Box::new(Expr::from(&page2))));
+    let mut collect_page2 = FunctionCall::from(Function::Coalesce(vec![Expr::from(Function::Id(Box::new(Expr::from(&page2)))), Expr::from(&page3)]));
+    dbg!(&collect_page2);
 
     // let test = FnArg::from_props(&page1, &[&page1.id]);
     // let fnargexpr = Expr::from(test);

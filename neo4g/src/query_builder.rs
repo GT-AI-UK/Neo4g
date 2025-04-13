@@ -152,14 +152,16 @@ impl<Q: CanMatch> Neo4gBuilder<Q> {
             entity_aliases,
             node_number,
             relation_number,
-            set_number,
             unwind_number,
+            set_number,
+            with_number,
             return_refs,
         ) = inner_builder_closure(inner_builder).build_inner();
-        self.entity_aliases = entity_aliases;
+        self.entity_aliases.extend(entity_aliases);
         self.node_number = node_number;
         self.relation_number = relation_number;
         self.set_number = set_number;
+        self.with_number = with_number;
         self.unwind_number = unwind_number;
         self.return_refs.extend_from_slice(&return_refs);
         let aliases: Vec<String> = entities_to_alias.iter().map(|entity| {
@@ -799,6 +801,7 @@ impl<Q: CanNode> Neo4gMatchStatement<Q> {
             self.params.extend(params);
         }
         self.entity_aliases.insert(entity.get_uuid(), alias);
+        dbg!(&self.entity_aliases);
         self.transition::<MatchedNode>()
     }
     /// Provides a node alias for use in a query string. 
@@ -1260,8 +1263,8 @@ impl<S> Neo4gBuilder<S> {
             _state: std::marker::PhantomData,
         }
     }
-    fn build_inner(self) -> (String, HashMap<String, BoltType>, HashMap<Uuid, String>, u32, u32, u32, u32, Vec<(String, EntityType)>) {
-        (self.query, self.params, self.entity_aliases, self.node_number, self.relation_number, self.unwind_number, self.set_number, self.return_refs)
+    fn build_inner(self) -> (String, HashMap<String, BoltType>, HashMap<Uuid, String>, u32, u32, u32, u32, u32, Vec<(String, EntityType)>) {
+        (self.query, self.params, self.entity_aliases, self.node_number, self.relation_number, self.unwind_number, self.set_number, self.with_number, self.return_refs)
     }
     pub fn debug() {
         todo!()
@@ -2317,10 +2320,20 @@ impl From<FnArg> for Expr {
 
 impl<A: Aliasable> From<&A> for Expr {
     fn from(aliasable: &A) -> Self {
-        let uuid = aliasable.get_uuid();
         Self {
             expr: InnerExpr::Raw(String::new()),
-            uuids: vec![uuid],
+            uuids: vec![aliasable.get_uuid()],
+            params: HashMap::new(),
+        }
+    }
+}
+
+impl <A: Aliasable> From<&[&A]> for Expr {
+    fn from(a_slice: &[&A]) -> Self {
+        let uuids = a_slice.iter().map(|a| a.get_uuid()).collect();
+        Self {
+            expr: InnerExpr::Raw(String::new()),
+            uuids: uuids,
             params: HashMap::new(),
         }
     }
