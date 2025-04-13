@@ -538,7 +538,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
                 let obj = #new_struct_name {
                     ..self.clone()
                 };
-                println!("inside wrap {:?}", obj);
+                //println!("inside wrap {:?}", obj);
                 EntityWrapper::#new_struct_name(obj)
             }
         };

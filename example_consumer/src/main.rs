@@ -10,8 +10,7 @@ use neo4g_macro_rules::{arrays, no_props, prop, props, wrap};
 use uuid::Uuid;
 
 pub async fn connect_neo4j() -> Graph { //return db object, run on startup, bind to state var
-    let test = "CamalCase".to_shouty_snake_case();
-    println!("{}",test);
+
     let mut host = String::new();
     let mut port = String::new();
     let mut db_user = String::new();
@@ -40,7 +39,6 @@ async fn main() {
     let mut array1 = Array::new("array1", vec!["cid3".into(), "cid4".into()]);
     //let mut collect_page2 = FunctionCall::from(Function::Id(Box::new(Expr::from(&page2))));
     let mut collect_page2 = FunctionCall::from(Function::Coalesce(vec![Expr::from(Function::Id(Box::new(Expr::from(&page2)))), Expr::from(&page3)]));
-    dbg!(&collect_page2);
 
     // let test = FnArg::from_props(&page1, &[&page1.id]);
     // let fnargexpr = Expr::from(test);

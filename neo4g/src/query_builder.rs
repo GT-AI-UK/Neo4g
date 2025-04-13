@@ -335,7 +335,7 @@ impl<Q: CanSetWith> Neo4gBuilder<Q> {
             let alias = format!("with_fn_{}", self.with_number);
             function.set_alias(&alias);
             let (mut string, uuids, params) = function.function.to_query_uuid_param();
-            println!("\n########\nFUNCTION STRING!!!  {}\n#########\n", &string);
+            //println!("\n########\nFUNCTION STRING!!!  {}\n#########\n", &string);
             for u in uuids {
                 string = string.replace(&u.to_string(), self.entity_aliases.get(&u).unwrap_or(&"WTF?".to_owned()));
             }
@@ -801,7 +801,6 @@ impl<Q: CanNode> Neo4gMatchStatement<Q> {
             self.params.extend(params);
         }
         self.entity_aliases.insert(entity.get_uuid(), alias);
-        dbg!(&self.entity_aliases);
         self.transition::<MatchedNode>()
     }
     /// Provides a node alias for use in a query string. 
