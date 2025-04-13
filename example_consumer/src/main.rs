@@ -1,6 +1,6 @@
 use example_consumer::entity_wrapper::{EntityWrapper, Label};
 use example_consumer::objects::{Group, GroupProps, MemberOf, MemberOfProps, User, UserProps, UserTemplate, Page, PageProps, PageTemplate, Component, ComponentProps, ComponentTemplate, ComponentType, HasComponent, HasComponentTemplate, HasComponentProps};
-use neo4g::query_builder::{self, Array, CompareJoiner, CompareOperator, Expr, FnArg, Function, FunctionCall, Neo4gBuilder, Unwinder, Where, With};
+use neo4g::query_builder::{self, Array, CompareJoiner, CompareOperator, Expr, FnArg, Function, FunctionCall, Neo4gBuilder, Unwinder, Where};
 use neo4rs::Graph;
 use dotenv::dotenv; 
 use std::{env, result, vec};
@@ -78,11 +78,10 @@ async fn main() {
                 .set(&page3, props!(page3 => PageProps::Path("TEST!!!".into())))
             .end_statement()
         })
-        .with(With::new()
+        .with()
             .entities(&[page3.wrap()])
             .arrays(arrays![array1])
             .function(&mut collect_page2)
-        )
         .unwind(&mut Unwinder::new(&array1))
         .get()
             .node(&mut page1, props!(page1 => page1.id)).add_to_return()

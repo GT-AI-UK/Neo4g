@@ -47,6 +47,7 @@ pub trait PossibleQueryEnd {}
 pub trait CanAddReturn {}
 pub trait CanDelete {}
 pub trait CanWhere {}
+pub trait CanSetWith {}
 
 #[derive(Debug, Clone)]
 pub struct Empty;
@@ -78,13 +79,24 @@ pub struct DeletedEntity;
 #[derive(Debug, Clone)]
 pub struct Withed;
 
+#[derive(Debug, Clone)]
+pub struct WithCondition;
+
+#[derive(Debug, Clone)]
+pub struct WithConditioned;
+
 impl CanMatch for Empty {}
 impl CanCreate for Empty {}
 impl CanDelete for MatchedNode {}
-impl CanMatch for Withed {}
-impl CanCreate for Withed {}
-impl CanDelete for Withed {}
-impl CanAddReturn for Withed {}
+impl CanMatch for WithCondition {}
+impl CanCreate for WithCondition {}
+impl CanDelete for WithCondition {}
+impl CanMatch for WithConditioned {}
+impl CanCreate for WithConditioned {}
+impl CanDelete for WithConditioned {}
+impl CanSetWith for WithCondition {}
+impl CanSetWith for Withed {}
+//impl CanAddReturn for Withed {}
 impl CanWhere for Withed {}
 impl CanWith for MatchedNode {}
 impl CanWith for CreatedNode {}
