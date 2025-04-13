@@ -318,15 +318,13 @@ impl<Q: CanSetWith> Neo4gBuilder<Q> {
         /// Generates a function call as some alias and updates the function's alias to what the output is aliased to.
         /// # Example
         /// ```rust
-        /// let collected_entity = FunctionCall::from(Function::Collect(&entity))
+        /// let collected_entity = FunctionCall::from(Function::Collect(Box::new(Expr::from(&page2))));
         /// ...
-        /// .with(With::new()
+        /// .with()
         ///     .function(&mut collected_entity)
-        /// )
         /// ...
         /// .filter(Where::new()
-        ///     .not()
-        ///     .
+        ///     ...
         /// )
         /// ```
         /// The example above generates `collect(entityalias) as collected_entity1`.
@@ -348,28 +346,6 @@ impl<Q: CanSetWith> Neo4gBuilder<Q> {
             self.params.extend(params);
             self.transition::<WithCondition>()
         }
-        // /// Generates comma separated calls to collect().
-        // /// # Example
-        // /// ```rust
-        // /// .collect(wrap![entity1, entity2])
-        // /// ```
-        // /// The example above generates `collect(entit1alias) AS collected_entity1alias1, collect(entity2alias) AS collected_entity2alias2`.
-        // /// If this was called after other With methods, a comma is also inserted at the start of the string.
-        // pub fn collect<A: Aliasable>(mut self, entities: &[&A]) -> With<Condition> {
-        //     if !self.string.is_empty() {
-        //         self.string.push_str(", ");
-        //     }
-        //     let strings:Vec<String> = entities.iter().map(|entity| {
-        //         let alias = entity.get_alias();
-        //         self.with_number += 1;
-        //         format!("collect({}) AS collected_{}{}", &alias, &alias, self.with_number)
-        //     }).collect();
-        //     self.string.push_str(&strings.join(", "));
-        //     self.transition::<Condition>()
-        // }
-        // fn build(self) -> (String, HashMap<Uuid, String>, HashMap<String, BoltType>) {
-        //     (self.string, self.entity_aliases, self.params)
-        // }
     }
     
 impl Neo4gBuilder<WithCondition> {
@@ -1596,157 +1572,6 @@ impl Aliasable for Array {
     }
 }
 
-// is there any reason to keep With as a separate builder now that I'm tracking things within the query builder via entity_aliases hashmap?
-// #[derive(Debug, Clone)]
-// pub struct With<State> {
-//     string: String,
-//     params: HashMap<String, BoltType>,
-//     entity_aliases: HashMap<Uuid, String>,
-//     with_number: u32,
-//     _state: PhantomData<State>,
-// }
-
-// impl With<Empty> {
-//     pub fn new() -> Self {
-//         Self {
-//             string: String::new(),
-//             params: HashMap::new(),
-//             entity_aliases: HashMap::new(),
-//             with_number: 0,
-//             _state: PhantomData,
-//         }
-//     }
-// }
-
-// impl<S> With<S> {
-//     fn transition<NewState>(self) -> With<NewState> {
-//         let With {string, params, entity_aliases, with_number, ..} = self;
-//         With {string, params, entity_aliases, with_number, _state: std::marker::PhantomData,}
-//     }
-//     pub fn debug() {
-//         todo!()
-//     }
-// }
-// impl <CanBuild> With<CanBuild> {
-//     /// Generates comma separated entity aliases.
-//     /// # Example
-//     /// ```rust
-//     /// .entities(wrap![entity1, entity2])
-//     /// ```
-//     /// The example above generates `entity1alias, entity2alias`.
-//     /// If this was called after other With methods, a comma is also inserted at the start of the string.
-//     pub fn entities<T: WrappedNeo4gEntity>(mut self, entities: &[T]) -> With<Condition> {
-//         if entities.len() == 0 {
-//             return self.transition::<Condition>();
-//         }
-//         self.with_number += 1;
-//         let aliases: Vec<String> = entities.iter().map(|entity| {
-//             entity.get_alias()
-//         }).collect();
-//         if !self.string.is_empty() {
-//             self.string.push_str(", ");
-//         }
-//         self.string.push_str(&aliases.join(", "));
-//         self.transition::<Condition>()
-//     }
-//     /// Generates comma separated array params AS aliases.
-//     /// # Example
-//     /// ```rust
-//     /// .arrays(arrays![array1, array2])
-//     /// ```
-//     /// The example above generates `$array1 AS array1, $array2 AS array2`.
-//     /// If this was called after other With methods, a comma is also inserted at the start of the string.
-//     pub fn arrays(mut self, arrays: &mut [&mut Array]) -> With<Condition> {
-//         self.with_number += 1;
-//         let aliases: Vec<String> = arrays.iter_mut().map(|array|{
-//             let (string, uuid, params) = array.build();
-//             self.params.extend(params);
-//             string
-//         }).collect();
-//         if !self.string.is_empty() {
-//             self.string.push_str(", ");
-//         }
-//         self.string.push_str(&aliases.join(", "));
-//         self.transition::<Condition>()
-//     }
-//     /// Generates a function call as some alias and updates the function's alias to what the output is aliased to.
-//     /// # Example
-//     /// ```rust
-//     /// let collected_entity = FunctionCall::from(Function::Collect(&entity))
-//     /// ...
-//     /// .with(With::new()
-//     ///     .function(&mut collected_entity)
-//     /// )
-//     /// ...
-//     /// .filter(Where::new()
-//     ///     .not()
-//     ///     .
-//     /// )
-//     /// ```
-//     /// The example above generates `collect(entityalias) as collected_entity1`.
-//     pub fn function(mut self, function: &mut FunctionCall) -> With<Condition> {
-//         self.with_number += 1;
-//         let alias = format!("with_fn_{}", self.with_number);
-//         function.set_alias(&alias);
-//         let (mut string, params) = function.function.to_query_param();
-//         println!("\n########\nFUNCTION STRING!!!  {}\n#########\n", &string);
-//         //string = string.replace("NotSet", &entity.get_alias());
-//         if !self.string.is_empty() {
-//             self.string.push_str(", ");
-//         }
-//         self.string.push_str(&format!("{} AS {}", &string, &alias));
-//         self.entity_aliases.insert(function.uuid, alias);
-//         self.params.extend(params);
-//         self.transition::<Condition>()
-//     }
-//     // /// Generates comma separated calls to collect().
-//     // /// # Example
-//     // /// ```rust
-//     // /// .collect(wrap![entity1, entity2])
-//     // /// ```
-//     // /// The example above generates `collect(entit1alias) AS collected_entity1alias1, collect(entity2alias) AS collected_entity2alias2`.
-//     // /// If this was called after other With methods, a comma is also inserted at the start of the string.
-//     // pub fn collect<A: Aliasable>(mut self, entities: &[&A]) -> With<Condition> {
-//     //     if !self.string.is_empty() {
-//     //         self.string.push_str(", ");
-//     //     }
-//     //     let strings:Vec<String> = entities.iter().map(|entity| {
-//     //         let alias = entity.get_alias();
-//     //         self.with_number += 1;
-//     //         format!("collect({}) AS collected_{}{}", &alias, &alias, self.with_number)
-//     //     }).collect();
-//     //     self.string.push_str(&strings.join(", "));
-//     //     self.transition::<Condition>()
-//     // }
-//     fn build(self) -> (String, HashMap<Uuid, String>, HashMap<String, BoltType>) {
-//         (self.string, self.entity_aliases, self.params)
-//     }
-// }
-
-// impl With<Condition> {
-//     /// Generates a WHERE call
-//     /// # Example
-//     /// ```rust
-//     /// .filter(Where::new()
-//     ///     .is_not_null(&entity1)
-//     ///     .join(CompareJoiner::And)
-//     ///     .size(&entity2, CompareOperator::Gt(0))       
-//     /// )
-//     /// ```
-//     /// The example above generates the following query:
-//     /// ```rust
-//     /// WHERE entity1alias IS NOT NULL AND size(entity2alias) > $where_entity2alias1
-//     /// ```
-//     /// and asociated params.
-//     pub fn filter(mut self, filter: Where<Condition>) -> With<ReturnSet> {
-//         self.string.push_str(" WHERE ");
-//         let (query_part, where_params) = filter.build();
-//         self.string.push_str(&query_part);
-//         self.params.extend(where_params);
-//         self.transition::<ReturnSet>()
-//     }
-// }
-
 #[derive(Debug, Clone)]
 pub struct Where<State> {
     string: String,
@@ -1891,41 +1716,6 @@ impl<Q: CanCondition> Where<Q> {
         self.string.push_str(&format!("{} IS NULL", entity.get_alias()));
         self.transition::<Condition>()
     }
-    // /// Generates a condition string with the neo4j coalesce function included.
-    // /// # Example
-    // /// ```rust
-    // /// .coalesce(&entity, prop!(entity.prop), CompareOperator::Eq)
-    // /// ```
-    // /// The example above generates the following string:
-    // /// ```rust
-    // /// entityalias.prop = coalesce($where_prop1, entityalias.prop)
-    // /// ```
-    // /// and asociated params.
-    // pub fn coalesce<T, F>(mut self, entity: &T, prop_macro: F) -> Where<Condition>
-    // where T: Neo4gEntity, T::Props: Clone, F: FnOnce(&T) -> T::Props {
-    //     self.condition_number += 1;
-    //     let prop = prop_macro(entity);
-    //     let (name, value) = prop.to_query_param();
-    //     let param_name = format!("where_{}{}", name, self.condition_number);
-    //     let alias = entity.get_alias();
-    //     self.string.push_str(&format!("{}.{} = coalesce(${}, {}.{}", alias, name, param_name, alias, name));
-    //     self.params.insert(param_name, value);
-    //     self.transition::<Condition>()
-    // }
-    // /// Generates a call to the size() cypher function.
-    // /// # Example
-    // /// ```rust
-    // /// .size(&entity, CompareOperator::Gt, 0)
-    // /// ```
-    // /// The example above generates `size(entityalias) > $size_entityalias1`
-    // pub fn size<T: Neo4gEntity>(mut self, entity: &T, operator: CompareOperator, value: i32) -> Where<Condition> {
-    //     self.condition_number += 1;
-    //     let alias = entity.get_alias();
-    //     let param_string = format!("size_{}{}", &alias, self.condition_number);
-    //     self.string.push_str(&format!("size({}) {} ${}", &alias, operator, &param_string));
-    //     self.params.insert(param_string, value.into());
-    //     self.transition::<Condition>()
-    // }
     /// Nests conditions within the inner_builder in parens.
     /// # Example
     /// ```rust
@@ -1999,7 +1789,7 @@ impl fmt::Display for CompareOperator {
             CompareOperator::Lt => "<",
             CompareOperator::Le => "<=",
             CompareOperator::Ne => "<>",
-            CompareOperator::InVec(v) => "IN", //, v.iter().map(|i| format!("{}", i)).collect::<Vec<String>>().join(", ")),
+            CompareOperator::InVec(v) => "IN",
             CompareOperator::InAlias(v) => "IN",
         };
         write!(f, "{}", s)
@@ -2230,24 +2020,9 @@ impl Function {
 #[derive(Debug, Clone)]
 pub struct Expr {
     expr: InnerExpr,
-    uuids: Vec<Uuid>, // is this required?
+    uuids: Vec<Uuid>,
     params: HashMap<String, BoltType>,
 }
-
-// impl Debug for Expr {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         write!(f, "Expr:\n  expr: {:?}\n  params: {:?}", self.expr, self.params)
-//     }
-// }
-
-// impl Clone for Expr {
-//     fn clone(&self) -> Self {
-//         Self {
-//             expr: self.expr.clone(),
-//             params: self.params.clone(),
-//         }
-//     }
-// }
 
 #[derive(Debug, Clone)]
 enum InnerExpr {
