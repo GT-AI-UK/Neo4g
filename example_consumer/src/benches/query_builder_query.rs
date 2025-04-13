@@ -7,6 +7,7 @@ use neo4rs::Graph;
 use dotenv::dotenv;
 use std::{env, result};
 use heck::ToShoutySnakeCase;
+use neo4rs::BoltType;
 
 pub async fn connect_neo4j() -> Graph { //return db object, run on startup, bind to state var
     let mut host = String::new();
@@ -36,12 +37,12 @@ pub async fn query_builder_query_bench() {
             .relation(&mut hcrel1, no_props!())
             .node(&mut component1, props!(component1 => component1.id))
             .filter(Where::new()
-                .condition(&page1, Some(&page1.id), CompareOperator::Eq)
+                .condition(&page1, Some(&page1.id), CompareOperator::Eq("pid4".into()))
                 .join(CompareJoiner::And)
                 .nest(|inner| {
-                    inner.condition(&component1, Some(&ComponentProps::Id("asdfasdf".into())), CompareOperator::Ne)
+                    inner.condition(&component1, Some(&ComponentProps::Id("asdfasdf".into())), CompareOperator::Ne("asdf-=#=".into()))
                     .join(CompareJoiner::And)
-                    .condition(&component2, Some(&ComponentProps::Id("asdfasdfasdf".into())), CompareOperator::Ne)
+                    .condition(&component2, Some(&ComponentProps::Id("asdfasdfasdf".into())), CompareOperator::Ne("324rsafvs".into()))
                 })
             )
         .end_statement()

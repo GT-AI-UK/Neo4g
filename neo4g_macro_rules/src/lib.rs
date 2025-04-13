@@ -41,7 +41,7 @@ macro_rules! generate_entity_wrappers {
 macro_rules! wrap {
     [$($arg:expr),* $(,)?] => {
         &[
-            $( &$arg.wrap() ),*
+            $( $arg.wrap() ),*
         ]
     }
 }

@@ -190,8 +190,10 @@ impl<Q: CanMatch> Neo4gBuilder<Q> {
     /// and asociated params.
     pub fn unwind(mut self, unwinder: &mut Unwinder) -> Self {
         self.unwind_number += 1;
-        unwinder.alias = format!("unwound_{}{}", &unwinder.array.alias, self.unwind_number);
-        let (query, params) = unwinder.unwind();
+        let (mut query, uuid, params) = unwinder.unwind();
+        let array_alias = self.entity_aliases.get(&uuid).unwrap();
+        unwinder.alias = format!("unwound_{}{}", &array_alias, self.unwind_number);
+        query = query.replace(&uuid.to_string(), &array_alias);
         self.query.push_str(&query);
         self.params.extend(params);
         self
@@ -778,6 +780,10 @@ impl<Q: CanNode> Neo4gMatchStatement<Q> {
         }
         self.entity_aliases.insert(entity.get_uuid(), alias);
         self.transition::<MatchedNode>()
+    }
+    pub fn nodes_by_aliasable<T, A>(mut self, entity: &T, props: &T::Props, aliasable: &A) ->  Neo4gMatchStatement<MatchedNode>
+    where T: Neo4gEntity, T::Props: Clone, A: Aliasable {
+        todo!()
     }
     /// Provides a node alias for use in a query string. 
     /// Uses all of the properties of the node object as properties of the node in the database.
@@ -1505,16 +1511,23 @@ impl Unwinder {
         }
     }
     /// Builds the query and params. This is used by .unwind(), and should otherwise not be used unless you know what you're doing. 
-    fn unwind(&mut self) -> (String, HashMap<String, BoltType>) {
+    fn unwind(&mut self) -> (String, Uuid, HashMap<String, BoltType>) {
         let mut params = HashMap::new();
         let mut query = String::new();
-        if !self.array.is_built {
-            params.insert(self.array.alias.clone(), self.array.list().into());
-            query.push_str(&format!("\nUNWIND ${} as {}", &self.array.alias, &self.alias));
+        let uuid = self.array.get_uuid();
+        let array_alias: String;
+        if self.array.alias.is_empty() {
+            array_alias = format!("{}", &uuid.to_string());
         } else {
-            query.push_str(&format!("\nUNWIND {} as {}", &self.array.alias, &self.alias));
+            array_alias = self.array.alias.clone();
         }
-        (query, params)
+        if !self.array.is_built {
+            query.push_str(&format!("\nUNWIND ${} as {}", &array_alias, &self.alias));
+            params.insert(array_alias, self.array.list().into());
+        } else {
+            query.push_str(&format!("\nUNWIND {} as {}", &array_alias, &self.alias));
+        }
+        (query, uuid, params)
     }
 }
 
@@ -1676,12 +1689,36 @@ impl<Q: CanCondition> Where<Q> {
     /// entity1alias.prop > floor(entity2alias.prop)
     /// ```
     /// and asociated params.
-    pub fn condition_fn<T: Neo4gEntity>(mut self, entity: &T, optional_prop: Option<&T::Props>, operator: CompareOperator, function: &mut Function) -> Where<Condition> {
+    pub fn condition_fn<A: Aliasable>(mut self, aliasable: &A, operator: CompareOperator, function: &mut Function) -> Where<Condition> {
+        // where T: Neo4gEntity, T::Props: Clone, F: FnOnce(&T) -> T::Props {
+            self.condition_number += 1;
+            let mut alias = aliasable.get_alias();
+            let uuid = aliasable.get_uuid();
+            if alias.is_empty() {
+                alias = uuid.to_string();
+                self.uuids.push(uuid);
+            }
+            let (query, uuids, params) = function.to_query_uuid_param();
+            self.uuids.extend(uuids);
+            self.string.push_str(&format!("{} {} {}", &alias, operator, query));
+            self.params.extend(params);
+            self.transition::<Condition>()
+        }
+    /// Generates a condition string that calls a function.
+    /// # Example
+    /// ```rust
+    /// .condition_fn_props(&entity1, &entity1.prop, CompareOperator::Gt, Expr::from(Function::Floor(Expr::from_entity_and_prop_name(&entity2, prop!(entity2.prop)))))
+    /// ```
+    /// The example above generates the following string:
+    /// ```rust
+    /// entity1alias.prop > floor(entity2alias.prop)
+    /// ```
+    /// and asociated params.
+    pub fn condition_fn_props<T: Neo4gEntity>(mut self, entity: &T, optional_prop: Option<&T::Props>, operator: CompareOperator, function: &mut Function) -> Where<Condition> {
     // where T: Neo4gEntity, T::Props: Clone, F: FnOnce(&T) -> T::Props {
         self.condition_number += 1;
         let mut value = None;
         let mut dotname = String::new();
-        let alias = entity.get_alias();
         if let Some(prop) = optional_prop {
             let (prop_name, prop_value) = prop.to_query_param();
             value = Some(prop_value);
@@ -1770,12 +1807,12 @@ pub enum OnString {
 
 #[derive(Debug, Clone)]
 pub enum CompareOperator {
-    Eq,
-    Gt,
-    Ge,
-    Lt,
-    Le,
-    Ne,
+    Eq(BoltType),
+    Gt(BoltType),
+    Ge(BoltType),
+    Lt(BoltType),
+    Le(BoltType),
+    Ne(BoltType),
     InVec(Vec<BoltType>),
     InAlias(String),
 }
@@ -1783,32 +1820,32 @@ pub enum CompareOperator {
 impl fmt::Display for CompareOperator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
-            CompareOperator::Eq => "=",
-            CompareOperator::Gt => ">",
-            CompareOperator::Ge => ">=",
-            CompareOperator::Lt => "<",
-            CompareOperator::Le => "<=",
-            CompareOperator::Ne => "<>",
-            CompareOperator::InVec(v) => "IN",
-            CompareOperator::InAlias(v) => "IN",
+            CompareOperator::Eq(_v) => "=",
+            CompareOperator::Gt(_v) => ">",
+            CompareOperator::Ge(_v) => ">=",
+            CompareOperator::Lt(_v) => "<",
+            CompareOperator::Le(_v) => "<=",
+            CompareOperator::Ne(_v) => "<>",
+            CompareOperator::InVec(_v) => "IN",
+            CompareOperator::InAlias(_v) => "IN",
         };
         write!(f, "{}", s)
     }
 }
 
-impl From<&str> for CompareOperator {
-    fn from(s: &str) -> Self {
-        match s.to_lowercase().as_str() {
-            "eq" => CompareOperator::Eq,
-            "gt" => CompareOperator::Gt,
-            "ge" => CompareOperator::Ge,
-            "lt" => CompareOperator::Lt,
-            "le" => CompareOperator::Le,
-            "ne" => CompareOperator::Ne,
-            _ => panic!("Invalid CompareOperator string: {}", s),
-        }
-    }
-}
+// impl From<&str> for CompareOperator {
+//     fn from(s: &str) -> Self {
+//         match s.to_lowercase().as_str() {
+//             "eq" => CompareOperator::Eq,
+//             "gt" => CompareOperator::Gt,
+//             "ge" => CompareOperator::Ge,
+//             "lt" => CompareOperator::Lt,
+//             "le" => CompareOperator::Le,
+//             "ne" => CompareOperator::Ne,
+//             _ => panic!("Invalid CompareOperator string: {}", s),
+//         }
+//     }
+// }
 
 impl From<&Array> for CompareOperator {
     fn from(array: &Array) -> Self {
