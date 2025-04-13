@@ -68,7 +68,7 @@ async fn main() {
                     )
                 .unwind(unwound_groups)
                 .optional_match()
-                    .nodes_by_aliasable(&unwound_groups_option_match, props!(unwound_groups_option_match => unwound_groups_option_match.id), &unwound_groups)
+                    .nodes_by_unwound(&unwound_groups_option_match, props!(unwound_groups_option_match => unwound_groups_option_match.id), &unwound_groups)
                 .end_statement()
                 .with()
                     .entities(wrap![user, unwound_groups_option_match])

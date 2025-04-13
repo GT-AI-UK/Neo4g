@@ -781,7 +781,7 @@ impl<Q: CanNode> Neo4gMatchStatement<Q> {
         self.entity_aliases.insert(entity.get_uuid(), alias);
         self.transition::<MatchedNode>()
     }
-    pub fn nodes_by_aliasable<T, A>(mut self, entity: &T, props: &T::Props, aliasable: &A) ->  Neo4gMatchStatement<MatchedNode>
+    pub fn nodes_by_unwound<T, A>(mut self, entity: &T, props: &T::Props, unwound: &A) ->  Neo4gMatchStatement<MatchedNode>
     where T: Neo4gEntity, T::Props: Clone, A: Aliasable {
         todo!()
     }
