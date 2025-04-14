@@ -781,9 +781,28 @@ impl<Q: CanNode> Neo4gMatchStatement<Q> {
         self.entity_aliases.insert(entity.get_uuid(), alias);
         self.transition::<MatchedNode>()
     }
-    pub fn nodes_by_unwound<T, A>(mut self, entity: &T, props: &T::Props, unwound: &A) ->  Neo4gMatchStatement<MatchedNode>
-    where T: Neo4gEntity, T::Props: Clone, A: Aliasable {
-        todo!()
+    pub fn nodes_by_unwound<T, F, A>(mut self, entity: &mut T, prop_macro: F, unwound: &A) ->  Neo4gMatchStatement<MatchedNode>
+    where T: Neo4gEntity, T::Props: Clone, F: FnOnce(&T) -> T::Props, A: Aliasable {
+        self.node_number += 1;
+        let prop = prop_macro(entity);
+        let mut alias = entity.get_alias();
+        if alias.is_empty() {
+            let label = entity.get_label();
+            alias = format!("{}{}", label.to_lowercase(), self.node_number);
+            entity.set_alias(&alias);
+            self.entity_aliases.insert(entity.get_uuid(), alias.clone());
+        }
+        let name = format!("{}:AdditionalLabels", &alias);
+        self.previous_entity = Some((name.clone(), EntityType::Node));
+        let mut unwound_alias = unwound.get_alias();
+        if unwound_alias.is_empty() {
+            let unwound_uuid = unwound.get_uuid();
+            unwound_alias = self.entity_aliases.get(&unwound_uuid).unwrap().into();
+        }
+        let (prop_name, _) = prop.to_query_param();
+        self.query.push_str(&format!("({}{{{}: {}}})", name, prop_name, unwound_alias));
+        
+        self.transition::<MatchedNode>()
     }
     /// Provides a node alias for use in a query string. 
     /// Uses all of the properties of the node object as properties of the node in the database.
