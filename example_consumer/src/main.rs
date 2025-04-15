@@ -5,7 +5,7 @@ use neo4rs::Graph;
 use dotenv::dotenv; 
 use std::{env, result, vec};
 use heck::ToShoutySnakeCase;
-use neo4g::traits::WrappedNeo4gEntity;
+use neo4g::traits::{Aliasable, WrappedNeo4gEntity};
 use neo4g_macro_rules::{arrays, no_props, prop, props, wrap};
 use uuid::Uuid;
 
@@ -40,6 +40,7 @@ async fn main() {
     let mut collect_page2 = FunctionCall::from(Function::Collect(Box::new(Expr::from(&page2))));
     let mut groups = Array::new("member_ofs", vec!["582bb0b6-5e9e-4a5e-90ba-9d9a97410166".into(), "e4957a65-4dd2-4c74-b356-a271d6c0982b".into()]);
     let mut user = User::new("8f8c54b6-5d22-45d6-9a24-dfacaa8d37f5", "admin", "8f327a097ce4b035bd0425c9782f756c4b3e6a080bae8ad2b139cbc6c31e6575", "system2", "user2", false, Vec::new(), "");
+    let mut member_of = MemberOf::new(false);
     //let mut collect_page2 = FunctionCall::from(Function::Coalesce(vec![Expr::from(Function::Id(Box::new(Expr::from(&page2)))), Expr::from(&page3)]));
     let mut unwound_groups_option_match = Group::default();
     let mut size_groups_fn = Function::Size(Box::new(Expr::from(&groups)));
@@ -66,16 +67,18 @@ async fn main() {
                     .filter(Where::new()
                         .condition_fn(&groups, CompareOperator::Gt(0.into()), &mut size_groups_fn)
                     )
-                .unwind(unwound_groups)
+                .unwind(&mut unwound_groups)
                 .optional_match()
-                    .nodes_by_unwound(&unwound_groups_option_match, props!(unwound_groups_option_match => unwound_groups_option_match.id), &unwound_groups)
+                    .nodes_by_unwound(&mut unwound_groups_option_match, prop!(unwound_groups_option_match.id), &unwound_groups)
                 .end_statement()
                 .with()
                     .entities(wrap![user, unwound_groups_option_match])
                     .filter(Where::new().is_not_null(&unwound_groups_option_match))
                 .merge()
                     .node_ref(&user)
-                    .relation(entity, props_macro)
+                    .relation(&mut member_of, no_props!())
+                    .node_ref(&unwound_groups_option_match)
+                .end_statement()
         })
                 
 
