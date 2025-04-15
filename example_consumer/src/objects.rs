@@ -36,21 +36,28 @@ use neo4g::traits::QueryParam;
 use neo4g::traits::Aliasable;
 use neo4g::query_builder::DbEntityWrapper;
 use uuid::Uuid;
+use chrono::NaiveDateTime;
 
 #[derive(Neo4gNode, Serialize, Deserialize, Debug, Clone)]
 pub struct GroupTemplate {
     id: String,
     name: String,
+    created: NaiveDateTime,
+    updated: NaiveDateTime,
     deleted: bool,
 }
 
 #[derive(Neo4gRelation, Serialize, Deserialize, Debug, Clone)]
 pub struct MemberOfTemplate {
+    created: NaiveDateTime,
+    updated: NaiveDateTime,
     deleted: bool,
 }
 
 #[derive(Neo4gRelation, Serialize, Deserialize, Debug, Clone)]
 pub struct HasComponentTemplate {
+    created: NaiveDateTime,
+    updated: NaiveDateTime,
     deleted: bool,
 }
 
@@ -62,11 +69,12 @@ pub struct UserTemplate {
     password: String,
     forename: String,
     surname: String,
-    deleted: bool,
     #[not_query_param]
     groups: Vec<GroupTemplate>,
     #[serde(skip)]
-    example: String,
+    created: NaiveDateTime,
+    updated: NaiveDateTime,
+    deleted: bool,
 }
 
 #[derive(Neo4gProp, Serialize, Deserialize, Debug, Clone, Default)]
@@ -81,6 +89,9 @@ pub struct ComponentTemplate {
     id: String,
     path: String,
     component_type: ComponentType,
+    created: NaiveDateTime,
+    updated: NaiveDateTime,
+    deleted: bool,
 }
 
 #[derive(Neo4gNode, Serialize, Deserialize, Debug, Clone)]
@@ -89,4 +100,7 @@ pub struct PageTemplate {
     path: String,
     #[not_query_param]
     components: Vec<Component>,
+    created: NaiveDateTime,
+    updated: NaiveDateTime,
+    deleted: bool,
 }

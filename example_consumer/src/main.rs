@@ -8,6 +8,7 @@ use heck::ToShoutySnakeCase;
 use neo4g::traits::{Aliasable, WrappedNeo4gEntity};
 use neo4g_macro_rules::{arrays, no_props, prop, props, wrap};
 use uuid::Uuid;
+use chrono::{DateTime, Utc, Local};
 
 pub async fn connect_neo4j() -> Graph { //return db object, run on startup, bind to state var
 
@@ -29,23 +30,23 @@ pub async fn connect_neo4j() -> Graph { //return db object, run on startup, bind
 #[tokio::main]
 async fn main() {
     let graph = connect_neo4j().await;
-    let mut component1 = Component::new("cid3", "path3sadf", ComponentType::Type1);
-    let mut component2 = Component::new("cid4", "path4", ComponentType::Type2);
+    let mut component1 = Component::new("cid3", "path3sadf", ComponentType::Type1, Utc::now().naive_local(), Utc::now().naive_local(), false);
+    let mut component2 = Component::new("cid4", "path4", ComponentType::Type2, Utc::now().naive_local(), Utc::now().naive_local(), false);
     let mut hcrel1 = HasComponent::default();
     let mut hcrel2 = HasComponent::default();
-    let mut page1 = Page::new("pid4", "p1sadfpath234", vec![component1.clone(), component2.clone()]);
-    let mut page2 = Page::new("pid99", "DID IT WORK?!", Vec::new());
-    let mut page3 = Page::new("pid6", "DID IT WORK?!", Vec::new());
+    let mut page1 = Page::new("pid4", "p1sadfpath234", vec![component1.clone(), component2.clone()], Utc::now().naive_local(), Utc::now().naive_local(), false);
+    let mut page2 = Page::new("pid99", "DID IT WORK?!", Vec::new(), Utc::now().naive_local(), Utc::now().naive_local(), false);
+    let mut page3 = Page::new("pid6", "DID IT WORK?!", Vec::new(), Utc::now().naive_local(), Utc::now().naive_local(), false);
     let mut array1 = Array::new("array1", vec!["cid3".into(), "cid4".into()]);
     let mut collect_page2 = FunctionCall::from(Function::Collect(Box::new(Expr::from(&page2))));
     let mut groups = Array::new("member_ofs", vec!["582bb0b6-5e9e-4a5e-90ba-9d9a97410166".into(), "e4957a65-4dd2-4c74-b356-a271d6c0982b".into()]);
-    let mut user = User::new("8f8c54b6-5d22-45d6-9a24-dfacaa8d37f5", "admin", "8f327a097ce4b035bd0425c9782f756c4b3e6a080bae8ad2b139cbc6c31e6575", "system2", "user2", false, Vec::new(), "");
-    let mut member_of = MemberOf::new(false);
+    let mut user = User::new("8f8c54b6-5d22-45d6-9a24-dfacaa8d37f5", "admin", "8f327a097ce4b035bd0425c9782f756c4b3e6a080bae8ad2b139cbc6c31e6575", "system2", "user2", Vec::new(), Utc::now().naive_local(), Utc::now().naive_local(), false);
+    let mut member_of = MemberOf::new(Utc::now().naive_local(), Utc::now().naive_local(), false);
     //let mut collect_page2 = FunctionCall::from(Function::Coalesce(vec![Expr::from(Function::Id(Box::new(Expr::from(&page2)))), Expr::from(&page3)]));
     let mut unwound_groups_option_match = Group::default();
     let mut size_groups_fn = Function::Size(Box::new(Expr::from(&groups)));
     let mut unwound_groups = Unwinder::new(&groups);
-    let mut collect_member_of = FunctionCall::from(Function::Collect(Box::new(Expr::from(&unwound_groups))));
+    let mut collect_groups = FunctionCall::from(Function::Collect(Box::new(Expr::from(&unwound_groups_option_match))));
 
     //complex, real-world query test
     let result = Neo4gBuilder::new()
@@ -78,7 +79,21 @@ async fn main() {
                     .node_ref(&user)
                     .relation(&mut member_of, no_props!())
                     .node_ref(&unwound_groups_option_match)
+                    .on_create()
+                        .set(&member_of, props!(member_of => member_of.created, member_of.updated, member_of.deleted))
                 .end_statement()
+                .with()
+                    .entities(wrap![user])
+                    .function(&mut collect_groups)
+                .optional_match()
+                    .node_ref(&user)
+                    .relation(&mut member_of, no_props!())
+                    .node_ref(&unwound_groups_option_match)
+                    .filter(Where::new()
+                        .not()
+                        .condition(&unwound_groups_option_match, None, CompareOperator::from(collect_groups))
+                    .delete(&member_of)
+                )
         })
                 
 

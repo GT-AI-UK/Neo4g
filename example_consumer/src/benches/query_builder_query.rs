@@ -1,5 +1,6 @@
 use crate::entity_wrapper::{EntityWrapper, Label};
 use crate::objects::{Group, GroupProps, MemberOf, MemberOfProps, User, UserProps, UserTemplate, Page, PageProps, PageTemplate, Component, ComponentProps, ComponentTemplate, ComponentType, HasComponent, HasComponentTemplate, HasComponentProps};
+use chrono::{NaiveDateTime, Utc};
 use neo4g::query_builder::{self, CompareJoiner, CompareOperator, Neo4gBuilder, Where};
 use neo4g::traits::WrappedNeo4gEntity;
 use neo4g_macro_rules::{no_props, prop, props};
@@ -26,11 +27,11 @@ pub async fn connect_neo4j() -> Graph { //return db object, run on startup, bind
 
 pub async fn query_builder_query_bench() {
     let graph = connect_neo4j().await;
-    let mut component1 = Component::new("cid3", "path3", ComponentType::Type1);
-    let mut component2 = Component::new("cid73", "path16", ComponentType::Type2);
+    let mut component1 = Component::new("cid3", "path3", ComponentType::Type1, Utc::now().naive_local(), Utc::now().naive_local(), false);
+    let mut component2 = Component::new("cid73", "path16", ComponentType::Type2, Utc::now().naive_local(), Utc::now().naive_local(), false);
     let mut hcrel1 = HasComponent::default();
     let mut hcrel2 = HasComponent::default();
-    let mut page1 = Page::new("pid4", "ppath4", vec![component1.clone(), component2.clone()]);
+    let mut page1 = Page::new("pid4", "ppath4", vec![component1.clone(), component2.clone()], Utc::now().naive_local(), Utc::now().naive_local(), false);
     let result = Neo4gBuilder::new()
         .get()
             .node(&mut page1, props!(page1 => page1.id))

@@ -322,14 +322,37 @@ pub fn generate_neo4g_node(input: TokenStream) -> TokenStream {
 
     let default_body: Vec<_> = all_fields_full.iter().map(|field| {
         let field_ident = field.ident.as_ref().unwrap();
+        let ty = &field.ty;
+    
+        // Detect if the field is NaiveDateTime
+        let is_naive_datetime = match ty {
+            syn::Type::Path(type_path) => {
+                type_path.path.segments.last().map(|seg| seg.ident == "NaiveDateTime").unwrap_or(false)
+                    && type_path.path.segments.iter().any(|seg| seg.ident == "chrono")
+            }
+            _ => false,
+        };
+    
         if should_ignore_field(field) {
-            quote! {
-                #field_ident: Default::default()
+            if is_naive_datetime {
+                quote! {
+                    #field_ident: chrono::Utc::now().naive_local()
+                }
+            } else {
+                quote! {
+                    #field_ident: Default::default()
+                }
             }
         } else {
             let variant = syn::Ident::new(&field_ident.to_string().to_pascal_case(), field_ident.span());
-            quote! {
-                #field_ident: #props_enum_name::#variant(Default::default())
+            if is_naive_datetime {
+                quote! {
+                    #field_ident: #props_enum_name::#variant(chrono::Utc::now().naive_local())
+                }
+            } else {
+                quote! {
+                    #field_ident: #props_enum_name::#variant(Default::default())
+                }
             }
         }
     }).collect();

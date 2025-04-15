@@ -48,6 +48,7 @@ pub async fn static_query_bench() {
                         id: PageProps::Id(id),
                         path: PageProps::Path(path),
                         components: Vec::new(),
+                        ..Default::default()
                     });
                     entities.push(wrapped_entity);
                 }
@@ -59,6 +60,7 @@ pub async fn static_query_bench() {
                         uuid: Uuid::new_v4(),
                         entity_type: EntityType::Relation,
                         deleted: HasComponentProps::Deleted(deleted),
+                        ..Default::default()
                     });
                     entities.push(wrapped_entity);
                 }
@@ -72,6 +74,7 @@ pub async fn static_query_bench() {
                         id: ComponentProps::Id(id),
                         path: ComponentProps::Path(path),
                         component_type: ComponentProps::ComponentType(component_type.into()),
+                        ..Default::default()
                     });
                     entities.push(wrapped_entity);
                 }
@@ -83,6 +86,7 @@ pub async fn static_query_bench() {
                         uuid: Uuid::new_v4(),
                         entity_type: EntityType::Relation,
                         deleted: HasComponentProps::Deleted(deleted),
+                        ..Default::default()
                     });
                     entities.push(wrapped_entity);
                 }
@@ -96,6 +100,7 @@ pub async fn static_query_bench() {
                         id: ComponentProps::Id(id),
                         path: ComponentProps::Path(path),
                         component_type: ComponentProps::ComponentType(component_type.into()),
+                        ..Default::default()
                     });
                     entities.push(wrapped_entity);
                 }

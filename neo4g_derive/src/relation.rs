@@ -166,7 +166,7 @@ pub fn generate_neo4g_relation(input: TokenStream) -> TokenStream {
             })
         }
     }).collect();
-
+    
     // Generate accessor methods for the Props enum.
     // For non-optional fields, return &T; for Option<T>, return Option<&T>.
     let props_accessor_methods: Vec<_> = all_fields_full.iter().filter_map(|field| {
@@ -342,16 +342,52 @@ pub fn generate_neo4g_relation(input: TokenStream) -> TokenStream {
     //     }
     // }).collect();
 
+    // let default_body: Vec<_> = all_fields_full.iter().map(|field| {
+    //     let field_ident = field.ident.as_ref().unwrap();
+    //     if should_ignore_field(field) {
+    //         quote! {
+    //             #field_ident: Default::default()
+    //         }
+    //     } else {
+    //         let variant = syn::Ident::new(&field_ident.to_string().to_pascal_case(), field_ident.span());
+    //         quote! {
+    //             #field_ident: #props_enum_name::#variant(Default::default())
+    //         }
+    //     }
+    // }).collect();
     let default_body: Vec<_> = all_fields_full.iter().map(|field| {
         let field_ident = field.ident.as_ref().unwrap();
+        let ty = &field.ty;
+    
+        // Detect if the field is NaiveDateTime
+        let is_naive_datetime = match ty {
+            syn::Type::Path(type_path) => {
+                type_path.path.segments.last().map(|seg| seg.ident == "NaiveDateTime").unwrap_or(false)
+                    && type_path.path.segments.iter().any(|seg| seg.ident == "chrono")
+            }
+            _ => false,
+        };
+    
         if should_ignore_field(field) {
-            quote! {
-                #field_ident: Default::default()
+            if is_naive_datetime {
+                quote! {
+                    #field_ident: chrono::Utc::now().naive_local()
+                }
+            } else {
+                quote! {
+                    #field_ident: Default::default()
+                }
             }
         } else {
             let variant = syn::Ident::new(&field_ident.to_string().to_pascal_case(), field_ident.span());
-            quote! {
-                #field_ident: #props_enum_name::#variant(Default::default())
+            if is_naive_datetime {
+                quote! {
+                    #field_ident: #props_enum_name::#variant(chrono::Utc::now().naive_local())
+                }
+            } else {
+                quote! {
+                    #field_ident: #props_enum_name::#variant(Default::default())
+                }
             }
         }
     }).collect();

@@ -255,17 +255,20 @@ impl<Q: CanMatch> Neo4gBuilder<Q> {
 }
 
 impl<Q: CanWith> Neo4gBuilder<Q> {
-    /// Generates a WITH call. 
+    /// Appends WITH to the query and exposes further methods to craft a WITH string. 
     /// # Examples
     /// ```rust
-    /// .with(&[entity1.wrap(), entity2.wrap()])
-    /// .with(wrap!(entity1, entity2))
+    /// .with()
+    ///     .entities(wrap![entity1, entity2])
+    ///     .arrays(arrays![a1, a2])
+    ///     .function(&mut func_call)
+    ///     .filter(Where::new().is_not_null(&entity3))
     /// ```
     /// The examples above each generate the following query:
     /// ```rust
-    /// WITH entity1alias, entity2alias
+    /// WITH entity1alias, entity2alias, $a1alias AS a1alias, $a2alias AS a2alias, func(arg) WHERE entity3alias IS NOT NULL
     /// ```
-    /// and asociated params.
+    /// and asociated params. Where arg is defined within the func_call.
     pub fn with(mut self) -> Neo4gBuilder<Withed> {
         //let (query, uuids, params) = with.build();
         //self.entity_aliases.extend(uuids);
@@ -357,7 +360,7 @@ impl Neo4gBuilder<WithCondition> {
     /// .filter(Where::new()
     ///     .is_not_null(&entity1)
     ///     .join(CompareJoiner::And)
-    ///     .size(&entity2, CompareOperator::Gt(0))       
+    ///     .condition_fn(&entity2, CompareOperator::Gt(0), Function::Size(&mut size_entity_fn))       
     /// )
     /// ```
     /// The example above generates the following query:
@@ -496,7 +499,7 @@ impl <Q: PossibleStatementEnd> Neo4gCreateStatement<Q> {
 //Merge statement methods
 impl<Q: CanNode> Neo4gMergeStatement<Q> {
     /// Generates a node query object. 
-    /// Uses the T::Props vec to set the conditions for the MERGE.
+    /// Uses the props! macro to set the conditions for the MERGE.
     /// # Example
     /// ```rust
     /// .node(&mut node, props!(node => node.prop1, NodeProps::Prop2(val)))
@@ -525,6 +528,39 @@ impl<Q: CanNode> Neo4gMergeStatement<Q> {
         self.entity_aliases.insert(entity.get_uuid(), alias);
         self.transition::<CreatedNode>()
     }
+    /// Generates a node query object. 
+    /// Uses the prop! macro and the Unwinder to set the conditions for the MERGE.
+    /// # Example
+    /// ```rust
+    /// .nodes_by_unwound(&mut node, prop!(node.prop1), &unwinder
+    /// ```
+    /// The example above generates the following query:
+    /// ```rust
+    /// (nodealias:NodeLabel {prop1: unwinderalias})
+    /// ```
+    pub fn nodes_by_unwound<T, F, A>(mut self, entity: &mut T, prop_macro: F, unwound: &Unwinder) ->  Neo4gMergeStatement<CreatedNode>
+    where T: Neo4gEntity, T::Props: Clone, F: FnOnce(&T) -> T::Props {
+        self.node_number += 1;
+        let prop = prop_macro(entity);
+        let mut alias = entity.get_alias();
+        if alias.is_empty() {
+            let label = entity.get_label();
+            alias = format!("{}{}", label.to_lowercase(), self.node_number);
+            entity.set_alias(&alias);
+            self.entity_aliases.insert(entity.get_uuid(), alias.clone());
+        }
+        let name = format!("{}:AdditionalLabels", &alias);
+        self.previous_entity = Some((name.clone(), EntityType::Node));
+        let mut unwound_alias = unwound.get_alias();
+        if unwound_alias.is_empty() {
+            let unwound_uuid = unwound.get_uuid();
+            unwound_alias = self.entity_aliases.get(&unwound_uuid).unwrap().into();
+        }
+        let (prop_name, _) = prop.to_query_param();
+        self.query.push_str(&format!("({}{{{}: {}}})", name, prop_name, unwound_alias));
+        
+        self.transition::<CreatedNode>()
+    }
     /// Provides a node alias for use in a query string. 
     /// Uses all of the properties of the node object as properties of the node in the database.
     /// # Example
@@ -543,7 +579,7 @@ impl<Q: CanNode> Neo4gMergeStatement<Q> {
 }
 impl Neo4gMergeStatement<CreatedNode> {
     /// Generates a relation query object with a minimum number of relations traversed. 
-    /// Uses the T::Props vec to set the conditions for the MERGE.
+    /// Uses the props! macro to set the conditions for the MERGE.
     /// # Example
     /// ```rust
     /// .relation(0, &mut relation, props!(relation => relation.prop1, RelationProps::Prop2(val)))
@@ -569,7 +605,7 @@ impl Neo4gMergeStatement<CreatedNode> {
         self.transition::<CreatedRelation>()
     }
     /// Generates a relation query object. 
-    /// Uses the T::Props vec to set the conditions for the MERGE.
+    /// Uses the props! macro to set the conditions for the MERGE.
     /// # Example
     /// ```rust
     /// .relation(&mut relation, props!(relation => relation.prop1, RelationProps::Prop2(val)))
@@ -595,7 +631,7 @@ impl Neo4gMergeStatement<CreatedNode> {
         self.transition::<CreatedRelation>()
     }
     /// Generates a relation query object with the arrow going right to left. 
-    /// Uses the T::Props vec to set the conditions for the MERGE.
+    /// Uses the props! macro to set the conditions for the MERGE.
     /// # Example
     /// ```rust
     /// .relation_flipped(&mut relation, props!(relation => relation.prop1, RelationProps::Prop2(val)))
@@ -752,7 +788,7 @@ impl <Q: PossibleStatementEnd> Neo4gMergeStatement<Q> {
 //Match statement methods
 impl<Q: CanNode> Neo4gMatchStatement<Q> {
     /// Generates a node query object. 
-    /// Uses the T::Props vec to set the conditions for the MATCH.
+    /// Uses the props! macro to set the conditions for the MATCH.
     /// # Example
     /// ```rust
     /// .node(&mut node, props!(node => node.prop1, NodeProps::Prop2(val)))
@@ -781,8 +817,18 @@ impl<Q: CanNode> Neo4gMatchStatement<Q> {
         self.entity_aliases.insert(entity.get_uuid(), alias);
         self.transition::<MatchedNode>()
     }
-    pub fn nodes_by_unwound<T, F, A>(mut self, entity: &mut T, prop_macro: F, unwound: &A) ->  Neo4gMatchStatement<MatchedNode>
-    where T: Neo4gEntity, T::Props: Clone, F: FnOnce(&T) -> T::Props, A: Aliasable {
+    /// Generates a node query object. 
+    /// Uses the prop! macro and the Unwinder to set the conditions for the MATCH.
+    /// # Example
+    /// ```rust
+    /// .nodes_by_unwound(&mut node, prop!(node.prop1), &unwinder
+    /// ```
+    /// The example above generates the following query:
+    /// ```rust
+    /// (nodealias:NodeLabel {prop1: unwinderalias})
+    /// ```
+    pub fn nodes_by_unwound<T, F, A>(mut self, entity: &mut T, prop_macro: F, unwound: &Unwinder) ->  Neo4gMatchStatement<MatchedNode>
+    where T: Neo4gEntity, T::Props: Clone, F: FnOnce(&T) -> T::Props {
         self.node_number += 1;
         let prop = prop_macro(entity);
         let mut alias = entity.get_alias();
@@ -822,7 +868,7 @@ impl<Q: CanNode> Neo4gMatchStatement<Q> {
 }
 impl Neo4gMatchStatement<MatchedNode> {
     /// Generates a relation query object with a minimum number of relations traversed. 
-    /// Uses the T::Props vec to set the conditions for the MATCH.
+    /// Uses the props! macro to set the conditions for the MATCH.
     /// # Example
     /// ```rust
     /// .relations(0, &mut relation, props!(relation => relation.prop1, RelationProps::Prop2(val)))
@@ -848,7 +894,7 @@ impl Neo4gMatchStatement<MatchedNode> {
         self.transition::<MatchedRelation>()
     }
     /// Generates a relation query object. 
-    /// Uses the T::Props vec to set the conditions for the MATCH.
+    /// Uses the props! macro to set the conditions for the MATCH.
     /// # Example
     /// ```rust
     /// .relation(&mut relation, props!(relation => relation.prop1, RelationProps::Prop2(val)))
@@ -878,7 +924,7 @@ impl Neo4gMatchStatement<MatchedNode> {
         self.transition::<MatchedRelation>()
     }
     /// Generates a relation query object with the arrow going right to left. 
-    /// Uses the T::Props vec to set the conditions for the MATCH.
+    /// Uses the props! macro to set the conditions for the MATCH.
     /// # Example
     /// ```rust
     /// .relation_flipped(&mut relation, props!(relation => relation.prop1, RelationProps::Prop2(val)))
