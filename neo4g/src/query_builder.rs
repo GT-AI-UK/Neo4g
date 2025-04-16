@@ -310,7 +310,8 @@ impl<Q: CanSetWith> Neo4gBuilder<Q> {
         pub fn arrays(mut self, arrays: &mut [&mut Array]) -> Neo4gBuilder<WithCondition> {
             self.with_number += 1;
             let aliases: Vec<String> = arrays.iter_mut().map(|array|{
-                let (string, _, params) = array.build();
+                let (string, uuid, params) = array.build();
+                !// need to get array alias out of array.build() and construct string here?
                 self.params.extend(params);
                 string
             }).collect();
@@ -827,7 +828,7 @@ impl<Q: CanNode> Neo4gMatchStatement<Q> {
     /// ```rust
     /// (nodealias:NodeLabel {prop1: unwinderalias})
     /// ```
-    pub fn nodes_by_unwound<T, F, A>(mut self, entity: &mut T, prop_macro: F, unwound: &Unwinder) ->  Neo4gMatchStatement<MatchedNode>
+    pub fn nodes_by_unwound<T, F>(mut self, entity: &mut T, prop_macro: F, unwound: &Unwinder) ->  Neo4gMatchStatement<MatchedNode>
     where T: Neo4gEntity, T::Props: Clone, F: FnOnce(&T) -> T::Props {
         self.node_number += 1;
         let prop = prop_macro(entity);
@@ -1058,6 +1059,20 @@ impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> {
         self.set_str.push_str(&query);
         self
     }
+    /// Adds DELETE entity1alias, entity2alias to the query.
+    pub fn delete<T: WrappedNeo4gEntity>(mut self, entities: &[T], detach: bool) -> Neo4gMatchStatement<DeletedEntity>{
+        let aliases = entities.iter().map(|e| {
+            let mut alias = e.get_alias();
+            if alias.is_empty() {
+                let uuid = e.get_uuid();
+                alias = self.entity_aliases.get(&uuid).unwrap().to_owned();
+            }
+            alias
+        }).collect::<Vec<String>>();
+        let detach_string = if detach {"DETACH "} else {""};
+        self.query.push_str(&format!("\nDELETE {}{}", detach_string, aliases.join(", ")));
+        self.transition::<DeletedEntity>()
+    }
     /// Finalises the current statement, tidies up placeholders, and changes the state of the builder so that new statements can be added.
     pub fn end_statement(mut self) -> Neo4gBuilder<MatchedNode> {
         if !self.where_str.is_empty() {
@@ -1076,7 +1091,6 @@ impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> {
         Neo4gBuilder::from(self)
     }
 }
-
 //Statement combiners
 impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
     /// Builds the query and params. This is used by .call(), and should otherwise not be used unless you know what you're doing. 

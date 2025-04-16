@@ -46,6 +46,7 @@ async fn main() {
     let mut unwound_groups_option_match = Group::default();
     let mut size_groups_fn = Function::Size(Box::new(Expr::from(&groups)));
     let mut unwound_groups = Unwinder::new(&groups);
+    dbg!(&unwound_groups);
     let mut collect_groups = FunctionCall::from(Function::Collect(Box::new(Expr::from(&unwound_groups_option_match))));
 
     //complex, real-world query test
@@ -60,7 +61,7 @@ async fn main() {
         .with()
             .entities(&[user.wrap()])
             .arrays(arrays![groups])
-        .call(&[], |inner| {
+        .call(&[&user], |inner| {
             inner
                 .with()
                     .entities(wrap![user])
@@ -91,10 +92,15 @@ async fn main() {
                     .node_ref(&unwound_groups_option_match)
                     .filter(Where::new()
                         .not()
-                        .condition(&unwound_groups_option_match, None, CompareOperator::from(collect_groups))
-                    .delete(&member_of)
-                )
+                        .condition(&unwound_groups_option_match, None, CompareOperator::from(&collect_groups))
+                    )
+                    .delete(wrap![member_of], false)
+                .end_statement()
         })
+        .get()
+            .node(&mut user, props!(user => user.id))
+        .end_statement()
+        .run_query(graph, EntityWrapper::from_db_entity).await;
                 
 
     // let test = FnArg::from_props(&page1, &[&page1.id]);
