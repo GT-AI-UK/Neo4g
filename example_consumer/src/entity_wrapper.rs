@@ -5,8 +5,7 @@ use neo4g_derive::{Neo4gEntityWrapper, Neo4gPropsWrapper, Neo4gLabels, Neo4gNode
 use heck::ToPascalCase;
 use neo4g::traits::{Neo4gEntity, QueryParam, WrappedNeo4gEntity, Aliasable, Neo4gLabel};
 use serde::{Serialize, Deserialize};
-use neo4g::query_builder::EntityType;
-use neo4g::query_builder::DbEntityWrapper;
+use neo4g::query_builder::{EntityType, Array, FunctionCall, Unwinder, DbEntityWrapper};
 use uuid::Uuid;
 
 use neo4rs::{

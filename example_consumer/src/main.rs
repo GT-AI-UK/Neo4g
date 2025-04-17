@@ -98,7 +98,7 @@ async fn main() {
                 .end_statement()
         })
         .get()
-            .node(&mut user, props!(user => user.id))
+            .node(&mut user, props!(user => user.id)).add_to_return()
         .end_statement()
         .run_query(graph, EntityWrapper::from_db_entity).await;
                 

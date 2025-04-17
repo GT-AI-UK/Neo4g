@@ -355,7 +355,7 @@ impl<Q: CanSetWith> Neo4gBuilder<Q> {
                 if previously_built {
                     alias
                 } else {
-                    format!("{} AS {}", &alias, &alias)
+                    format!("${} AS {}", &alias, &alias)
                 }
             }).collect::<Vec<String>>().join(", "));
             
@@ -1273,6 +1273,8 @@ pub enum EntityType {
     Node,
     Relation,
     Unwinder,
+    FunctionCall,
+    Array,
 }
 
 #[derive(Clone, Debug)]
@@ -2021,6 +2023,7 @@ pub enum CompareJoiner {
 pub enum DbEntityWrapper {
     Node(Node),
     Relation(Relation),
+    Other,
 }
 
 impl fmt::Display for CompareJoiner {

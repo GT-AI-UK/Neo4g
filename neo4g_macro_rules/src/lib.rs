@@ -10,6 +10,9 @@ macro_rules! generate_entity_wrappers {
         paste! {
             #[derive(Debug, Clone, Neo4gEntityWrapper)]
             pub enum EntityWrapper {
+                Array(Array),
+                FunctionCall(FunctionCall),
+                Unwinder(Unwinder),
                 $(
                     $struct_name($struct_name),
                 )*

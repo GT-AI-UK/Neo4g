@@ -107,6 +107,9 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
     let get_alias_fn = quote! {
         fn get_alias(&self) -> String {
             match self {
+                #enum_name::Unwinder(v) => v.get_alias(),
+                #enum_name::FunctionCall(v) => v.get_alias(),
+                #enum_name::Array(v) => v.get_alias(),
                 #(#call_get_alias_arms)*
                 _ => String::new()
             }
@@ -114,6 +117,9 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
     };
     let set_alias_fn = quote! {
         fn set_alias(&mut self, alias: &str) {
+            #enum_name::Unwinder(v) => v.set_alias(alias),
+            #enum_name::FunctionCall(v) => v.set_alias(alias),
+            #enum_name::Array(v) => v.set_alias(alias),
             match self {
                 #(#call_set_alias_arms)*
                 _ => ()
@@ -123,14 +129,19 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
     let get_entity_type_fn = quote! {
         fn get_entity_type(&self) -> EntityType {
             match self {
+                #enum_name::Unwinder(_) => EntityType::Unwinder,
+                #enum_name::FunctionCall(_) => EntityType::FunctionCall,
+                #enum_name::Array(_) => EntityType::Array,
                 #(#call_get_entity_type_arms)*
-                _ => EntityType::Node
             }
         }
     };
     let get_entity_uuid_fn = quote! {
         fn get_uuid(&self) -> Uuid {
             match self {
+                #enum_name::Unwinder(v) => v.get_uuid(),
+                #enum_name::FunctionCall(v) => v.get_uuid(),
+                #enum_name::Array(v) => v.get_uuid(),
                 #(#call_get_uuid_arms)*
                 _ => Uuid::new_v4()
             }
