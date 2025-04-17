@@ -1960,6 +1960,7 @@ pub enum CompareOperator {
     Ne(BoltType),
     InVec(Vec<BoltType>),
     InAlias(String),
+    Function(Function, Box<CompareOperator>),
 }
 
 impl fmt::Display for CompareOperator {
@@ -1973,13 +1974,14 @@ impl fmt::Display for CompareOperator {
             CompareOperator::Ne(_v) => "<>",
             CompareOperator::InVec(_v) => "IN",
             CompareOperator::InAlias(_v) => "IN",
+            CompareOperator::Function(_f, c) => &format!("{}", c),
         };
         write!(f, "{}", s)
     }
 }
 
 impl CompareOperator {
-    fn compare_to_inner(&self) -> String {
+    fn compare_to_inner(&self) -> String { //should this emit a tuple so that aliases and uuids can be bubbled up?
         let s = match self {
             CompareOperator::Eq(v) => format!("= {}", v),
             CompareOperator::Gt(v) => format!("> {}", v),
@@ -1989,6 +1991,7 @@ impl CompareOperator {
             CompareOperator::Ne(v) => format!("<> {}", v),
             CompareOperator::InVec(v) => format!("IN {}", v.iter().map(|b| b.to_string()).collect::<Vec<String>>().join(", ")),
             CompareOperator::InAlias(v) => format!("IN {}", v),
+            CompareOperator::Function(f, c) => format!("{} {}", c, f.to_query_uuid_param().0),
         };
         s
     }
