@@ -142,9 +142,9 @@ impl<Q: CanMatch> Neo4gBuilder<Q> {
     /// ```
     /// and asociated params for the inner builder.
     /// NOTE: You can't return anything from within a CALL block. This is a limitation of Neo4j.
-    pub fn call<A, F, B>(mut self, entities_to_alias: &[&A], inner_builder_closure: F) -> Neo4gBuilder<Called>
-    //pub fn call<F, B>(mut self, inner_builder_closure: F) -> Neo4gBuilder<Called>
-    where A: Aliasable, F: FnOnce(Neo4gBuilder<Empty>) -> Neo4gBuilder<B>, B: PossibleQueryEnd {
+    /// pub fn call<A, F, B>(mut self, entities_to_alias: &[&A], inner_builder_closure: F) -> Neo4gBuilder<Called>
+    pub fn call<F, B>(mut self, inner_builder_closure: F) -> Neo4gBuilder<Called>
+    where F: FnOnce(Neo4gBuilder<Empty>) -> Neo4gBuilder<B>, B: PossibleQueryEnd {
         let inner_builder = Neo4gBuilder::new_with_parent(&self);
         let (
             query,
@@ -164,14 +164,46 @@ impl<Q: CanMatch> Neo4gBuilder<Q> {
         self.with_number = with_number;
         self.unwind_number = unwind_number;
         self.return_refs.extend_from_slice(&return_refs);
-        let aliases: Vec<String> = entities_to_alias.iter().map(|entity| {
-            entity.get_alias()
-        }).collect();
-        self.query.push_str(format!("\nCALL ({}) {{\n {} \n}}", aliases.join(", "), &query).as_str());
+        self.query.push_str(format!("\nCALL {{{} \n}}", &query).as_str());
         //self.query.push_str(format!("\nCALL {{\n{}\n}}", &query).as_str());
         self.params.extend(params);
         self.transition::<Called>()
     }
+    // pub fn call<A, F, B>(mut self, entities_to_alias: &[&A], inner_builder_closure: F) -> Neo4gBuilder<Called>
+    // //pub fn call<F, B>(mut self, inner_builder_closure: F) -> Neo4gBuilder<Called>
+    // where A: Aliasable, F: FnOnce(Neo4gBuilder<Empty>) -> Neo4gBuilder<B>, B: PossibleQueryEnd {
+    //     let inner_builder = Neo4gBuilder::new_with_parent(&self);
+    //     let (
+    //         query,
+    //         params,
+    //         entity_aliases,
+    //         node_number,
+    //         relation_number,
+    //         unwind_number,
+    //         set_number,
+    //         with_number,
+    //         return_refs,
+    //     ) = inner_builder_closure(inner_builder).build_inner();
+    //     self.entity_aliases.extend(entity_aliases);
+    //     self.node_number = node_number;
+    //     self.relation_number = relation_number;
+    //     self.set_number = set_number;
+    //     self.with_number = with_number;
+    //     self.unwind_number = unwind_number;
+    //     self.return_refs.extend_from_slice(&return_refs);
+    //     let call_alias_string = if entities_to_alias.len() > 0 {
+    //         let aliases: Vec<String> = entities_to_alias.iter().map(|entity| {
+    //             entity.get_alias()
+    //         }).collect();
+    //         format!(" ({})", aliases.join(", "))
+    //     } else {
+    //         "".into()
+    //     };
+    //     self.query.push_str(format!("\nCALL{} {{\n {} \n}}", call_alias_string, &query).as_str());
+    //     //self.query.push_str(format!("\nCALL {{\n{}\n}}", &query).as_str());
+    //     self.params.extend(params);
+    //     self.transition::<Called>()
+    // }
        /// Generates an UNWIND call. 
     /// # Example
     /// ```rust
@@ -190,10 +222,14 @@ impl<Q: CanMatch> Neo4gBuilder<Q> {
     /// and asociated params.
     pub fn unwind(mut self, unwinder: &mut Unwinder) -> Self {
         self.unwind_number += 1;
-        let (mut query, uuid, params) = unwinder.unwind();
-        let array_alias = self.entity_aliases.get(&uuid).unwrap();
-        unwinder.alias = format!("unwound_{}{}", &array_alias, self.unwind_number);
-        query = query.replace(&uuid.to_string(), &array_alias);
+        let (mut unwinder_alias, array_uuid, params) = unwinder.unwind();
+        let array_alias = self.entity_aliases.get(&array_uuid).unwrap().to_owned();
+        if unwinder_alias.is_empty() {
+            unwinder_alias = format!("unwound_{}{}", &array_alias, self.unwind_number);
+            unwinder.alias = unwinder_alias.clone();
+            self.entity_aliases.insert(unwinder.uuid.clone(), unwinder_alias.clone());
+        }
+        let query = format!("\nUNWIND {} AS {}", &array_alias, &unwinder_alias);
         self.query.push_str(&query);
         self.params.extend(params);
         self
@@ -309,16 +345,20 @@ impl<Q: CanSetWith> Neo4gBuilder<Q> {
         /// If this was called after other With methods, a comma is also inserted at the start of the string.
         pub fn arrays(mut self, arrays: &mut [&mut Array]) -> Neo4gBuilder<WithCondition> {
             self.with_number += 1;
-            let aliases: Vec<String> = arrays.iter_mut().map(|array|{
-                let (string, uuid, params) = array.build();
-                !// need to get array alias out of array.build() and construct string here?
-                self.params.extend(params);
-                string
-            }).collect();
             if !self.query.ends_with("WITH ") {
                 self.query.push_str(", ");
             }
-            self.query.push_str(&aliases.join(", "));
+            self.query.push_str(&arrays.iter_mut().map(|array|{
+                let (alias, uuid, params) = array.build();
+                self.params.extend(params);
+                self.entity_aliases.insert(uuid, alias.clone());
+                if is_built {
+                    alias
+                } else {
+                    format!("{} AS {}", &alias, &alias)
+                }
+            }).collect::<Vec<String>>().join(", "));
+            
             self.transition::<WithCondition>()
         }
         /// Generates a function call as some alias and updates the function's alias to what the output is aliased to.
@@ -750,7 +790,7 @@ impl <Q: PossibleStatementEnd> Neo4gMergeStatement<Q> {
             .map(|prop| {
                 let (key, value) = prop.to_query_param();
                 params.insert(format!("set_{}{}", key.to_string(), self.set_number), value);
-                format!("{}.{} = $set_{}{}\n", alias, key, key, self.set_number)
+                format!("{}.{} = $set_{}{}", alias, key, key, self.set_number)
             })
             .collect();
 
@@ -1012,14 +1052,22 @@ impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> {
     /// ```
     /// and asociated params for the inner builder.
     pub fn filter(mut self, filter: Where<Condition>) -> Self {
+        let mut first_where_call = true;
         if self.where_str.is_empty() {
             self.where_str.push_str("\nWHERE ")
+        } else {
+            first_where_call = false;
         }
         let (mut query_part, uuids, where_params) = filter.build();
         for u in uuids {
             query_part = query_part.replace(&u.to_string(), self.entity_aliases.get(&u).unwrap_or(&"WTF?".to_owned()));
         }
         self.where_str.push_str(&query_part);
+        if first_where_call {
+            self.query.push_str(&self.where_str);
+        } else {
+            self.query.push_str(&query_part);
+        }
         self.params.extend(where_params);
         self
     }
@@ -1075,9 +1123,9 @@ impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> {
     }
     /// Finalises the current statement, tidies up placeholders, and changes the state of the builder so that new statements can be added.
     pub fn end_statement(mut self) -> Neo4gBuilder<MatchedNode> {
-        if !self.where_str.is_empty() {
-            self.query.push_str(&format!("{}", self.where_str));
-        }
+        // if !self.where_str.is_empty() {
+        //     self.query.push_str(&format!("{}", self.where_str));
+        // }
         if !self.set_str.is_empty() {
             self.query.push_str(&format!("{}", self.set_str));
             if !self.return_refs.is_empty() {
@@ -1600,13 +1648,7 @@ impl Unwinder {
         } else {
             array_alias = self.array.alias.clone();
         }
-        if !self.array.is_built {
-            query.push_str(&format!("\nUNWIND ${} as {}", &array_alias, &self.alias));
-            params.insert(array_alias, self.array.list().into());
-        } else {
-            query.push_str(&format!("\nUNWIND {} as {}", &array_alias, &self.alias));
-        }
-        (query, uuid, params)
+        (self.alias.clone(), uuid, params)
     }
 }
 
@@ -1644,7 +1686,7 @@ impl Array {
             return (self.get_alias(), self.uuid.clone(), HashMap::new());
         } else {
             self.is_built = true; 
-            return (format!("${} AS {}", &self.alias, &self.alias), self.uuid.clone(), HashMap::from([(self.alias.clone(), BoltType::from(self.list.clone()))]));
+            return (self.alias.clone(), self.uuid.clone(), HashMap::from([(self.alias.clone(), BoltType::from(self.list.clone()))]));
         }
     }
     pub fn list(&self) -> Vec<BoltType> {
@@ -1783,6 +1825,14 @@ impl<Q: CanCondition> Where<Q> {
             self.params.extend(params);
             self.transition::<Condition>()
         }
+        pub fn fn_condition(mut self, function: &mut Function, operator: CompareOperator, ) -> Where<Condition> {
+                self.condition_number += 1;
+                let (query, uuids, params) = function.to_query_uuid_param();
+                self.uuids.extend(uuids);
+                self.string.push_str(&format!("{} {}", query, operator.compare_to_inner()));
+                self.params.extend(params);
+                self.transition::<Condition>()
+            }
     /// Generates a condition string that calls a function.
     /// # Example
     /// ```rust
@@ -1909,6 +1959,22 @@ impl fmt::Display for CompareOperator {
             CompareOperator::InAlias(_v) => "IN",
         };
         write!(f, "{}", s)
+    }
+}
+
+impl CompareOperator {
+    fn compare_to_inner(&self) -> String {
+        let s = match self {
+            CompareOperator::Eq(v) => format!("= {}", v),
+            CompareOperator::Gt(v) => format!("> {}", v),
+            CompareOperator::Ge(v) => format!(">= {}", v),
+            CompareOperator::Lt(v) => format!("< {}", v),
+            CompareOperator::Le(v) => format!("<= {}", v),
+            CompareOperator::Ne(v) => format!("<> {}", v),
+            CompareOperator::InVec(v) => format!("IN {}", v.iter().map(|b| b.to_string()).collect::<Vec<String>>().join(", ")),
+            CompareOperator::InAlias(v) => format!("IN {}", v),
+        };
+        s
     }
 }
 

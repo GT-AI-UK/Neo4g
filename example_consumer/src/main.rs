@@ -61,13 +61,13 @@ async fn main() {
         .with()
             .entities(&[user.wrap()])
             .arrays(arrays![groups])
-        .call(&[&user], |inner| {
+        .call(|inner| {
             inner
                 .with()
                     .entities(wrap![user])
                     .arrays(arrays![groups])
                     .filter(Where::new()
-                        .condition_fn(&groups, CompareOperator::Gt(0.into()), &mut size_groups_fn)
+                        .fn_condition(&mut size_groups_fn, CompareOperator::Gt("0".into()))
                     )
                 .unwind(&mut unwound_groups)
                 .optional_match()
@@ -102,7 +102,7 @@ async fn main() {
         .end_statement()
         .run_query(graph, EntityWrapper::from_db_entity).await;
                 
-
+    println!("{:?}", result);
     // let test = FnArg::from_props(&page1, &[&page1.id]);
     // let fnargexpr = Expr::from(test);
     // dbg!(fnargexpr);
