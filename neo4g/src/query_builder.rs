@@ -2026,6 +2026,12 @@ impl From<&FunctionCall> for CompareOperator {
     }
 }
 
+impl BoltTypeInComparison for FunctionCall {
+    fn inside(&self) -> String {
+        // you can't build the function call here - it needs to be passed into the query builder, unless the compare operator can bubble it through...
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum CompareJoiner {
     And,
