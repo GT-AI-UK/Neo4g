@@ -19,8 +19,8 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
     };
 
     let mut accessors = Vec::new();
-    let mut from_node_checks = Vec::new();
-    let mut from_relation_checks = Vec::new();
+    // let mut from_node_checks = Vec::new();
+    // let mut from_relation_checks = Vec::new();
     let mut eq_checks = Vec::new();
     let mut call_get_alias_arms = Vec::new();
     let mut call_set_alias_arms = Vec::new();
@@ -57,18 +57,18 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
             continue;
         }
         let var_name_str = var_name.to_string();
-        let check = quote! {
-            if labels.contains(&#var_name_str) {
-                return #enum_name::#var_name(#var_name::from(node));
-            }
-        };
-        from_node_checks.push(check);
-        let rcheck = quote! {
-            if &labels.to_string().to_pascal_case() == &#var_name_str {
-                return #enum_name::#var_name(#var_name::from(relation));
-            }
-        };
-        from_relation_checks.push(rcheck);
+        // let check = quote! {
+        //     if labels.contains(&#var_name_str) {
+        //         return #enum_name::#var_name(#var_name::from(node));
+        //     }
+        // };
+        // from_node_checks.push(check);
+        // let rcheck = quote! {
+        //     if &labels.to_string().to_pascal_case() == &#var_name_str {
+        //         return #enum_name::#var_name(#var_name::from(relation));
+        //     }
+        // };
+        // from_relation_checks.push(rcheck);
         let eq_check = quote! {
             (#enum_name::#var_name(_), #enum_name::#var_name(_)) => true,
         };
@@ -81,27 +81,31 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
             #enum_name::#var_name(inner) => inner.set_alias(alias),
         };
         call_set_alias_arms.push(call_set_alias_arm);
-        let call_get_entity_type_arm = quote! {
-            #enum_name::#var_name(inner) => inner.get_entity_type(),
-        };
-        call_get_entity_type_arms.push(call_get_entity_type_arm);
         let call_get_uuid_arm = quote! {
             #enum_name::#var_name(inner) => inner.get_uuid(),
         };
         call_get_uuid_arms.push(call_get_uuid_arm);
+        if ![String::from("Array"), String::from("FunctionCall"), String::from("Unwinder")].contains(&var_name_str) {
 
-        let dbcheck = quote! {
-            if labels.contains(&#var_name_str) {
-                return #var_name::from_db_entity(db_entity);
-            }
-        };
-        db_from_node_checks.push(dbcheck);
-        let dbrcheck = quote! {
-            if &labels.to_string().to_pascal_case() == &#var_name_str {
-                return #var_name::from_db_entity(db_entity);
-            }
-        };
-        db_from_relation_checks.push(dbrcheck);
+            let call_get_entity_type_arm = quote! {
+                #enum_name::#var_name(inner) => inner.get_entity_type(),
+            };
+            call_get_entity_type_arms.push(call_get_entity_type_arm);
+            let dbcheck = quote! {
+                if labels.contains(&#var_name_str) {
+                    return #var_name::from_db_entity(db_entity);
+                }
+
+            };
+            db_from_node_checks.push(dbcheck);
+        
+            let dbrcheck = quote! {
+                if &labels.to_string().to_pascal_case() == &#var_name_str {
+                    return #var_name::from_db_entity(db_entity);
+                }
+            };
+            db_from_relation_checks.push(dbrcheck);
+        }
     }
 
     let get_alias_fn = quote! {
@@ -117,10 +121,10 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
     };
     let set_alias_fn = quote! {
         fn set_alias(&mut self, alias: &str) {
-            #enum_name::Unwinder(v) => v.set_alias(alias),
-            #enum_name::FunctionCall(v) => v.set_alias(alias),
-            #enum_name::Array(v) => v.set_alias(alias),
             match self {
+                #enum_name::Unwinder(v) => v.set_alias(alias),
+                #enum_name::FunctionCall(v) => v.set_alias(alias),
+                #enum_name::Array(v) => v.set_alias(alias),
                 #(#call_set_alias_arms)*
                 _ => ()
             }
@@ -133,6 +137,7 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
                 #enum_name::FunctionCall(_) => EntityType::FunctionCall,
                 #enum_name::Array(_) => EntityType::Array,
                 #(#call_get_entity_type_arms)*
+                _ => EntityType::Node,
             }
         }
     };

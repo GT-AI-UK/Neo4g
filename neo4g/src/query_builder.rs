@@ -2023,7 +2023,6 @@ pub enum CompareJoiner {
 pub enum DbEntityWrapper {
     Node(Node),
     Relation(Relation),
-    Other,
 }
 
 impl fmt::Display for CompareJoiner {
