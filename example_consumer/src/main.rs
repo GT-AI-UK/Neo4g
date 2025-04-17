@@ -40,13 +40,12 @@ async fn main() {
     let mut array1 = Array::new("array1", vec!["cid3".into(), "cid4".into()]);
     let mut collect_page2 = FunctionCall::from(Function::Collect(Box::new(Expr::from(&page2))));
     let mut groups = Array::new("member_ofs", vec!["582bb0b6-5e9e-4a5e-90ba-9d9a97410166".into(), "e4957a65-4dd2-4c74-b356-a271d6c0982b".into()]);
-    let mut user = User::new("8f8c54b6-5d22-45d6-9a24-dfacaa8d37f5", "admin", "8f327a097ce4b035bd0425c9782f756c4b3e6a080bae8ad2b139cbc6c31e6575", "system2", "user2", Vec::new(), Utc::now().naive_local(), Utc::now().naive_local(), false);
+    let mut user = User::new("8f8c54b6-5d22-45d6-9a24-dfacaa8d37f5", "admin", "8f327a097ce4b035bd0425c9782f756c4b3e6a080bae8ad2b139cbc6c31e6575", "system3", "user3", Vec::new(), Utc::now().naive_local(), Utc::now().naive_local(), false);
     let mut member_of = MemberOf::new(Utc::now().naive_local(), Utc::now().naive_local(), false);
     //let mut collect_page2 = FunctionCall::from(Function::Coalesce(vec![Expr::from(Function::Id(Box::new(Expr::from(&page2)))), Expr::from(&page3)]));
     let mut unwound_groups_option_match = Group::default();
     let mut size_groups_fn = Function::Size(Box::new(Expr::from(&groups)));
     let mut unwound_groups = Unwinder::new(&groups);
-    dbg!(&unwound_groups);
     let mut collect_groups = FunctionCall::from(Function::Collect(Box::new(Expr::from(&unwound_groups_option_match))));
 
     //complex, real-world query test
@@ -61,7 +60,7 @@ async fn main() {
         .with()
             .entities(&[user.wrap()])
             .arrays(arrays![groups])
-        .call(|inner| {
+        .call_with(&[user.wrap(), EntityWrapper::Array(groups.clone())], |inner| {
             inner
                 .with()
                     .entities(wrap![user])

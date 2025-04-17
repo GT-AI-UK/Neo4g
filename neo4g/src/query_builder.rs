@@ -125,7 +125,7 @@ impl<Q: CanMatch> Neo4gBuilder<Q> {
     /// Generates a CALL call
     /// # Example
     /// ```rust
-    /// .call(wrap!(prev1), |inner| {
+    /// .call(|inner| {
     ///     inner.get()
     ///         .node(&mut entity, props!(entity => entity.prop1))
     ///         .set(&entity, props!(entity => entity.prop2, EntityProps::Prop3(val)))
@@ -135,7 +135,7 @@ impl<Q: CanMatch> Neo4gBuilder<Q> {
     /// ```
     /// The example above generates the following query:
     /// ```rust
-    /// CALL (prev1alias) {
+    /// CALL {
     ///     MATCH (entityalias: EntityLabel {entity.prop1: $entity_prop1})
     ///     SET entity.prop2 = $set_prop21, entity.prop3 = $set_prop32, prev1alias.prop1 = $set_prop13, prev1alias = $set_prop24
     /// }
@@ -169,42 +169,56 @@ impl<Q: CanMatch> Neo4gBuilder<Q> {
         self.params.extend(params);
         self.transition::<Called>()
     }
-    // pub fn call<A, F, B>(mut self, entities_to_alias: &[&A], inner_builder_closure: F) -> Neo4gBuilder<Called>
-    // //pub fn call<F, B>(mut self, inner_builder_closure: F) -> Neo4gBuilder<Called>
-    // where A: Aliasable, F: FnOnce(Neo4gBuilder<Empty>) -> Neo4gBuilder<B>, B: PossibleQueryEnd {
-    //     let inner_builder = Neo4gBuilder::new_with_parent(&self);
-    //     let (
-    //         query,
-    //         params,
-    //         entity_aliases,
-    //         node_number,
-    //         relation_number,
-    //         unwind_number,
-    //         set_number,
-    //         with_number,
-    //         return_refs,
-    //     ) = inner_builder_closure(inner_builder).build_inner();
-    //     self.entity_aliases.extend(entity_aliases);
-    //     self.node_number = node_number;
-    //     self.relation_number = relation_number;
-    //     self.set_number = set_number;
-    //     self.with_number = with_number;
-    //     self.unwind_number = unwind_number;
-    //     self.return_refs.extend_from_slice(&return_refs);
-    //     let call_alias_string = if entities_to_alias.len() > 0 {
-    //         let aliases: Vec<String> = entities_to_alias.iter().map(|entity| {
-    //             entity.get_alias()
-    //         }).collect();
-    //         format!(" ({})", aliases.join(", "))
-    //     } else {
-    //         "".into()
-    //     };
-    //     self.query.push_str(format!("\nCALL{} {{\n {} \n}}", call_alias_string, &query).as_str());
-    //     //self.query.push_str(format!("\nCALL {{\n{}\n}}", &query).as_str());
-    //     self.params.extend(params);
-    //     self.transition::<Called>()
-    // }
-       /// Generates an UNWIND call. 
+    /// Generates a CALL call
+    /// # Example
+    /// ```rust
+    /// .call_with(EntityWrapper::Array(array1), |inner| {
+    ///     inner.get()
+    ///         .node(&mut entity, props!(entity => entity.prop1))
+    ///         .set(&entity, props!(entity => entity.prop2, EntityProps::Prop3(val)))
+    ///         .set(&prev1, props!(prev1 => prev1.prop1, PrevProps::Prop2(val)))
+    ///     .end_statement()
+    /// })
+    /// ```
+    /// The example above generates the following query:
+    /// ```rust
+    /// CALL (array1alias) {
+    ///     MATCH (entityalias: EntityLabel {entity.prop1: $entity_prop1})
+    ///     SET entity.prop2 = $set_prop21, entity.prop3 = $set_prop32, prev1alias.prop1 = $set_prop13, prev1alias = $set_prop24
+    /// }
+    /// ```
+    /// and asociated params for the inner builder.
+    /// NOTE: You can't return anything from within a CALL block. This is a limitation of Neo4j.
+    /// pub fn call<A, F, B>(mut self, entities_to_alias: &[&A], inner_builder_closure: F) -> Neo4gBuilder<Called>
+    pub fn call_with<F, B, W>(mut self, wrapped_slice: &[W], inner_builder_closure: F) -> Neo4gBuilder<Called>
+    where W: WrappedNeo4gEntity, F: FnOnce(Neo4gBuilder<Empty>) -> Neo4gBuilder<B>, B: PossibleQueryEnd {
+        let inner_builder = Neo4gBuilder::new_with_parent(&self);
+        let (
+            query,
+            params,
+            entity_aliases,
+            node_number,
+            relation_number,
+            unwind_number,
+            set_number,
+            with_number,
+            return_refs,
+        ) = inner_builder_closure(inner_builder).build_inner();
+        self.entity_aliases.extend(entity_aliases);
+        self.node_number = node_number;
+        self.relation_number = relation_number;
+        self.set_number = set_number;
+        self.with_number = with_number;
+        self.unwind_number = unwind_number;
+        self.return_refs.extend_from_slice(&return_refs);
+        let aliases: Vec<String> = wrapped_slice.iter().map(|entity| {
+            entity.get_alias()
+        }).collect();
+        self.query.push_str(format!("\nCALL ({}) {{{} \n}}", aliases.join(", "), &query).as_str());
+        self.params.extend(params);
+        self.transition::<Called>()
+    }
+    /// Generates an UNWIND call. 
     /// # Example
     /// ```rust
     /// .unwind(

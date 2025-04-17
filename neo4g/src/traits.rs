@@ -1,6 +1,24 @@
 use std::collections::HashMap;
 
-use neo4rs::{BoltType, Node, Relation};
+use neo4rs::{
+    Node,
+    Relation,
+    BoltType,
+    BoltString,
+    BoltBoolean,
+    BoltInteger,
+    BoltFloat,
+    BoltList,
+    BoltNode,
+    BoltRelation,
+    BoltUnboundedRelation,
+    BoltPoint2D,
+    BoltPoint3D,
+    BoltBytes,
+    BoltPath,
+    BoltDuration,
+    BoltLocalDateTime,
+};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -13,6 +31,38 @@ pub trait WrappedNeo4gEntity: Sized + Aliasable {
 
 pub trait Neo4gLabel: std::fmt::Display {}
 
+pub trait BoltTypeInComparison {
+    fn inside(&self) -> String;
+}
+
+impl BoltTypeInComparison for BoltString {
+    fn inside(&self) -> String {
+        format!("{}", &self)
+    }
+}
+
+// BoltBoolean,
+// BoltInteger,
+// BoltFloat,
+// BoltList,
+// BoltNode,
+// BoltRelation,
+// BoltUnboundedRelation,
+// BoltPoint2D,
+// BoltPoint3D,
+// BoltBytes,
+// BoltPath,
+// BoltDuration,
+// BoltLocalDateTime,
+
+impl BoltTypeInComparison for BoltType {
+    fn inside(&self) -> String {
+        match &self {
+            BoltType::String(v) => v.inside(),
+            _ => "not implemented".into(),
+        }
+    }
+}
 pub trait Neo4gEntity: Aliasable {
     type Props: QueryParam;
     fn get_entity_type(&self) -> EntityType;

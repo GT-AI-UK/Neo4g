@@ -14,8 +14,6 @@ use neo4rs::{
     BoltType,
     BoltString,
     BoltBoolean,
-    BoltMap,
-    BoltNull,
     BoltInteger,
     BoltFloat,
     BoltList,
@@ -27,12 +25,7 @@ use neo4rs::{
     BoltBytes,
     BoltPath,
     BoltDuration,
-    BoltDate,
-    BoltTime,
-    BoltLocalTime,
-    BoltDateTime,
     BoltLocalDateTime,
-    BoltDateTimeZoneId,
 };
 
     #[derive(Neo4gNode, Clone, Debug)]
