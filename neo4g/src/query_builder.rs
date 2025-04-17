@@ -349,10 +349,10 @@ impl<Q: CanSetWith> Neo4gBuilder<Q> {
                 self.query.push_str(", ");
             }
             self.query.push_str(&arrays.iter_mut().map(|array|{
-                let (alias, uuid, params) = array.build();
+                let (alias, uuid, params, previously_built) = array.build();
                 self.params.extend(params);
                 self.entity_aliases.insert(uuid, alias.clone());
-                if is_built {
+                if previously_built {
                     alias
                 } else {
                     format!("{} AS {}", &alias, &alias)
@@ -1681,12 +1681,12 @@ impl Array {
             is_built: false,
         }
     }
-    fn build(&mut self) -> (String, Uuid, HashMap<String, BoltType>) {
+    fn build(&mut self) -> (String, Uuid, HashMap<String, BoltType>, bool) {
         if self.is_built {
-            return (self.get_alias(), self.uuid.clone(), HashMap::new());
+            return (self.get_alias(), self.uuid.clone(), HashMap::new(), true);
         } else {
-            self.is_built = true; 
-            return (self.alias.clone(), self.uuid.clone(), HashMap::from([(self.alias.clone(), BoltType::from(self.list.clone()))]));
+            self.is_built = true;
+            return (self.alias.clone(), self.uuid.clone(), HashMap::from([(self.alias.clone(), BoltType::from(self.list.clone()))]), false);
         }
     }
     pub fn list(&self) -> Vec<BoltType> {
