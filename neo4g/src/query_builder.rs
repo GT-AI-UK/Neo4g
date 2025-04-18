@@ -1771,6 +1771,11 @@ impl<Q: CanCondition> Where<Q> {
         self.string.push_str("NOT ");
         self
     }
+    pub fn condition_test<A: Aliasable>(mut self, aliasable: &A, operator: CompOper) -> Where<Condition> {
+
+    }pub fn condition_test2<T: Neo4gEntity>(mut self, entity: &T, optional_prop: Option<&T::Props>, operator: CompOper) -> Where<Condition> {
+        
+    }
     /// Generates a condition string.
     /// # Example
     /// ```rust
@@ -2009,39 +2014,74 @@ pub struct CompOper {
 }
 
 impl CompOper {
-    pub fn eq_prop(prop: &QueryParam, ref_or_val: RefType) -> Self {
+    pub fn by_prop<Q: QueryParam>(operator: CompareOperatorEnum, prop: &Q, ref_or_val: RefType) -> Self {
         let (query, bolt) = prop.to_query_param();
         match ref_or_val {
             RefType::Ref => {
-                    Self {
-                    query: format!("= entity_alias.{}", query),
+                Self {
+                    query: format!("{} entity_alias.{}", operator, query),
                     params: HashMap::new(),
                     uuids: Vec::new(),
                 }
             },
             RefType::Val => {
-                //create a hashmap for params
+                let uuid_str = Uuid::new_v4().to_string();
+                let rng_chars = &uuid_str[0..4];
+                let param_name = format!("co_{}{}", query, rng_chars);
+                Self {
+                    query: format!("{} ${}", operator, param_name),
+                    params: HashMap::from([(param_name, bolt)]),
+                    uuids: Vec::new(),
+                }
             }
         }
+    }
+    pub fn by_aliasable<A: Aliasable>(operator: CompareOperatorEnum, aliasable: &A) -> Self {
+        let mut alias = aliasable.get_alias();
+        let mut uuids = Vec::new();
+        if alias.is_empty() {
+            let uuid = aliasable.get_uuid();
+            uuids.push(uuid.clone());
+            alias = uuid.to_string();
+        }
+        Self {
+            query: format!("{} {}", operator, alias),
+            params: HashMap::new(),
+            uuids,
+        }
+    }
+}
+
+impl fmt::Display for CompareOperatorEnum {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            CompareOperatorEnum::Eq => "=",
+            CompareOperatorEnum::Gt => ">",
+            CompareOperatorEnum::Ge => ">=",
+            CompareOperatorEnum::Lt => "<",
+            CompareOperatorEnum::Le => "<=",
+            CompareOperatorEnum::Ne => "<>",
+            CompareOperatorEnum::In => "IN",
+        };
+        write!(f, "{}", s)
     }
 }
 
 #[derive(Debug, Clone)]
 enum CompareOperatorEnum {
-    Eq(BoltType),
-    Gt(BoltType),
-    Ge(BoltType),
-    Lt(BoltType),
-    Le(BoltType),
-    Ne(BoltType),
-    InVec(Vec<BoltType>),
-    InAlias(String),
-    Function(Function, Box<CompareOperator>),
+    Eq,
+    Gt,
+    Ge,
+    Lt,
+    Le,
+    Ne,
+    In,
 }
 
-fn bolt_type_to_string(bolt: BoltType) -> String {
 
-}
+// fn bolt_type_to_string(bolt: BoltType) -> String {
+
+// }
 
 // impl From<&str> for CompareOperator {
 //     fn from(s: &str) -> Self {
@@ -2075,11 +2115,11 @@ impl From<&FunctionCall> for CompareOperator {
     }
 }
 
-impl BoltTypeInComparison for FunctionCall {
-    fn inside(&self) -> String {
-        // you can't build the function call here - it needs to be passed into the query builder, unless the compare operator can bubble it through...
-    }
-}
+// impl BoltTypeInComparison for FunctionCall {
+//     fn inside(&self) -> String {
+//         // you can't build the function call here - it needs to be passed into the query builder, unless the compare operator can bubble it through...
+//     }
+// }
 
 #[derive(Debug, Clone)]
 pub enum CompareJoiner {
