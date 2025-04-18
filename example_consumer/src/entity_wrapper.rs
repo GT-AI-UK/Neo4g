@@ -1,3 +1,4 @@
+use chrono::NaiveDateTime;
 use neo4g_macro_rules::generate_entity_wrappers;
 use paste::paste;
 use crate::objects::{User, Group, UserProps, GroupProps, MemberOf, MemberOfProps, Page, Component, HasComponent, HasComponentProps, PageProps, ComponentProps};
@@ -33,4 +34,12 @@ use neo4rs::{
         pub nothing: bool,
     }
 
-generate_entity_wrappers!(Nothing, User, Group, MemberOf, HasComponent, Page, Component);
+    #[derive(Neo4gNode, Clone, Debug)]
+    pub struct ValueTemplate {
+        pub int: i32,
+        pub float: f64,
+        pub datetime: NaiveDateTime,
+        pub string: String,
+    }
+
+generate_entity_wrappers!(Nothing, Value, User, Group, MemberOf, HasComponent, Page, Component);

@@ -4,7 +4,7 @@ use serde::de::value;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use std::fmt::{self, format, Debug};
-use std::vec;
+use std::{option, vec};
 use uuid::Uuid;
 use crate::traits::*;
 
@@ -1772,9 +1772,37 @@ impl<Q: CanCondition> Where<Q> {
         self
     }
     pub fn condition_test<A: Aliasable>(mut self, aliasable: &A, operator: CompOper) -> Where<Condition> {
-
-    }pub fn condition_test2<T: Neo4gEntity>(mut self, entity: &T, optional_prop: Option<&T::Props>, operator: CompOper) -> Where<Condition> {
-        
+        self.condition_number += 1;
+        let (string, mut uuids, params) = operator.to_query_uuid_param();
+        self.params.extend(params);
+        let mut alias = aliasable.get_alias();
+        if alias.is_empty() {
+            let uuid = aliasable.get_uuid();
+            uuids.push(uuid.clone());
+            alias = uuid.to_string();
+        }
+        self.uuids.extend_from_slice(&uuids);
+        self.string.push_str(&format!("{} {}", alias, string));
+        self.transition::<Condition>()
+    }
+    pub fn condition_test2<T: Neo4gEntity>(mut self, entity: &T, optional_prop: Option<&T::Props>, operator: CompOper) -> Where<Condition> {
+        self.condition_number += 1;
+        let (string, mut uuids, params) = operator.to_query_uuid_param();
+        let mut prop_name = String::new();
+        if let Some(prop) = optional_prop {
+            let (name, _) = prop.to_query_param();
+            prop_name = format!(".{}", name);
+        }
+        let mut entity_alias = entity.get_alias();
+        if entity_alias.is_empty() {
+            let entity_uuid = entity.get_uuid();
+            uuids.push(entity_uuid.clone());
+            entity_alias = entity_uuid.to_string();
+        }
+        self.params.extend(params);
+        self.uuids.extend_from_slice(&uuids);
+        self.string.push_str(&format!("{}{} {}", entity_alias, prop_name, string));
+        self.transition::<Condition>()
     }
     /// Generates a condition string.
     /// # Example
@@ -2050,6 +2078,9 @@ impl CompOper {
             uuids,
         }
     }
+    fn to_query_uuid_param(&self) -> (String, Vec<Uuid>, HashMap<String, BoltType>) {
+        (self.query.clone(), self.uuids.clone(), self.params.clone())
+    }
 }
 
 impl fmt::Display for CompareOperatorEnum {
@@ -2068,7 +2099,7 @@ impl fmt::Display for CompareOperatorEnum {
 }
 
 #[derive(Debug, Clone)]
-enum CompareOperatorEnum {
+pub enum CompareOperatorEnum {
     Eq,
     Gt,
     Ge,

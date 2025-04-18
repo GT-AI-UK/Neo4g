@@ -1,6 +1,6 @@
-use example_consumer::entity_wrapper::{EntityWrapper, Label};
+use example_consumer::entity_wrapper::{EntityWrapper, Label, ValueProps};
 use example_consumer::objects::{Group, GroupProps, MemberOf, MemberOfProps, User, UserProps, UserTemplate, Page, PageProps, PageTemplate, Component, ComponentProps, ComponentTemplate, ComponentType, HasComponent, HasComponentTemplate, HasComponentProps};
-use neo4g::query_builder::{self, Array, CompareJoiner, CompareOperator, Expr, FnArg, Function, FunctionCall, Neo4gBuilder, Unwinder, Where};
+use neo4g::query_builder::{self, Array, CompOper, CompareJoiner, CompareOperator, Expr, FnArg, Function, FunctionCall, Neo4gBuilder, Unwinder, Where};
 use neo4rs::Graph;
 use dotenv::dotenv; 
 use std::{env, result, vec};
@@ -66,7 +66,8 @@ async fn main() {
                     .entities(wrap![user])
                     .arrays(arrays![groups])
                     .filter(Where::new()
-                        .fn_condition(&mut size_groups_fn, CompareOperator::Gt("0".into()))
+                        //.fn_condition(&mut size_groups_fn, CompareOperator::Gt("0".into()))
+                        .condition_test(&size_groups_fn, CompOper::by_prop(query_builder::CompareOperatorEnum::Gt, &ValueProps::Int(0), query_builder::RefType::Val))
                     )
                 .unwind(&mut unwound_groups)
                 .optional_match()
