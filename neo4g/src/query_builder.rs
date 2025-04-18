@@ -1997,6 +1997,52 @@ impl CompareOperator {
     }
 }
 
+pub enum RefType {
+    Ref,
+    Val,
+}
+
+pub struct CompOper {
+    query: String,
+    params: HashMap<String, BoltType>,
+    uuids: Vec<Uuid>,
+}
+
+impl CompOper {
+    pub fn eq_prop(prop: &QueryParam, ref_or_val: RefType) -> Self {
+        let (query, bolt) = prop.to_query_param();
+        match ref_or_val {
+            RefType::Ref => {
+                    Self {
+                    query: format!("= entity_alias.{}", query),
+                    params: HashMap::new(),
+                    uuids: Vec::new(),
+                }
+            },
+            RefType::Val => {
+                //create a hashmap for params
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+enum CompareOperatorEnum {
+    Eq(BoltType),
+    Gt(BoltType),
+    Ge(BoltType),
+    Lt(BoltType),
+    Le(BoltType),
+    Ne(BoltType),
+    InVec(Vec<BoltType>),
+    InAlias(String),
+    Function(Function, Box<CompareOperator>),
+}
+
+fn bolt_type_to_string(bolt: BoltType) -> String {
+
+}
+
 // impl From<&str> for CompareOperator {
 //     fn from(s: &str) -> Self {
 //         match s.to_lowercase().as_str() {
