@@ -72,9 +72,13 @@ pub trait Neo4gEntity: Aliasable {
     fn get_current(&self, prop: &Self::Props) -> Self::Props;
 }
 
+pub trait Paramable {
+    fn to_query_uuid_param(&self) -> (String, Vec<Uuid>, HashMap<String, BoltType>);
+}
+
 pub trait Prop: Default + Clone + std::fmt::Debug + Serialize + for <'a> Deserialize<'a> {}
 
-pub trait Aliasable: std::fmt::Debug + Clone {
+pub trait Aliasable: std::fmt::Debug + Clone + Paramable {
     fn get_alias(&self) -> String;
     fn set_alias(&mut self, alias: &str) -> ();
     fn get_uuid(&self) -> Uuid;

@@ -1,6 +1,6 @@
 use example_consumer::entity_wrapper::{EntityWrapper, Label, ValueProps};
 use example_consumer::objects::{Group, GroupProps, MemberOf, MemberOfProps, User, UserProps, UserTemplate, Page, PageProps, PageTemplate, Component, ComponentProps, ComponentTemplate, ComponentType, HasComponent, HasComponentTemplate, HasComponentProps};
-use neo4g::query_builder::{self, Array, CompOper, CompareJoiner, CompareOperator, Expr, FnArg, Function, FunctionCall, Neo4gBuilder, Unwinder, Where};
+use neo4g::query_builder::{self, Array, CompOper, CompareJoiner, CompareOperator, CompareOperatorEnum, Expr, Function, FunctionCall, Neo4gBuilder, Unwinder, Where};
 use neo4rs::Graph;
 use dotenv::dotenv; 
 use std::{env, result, vec};
@@ -67,7 +67,7 @@ async fn main() {
                     .arrays(arrays![groups])
                     .filter(Where::new()
                         //.fn_condition(&mut size_groups_fn, CompareOperator::Gt("0".into()))
-                        .condition_test(&size_groups_fn, CompOper::by_prop(query_builder::CompareOperatorEnum::Gt, &ValueProps::Int(0), query_builder::RefType::Val))
+                        .condition_test(&size_groups_fn, CompOper::by_prop(CompareOperatorEnum::Gt, &ValueProps::Int(0), query_builder::RefType::Val))
                     )
                 .unwind(&mut unwound_groups)
                 .optional_match()
@@ -92,7 +92,8 @@ async fn main() {
                     .node_ref(&unwound_groups_option_match)
                     .filter(Where::new()
                         .not()
-                        .condition(&unwound_groups_option_match, None, CompareOperator::from(&collect_groups))
+                        //.condition(&unwound_groups_option_match, None, CompareOperator::from(&collect_groups))
+                        .condition_test(&unwound_groups_option_match, CompOper::by_aliasable(CompareOperatorEnum::In, &collect_groups))
                     )
                     .delete(wrap![member_of], false)
                 .end_statement()

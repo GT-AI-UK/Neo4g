@@ -28,6 +28,7 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
     let mut db_from_node_checks = Vec::new();
     let mut db_from_relation_checks = Vec::new();
     let mut call_get_uuid_arms = Vec::new();
+    let mut paramable_arms = Vec::new();
 
     for variant in data_enum.variants.iter() {
         let var_name = &variant.ident;
@@ -84,6 +85,10 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
         let call_get_uuid_arm = quote! {
             #enum_name::#var_name(inner) => inner.get_uuid(),
         };
+        let paramable_arm = quote! {
+            #enum_name::#var_name(inner) => inner.to_query_uuid_param(),
+        };
+        paramable_arms.push(paramable_arm);
         call_get_uuid_arms.push(call_get_uuid_arm);
         if ![String::from("Array"), String::from("FunctionCall"), String::from("Unwinder")].contains(&var_name_str) {
 
@@ -152,6 +157,17 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
             }
         }
     };
+    let paramable_fn = quote! {
+        fn to_query_uuid_param(&self) -> (String, Vec<Uuid>, HashMap<String, BoltType>) {
+            match self {
+                #enum_name::Unwinder(v) => v.to_query_uuid_param(),
+                #enum_name::FunctionCall(v) => v.to_query_uuid_param(),
+                #enum_name::Array(v) => v.to_query_uuid_param(),
+                #(#paramable_arms)*
+                _ => (String::new(), Vec::new(), HashMap::new())
+            }
+        }
+    };
 
     let from_db_entity_fn = quote! {
         fn from_db_entity(db_entity: DbEntityWrapper) -> Self {
@@ -177,6 +193,10 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
             #get_alias_fn
             #set_alias_fn
             #get_entity_uuid_fn
+        }
+
+        impl Paramable for EntityWrapper {
+            #paramable_fn
         }
 
         impl WrappedNeo4gEntity for EntityWrapper {

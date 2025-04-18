@@ -29,7 +29,7 @@ use neo4g::query_builder::EntityType;
 use neo4g::traits::WrappedNeo4gEntity;
 use crate::entity_wrapper::{EntityWrapper, Nothing};
 use neo4g_derive::{Neo4gProp, Neo4gNode, Neo4gRelation, not_query_param};
-use neo4g::traits::{Prop, Neo4gEntity};
+use neo4g::traits::{Prop, Neo4gEntity, Paramable};
 use heck::ToShoutySnakeCase;
 use serde::{Serialize, Deserialize};
 use neo4g::traits::QueryParam;

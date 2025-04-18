@@ -734,6 +734,12 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
                 self.uuid.clone()
             }
         }
+
+        impl Paramable for #new_struct_name {
+            fn to_query_uuid_param(&self) -> (String, Vec<Uuid>, HashMap<String, BoltType>) {
+                (self.get_entity_alias(), Vec::new(), HashMap::new())
+            }
+        }
         
         impl #new_struct_name {
             #get_relation_entity_type_fn

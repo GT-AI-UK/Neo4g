@@ -1668,6 +1668,12 @@ impl Unwinder {
     }
 }
 
+impl Paramable for Unwinder {
+    fn to_query_uuid_param(&self) -> (String, Vec<Uuid>, HashMap<String, BoltType>) {
+        (self.alias.clone(), vec![self.array.uuid.clone()], HashMap::from([(self.alias.clone(), BoltType::from(self.array.list.clone()))]))
+    }
+}
+
 impl Aliasable for Unwinder {
     fn get_alias(&self) -> String {
         self.alias.clone()
@@ -1707,6 +1713,12 @@ impl Array {
     }
     pub fn list(&self) -> Vec<BoltType> {
         self.list.clone()
+    }
+}
+
+impl Paramable for Array {
+    fn to_query_uuid_param(&self) -> (String, Vec<Uuid>, HashMap<String, BoltType>) {
+        (self.alias.clone(), vec![self.uuid.clone()], HashMap::from([(self.alias.clone(), BoltType::from(self.list.clone()))]))
     }
 }
 
@@ -1771,18 +1783,18 @@ impl<Q: CanCondition> Where<Q> {
         self.string.push_str("NOT ");
         self
     }
-    pub fn condition_test<A: Aliasable>(mut self, aliasable: &A, operator: CompOper) -> Where<Condition> {
+    pub fn condition_test<P: Paramable>(mut self, paramable: &P, operator: CompOper) -> Where<Condition> {
         self.condition_number += 1;
-        let (string, mut uuids, params) = operator.to_query_uuid_param();
-        self.params.extend(params);
-        let mut alias = aliasable.get_alias();
-        if alias.is_empty() {
-            let uuid = aliasable.get_uuid();
-            uuids.push(uuid.clone());
-            alias = uuid.to_string();
+        let (op_string, op_uuids, op_params) = operator.to_query_uuid_param();
+        self.params.extend(op_params);
+        self.uuids.extend_from_slice(&op_uuids);
+        let (mut p_string, p_uuids, p_params) = paramable.to_query_uuid_param();
+        if p_string.is_empty() && p_uuids.len() == 1 {
+            p_string = p_uuids[0].to_string();
         }
-        self.uuids.extend_from_slice(&uuids);
-        self.string.push_str(&format!("{} {}", alias, string));
+        self.params.extend(p_params);
+        self.uuids.extend_from_slice(&p_uuids);
+        self.string.push_str(&format!("{} {}", p_string, op_string));
         self.transition::<Condition>()
     }
     pub fn condition_test2<T: Neo4gEntity>(mut self, entity: &T, optional_prop: Option<&T::Props>, operator: CompOper) -> Where<Condition> {
@@ -2216,42 +2228,42 @@ impl From<&str> for Order {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct FnArg {
-    alias: String,
-    uuid: Uuid,
-    prop_names: Vec<String>,
-    params: HashMap<String, BoltType>,
-}
+// #[derive(Debug, Clone)]
+// pub struct FnArg {
+//     alias: String,
+//     uuid: Uuid,
+//     prop_names: Vec<String>,
+//     params: HashMap<String, BoltType>,
+// }
 
-impl Aliasable for FnArg {
-    fn get_alias(&self) -> String {
-        self.alias.clone()
-    }
-    fn set_alias(&mut self, alias: &str) -> () {
-        self.alias = alias.to_owned();
-    }
-    fn get_uuid(&self) -> Uuid {
-        self.uuid.clone()
-    }
-}
+// impl Aliasable for FnArg {
+//     fn get_alias(&self) -> String {
+//         self.alias.clone()
+//     }
+//     fn set_alias(&mut self, alias: &str) -> () {
+//         self.alias = alias.to_owned();
+//     }
+//     fn get_uuid(&self) -> Uuid {
+//         self.uuid.clone()
+//     }
+// }
    
-impl FnArg {
-    pub fn from_props<T: Neo4gEntity>(entity: &T, props: &[&T::Props]) -> Self {
-        let mut params: HashMap<String, BoltType> = HashMap::new();
-        let prop_names = props.iter().map(|prop| {
-            let (name, value) = prop.to_query_param();
-            params.insert(format!("fnarg_{}_{}", entity.get_alias(), name), value);
-            name.to_string()
-        }).collect::<Vec<String>>();
-        Self {
-            alias: entity.get_alias(),
-            uuid: Uuid::new_v4(),
-            prop_names,
-            params,
-        }
-    }
-}
+// impl FnArg {
+//     pub fn from_props<T: Neo4gEntity>(entity: &T, props: &[&T::Props]) -> Self {
+//         let mut params: HashMap<String, BoltType> = HashMap::new();
+//         let prop_names = props.iter().map(|prop| {
+//             let (name, value) = prop.to_query_param();
+//             params.insert(format!("fnarg_{}_{}", entity.get_alias(), name), value);
+//             name.to_string()
+//         }).collect::<Vec<String>>();
+//         Self {
+//             alias: entity.get_alias(),
+//             uuid: Uuid::new_v4(),
+//             prop_names,
+//             params,
+//         }
+//     }
+// }
 
 #[derive(Clone, Debug)]
 pub struct FunctionCall {
@@ -2282,6 +2294,12 @@ impl Aliasable for FunctionCall {
     }
 }
 
+impl Paramable for FunctionCall {
+    fn to_query_uuid_param(&self) -> (String, Vec<Uuid>, HashMap<String, BoltType>) {
+        self.function.to_query_uuid_param()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum Function {
     Id(Box<Expr>),
@@ -2291,7 +2309,7 @@ pub enum Function {
     Collect(Box<Expr>),
 }
 
-impl Function {
+impl Paramable for Function {
     fn to_query_uuid_param(&self) -> (String, Vec<Uuid>, HashMap<String, BoltType>) {
         match &self {
             Function::Id(expr) => {
@@ -2403,18 +2421,18 @@ impl From<Function> for Expr {
     }
 }
 
-impl From<FnArg> for Expr {
-    fn from(value: FnArg) -> Self {
-        let expr = InnerExpr::Raw(value.prop_names.iter().map(|prop|{
-            format!("{}.{}", &value.alias, prop)
-        }).collect::<Vec<String>>().join(", "));
-        Self {
-            expr,
-            uuids: Vec::new(),
-            params: value.params,
-        }
-    }
-}
+// impl From<FnArg> for Expr {
+//     fn from(value: FnArg) -> Self {
+//         let expr = InnerExpr::Raw(value.prop_names.iter().map(|prop|{
+//             format!("{}.{}", &value.alias, prop)
+//         }).collect::<Vec<String>>().join(", "));
+//         Self {
+//             expr,
+//             uuids: Vec::new(),
+//             params: value.params,
+//         }
+//     }
+// }
 
 impl<A: Aliasable> From<&A> for Expr {
     fn from(aliasable: &A) -> Self {
