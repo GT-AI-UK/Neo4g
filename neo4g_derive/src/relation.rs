@@ -1,8 +1,7 @@
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{parse_macro_input, DeriveInput, Data, Fields};
-//use neo4g_traits::*;
-use crate::{generators};
+use crate::generators;
 use heck::ToPascalCase;
 
 pub fn generate_neo4g_relation(input: TokenStream) -> TokenStream {
@@ -119,34 +118,12 @@ pub fn generate_neo4g_relation(input: TokenStream) -> TokenStream {
         }
     }).collect();
     
-    // let create_query_params: Vec<_> = all_fields_full.iter().filter_map(|field| {
-    //     if !should_ignore_field(field) {
-    //         let field_ident = field.ident.as_ref().unwrap();
-
-    //         let field_name = field_ident.to_string();
-    //         let field_name_lit = syn::LitStr::new(&field_name, field_ident.span());
-            
-    //         Some(quote! {
-    //             format!("{}: ${}", #field_name_lit, #field_name_lit)
-    //         })
-    //     } else {
-    //         None
-    //     }
-    // }).collect();
-    
     let create_relation_from_self_fn = quote! {
         pub fn create_relation_from_self(&self) -> (String, std::collections::HashMap<String, BoltType>) {
             let self_props = self.self_to_props();
             let mapped_self_props: Vec<&#props_enum_name> = self_props.iter().map(|prop| prop).collect();
             let sliced_props: &[&#props_enum_name] = &mapped_self_props;
             Neo4gEntity::entity_by(self, &Aliasable::get_alias(self), &self_props)
-            // let props = self_to_props(&self);
-            // let keys: Vec<String> = vec![ #(#create_query_params),* ];
-            // let query = format!("(neo4g_relation:{} {{{}}})\n", #new_struct_name_str, keys.join(", "));
-            // let params_map: std::collections::HashMap<String, BoltType> = std::collections::HashMap::from([
-            //     #(#create_relation_params),*
-            // ]);
-            // (query, params_map)
         }
     };
 
@@ -226,20 +203,6 @@ pub fn generate_neo4g_relation(input: TokenStream) -> TokenStream {
         }
     }).collect();
 
-    // let props_impl = quote! {
-    //     impl #props_enum_name {
-    //         /// Converts a Props variant to a key and its stringified value.
-    //         pub fn to_query_param(&self) -> (&'static str, BoltType) {
-    //             match self {
-    //                 #(#to_query_param_match_arms),*
-    //             }
-    //         }
-    
-    //         // Accessor methods for the Props enum.
-    //         #(#props_accessor_methods)*
-    //     }
-    // };
-
     // Generate fields for the new struct: same field names, but type is the Props enum.
     let new_struct_fields: Vec<_> = all_fields_full.iter().map(|field| {
         let field_ident = field.ident.as_ref().unwrap();
@@ -279,24 +242,8 @@ pub fn generate_neo4g_relation(input: TokenStream) -> TokenStream {
             #field_ident: #arg_type
         }
     }).collect();
-    
-    // let constructor_params: Vec<_> = all_fields_full.iter().map(|field| {
-    //     let field_ident = field.ident.as_ref().unwrap();
-    //     let field_ty = &field.ty;
-    //     let field_type_str = field_ty.to_token_stream().to_string();
-    //     //could/SHOULD propbably convert String props to take &str args in constructors
-    //     quote! {
-    //         #field_ident: #field_ty
-    //     }
-    // }).collect();
-    
-    // // 3. Generate a list of field identifiers for forwarding.
-    // let constructor_args: Vec<_> = all_fields_full.iter().map(|field| {
-    //     let field_ident = field.ident.as_ref().unwrap();
-    //     quote! { #field_ident }
-    // }).collect();
-    
-    // 4. Generate the constructor body. For non-ignored fields, we wrap the value in the
+
+    // Generate the constructor body. For non-ignored fields, we wrap the value in the
     // corresponding Props enum variant; for ignored fields, we simply pass the value through.
     let constructor_body: Vec<_> = all_fields_full.iter().map(|field| {
         let field_ident = field.ident.as_ref().unwrap();
@@ -328,33 +275,7 @@ pub fn generate_neo4g_relation(input: TokenStream) -> TokenStream {
             }
         }
     }).collect();
-    // let constructor_body: Vec<_> = all_fields_full.iter().map(|field| {
-    //     let field_ident = field.ident.as_ref().unwrap();
-    //     if should_ignore_field(field) {
-    //         quote! {
-    //             #field_ident: #field_ident
-    //         }
-    //     } else {
-    //         let variant = syn::Ident::new(&field_ident.to_string().to_pascal_case(), field_ident.span());
-    //         quote! {
-    //             #field_ident: #props_enum_name::#variant(#field_ident)
-    //         }
-    //     }
-    // }).collect();
 
-    // let default_body: Vec<_> = all_fields_full.iter().map(|field| {
-    //     let field_ident = field.ident.as_ref().unwrap();
-    //     if should_ignore_field(field) {
-    //         quote! {
-    //             #field_ident: Default::default()
-    //         }
-    //     } else {
-    //         let variant = syn::Ident::new(&field_ident.to_string().to_pascal_case(), field_ident.span());
-    //         quote! {
-    //             #field_ident: #props_enum_name::#variant(Default::default())
-    //         }
-    //     }
-    // }).collect();
     let default_body: Vec<_> = all_fields_full.iter().map(|field| {
         let field_ident = field.ident.as_ref().unwrap();
         let ty = &field.ty;
@@ -472,7 +393,6 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
         }
     };
 
-    //let template_constructor_body: Vec<_> = all_fields_full.iter().map(|field| {field.ident.as_ref().unwrap()}).collect();
     let template_constructor_body: Vec<_> = all_fields_full.iter().map(|field| {
         let field_ident = field.ident.as_ref().unwrap();
         let field_ty = &field.ty;
@@ -562,18 +482,6 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
             }
         }).collect();
 
-        // Generate the complete From<relation> implementation for the struct.
-        // let from_impl = quote! {
-        //     impl From<Relation> for #new_struct_name {
-        //         fn from(entity: Relation) -> Self {
-        //             Self {
-        //                 alias: String::new(),
-        //                 #(#field_inits),*
-        //             }
-        //         }
-        //     }
-        // };
-
         let from_db_entity_fn = quote! {
             pub fn from_db_entity(db_entity: DbEntityWrapper) -> EntityWrapper {
                 if let DbEntityWrapper::Relation(entity) = db_entity {
@@ -650,20 +558,8 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
             }
         };
 
-        // let silly_from_impl = quote! {
-        //     impl From<Node> for #new_struct_name {
-        //         fn from(entity: Node) -> Self {
-        //             Self {
-        //                 alias: String::new(),
-        //                 #(#field_inits),*
-        //             }
-        //         }
-        //     }
-        // };
-
         // Generate query functions using the generated Props enum.
         let get_relation_entity_type_fn = generators::generate_get_relation_entity_type();
-        //let get_relation_by_fn = generators::generate_get_relation_by(&new_struct_name, &new_struct_name_str, &props_enum_name);
         let relation_by_fn = generators::generate_relation_by(&new_struct_name, &new_struct_name_str, &props_enum_name);
         let get_relation_label_fn = generators::generate_get_relation_label(&new_struct_name_str);
         let set_alias_fn = generators::generate_set_alias();
@@ -756,15 +652,9 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
         // Constructor for the generated struct.
         #generated_constructor
         #generated_default
-
-        // New() method for the template struct that forwards to the generated struct's new().
         #template_new_method
-        
-        // #from_impl
-        // #silly_from_impl // could have a different trait to handle the from impl maybe? can functions take two traits?
         #to_template_impl
         #from_template_impl
-        // Accessor methods for the generated struct.
         #struct_impl
     };
 

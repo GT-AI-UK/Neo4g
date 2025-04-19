@@ -1,7 +1,6 @@
 use proc_macro::TokenStream;
 use quote::{quote, format_ident};
 use syn::{parse_macro_input, DeriveInput};
-use crate::utils;
 
 pub fn generate_props_wrapper(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -89,22 +88,6 @@ pub fn generate_props_wrapper(input: TokenStream) -> TokenStream {
         impl #enum_name {
             #inner_fn
         }    
-            // pub fn set_by(alias: &str, set_number: u32, props: &[&#enum_name]) -> (String, std::collections::HashMap<String, BoltType>) {
-            //     let mut query = String::new();
-            //     let mut params = std::collections::HashMap::new();
-    
-            //     let props_str: Vec<String> = props
-            //         .iter()
-            //         .map(|prop| {
-            //             let (key, value) = prop.to_query_param();
-            //             params.insert(format!("set_{}{}", key.to_string(), set_number), value);
-            //             format!("{}.{} = $set_{}{}\n", alias, key, key, set_number)
-            //         })
-            //         .collect();
-    
-            //     query.push_str(&props_str.join(", "));
-            //     (query, params)
-            // }
         impl QueryParam for #enum_name {
             fn to_query_param(&self) -> (&'static str, BoltType) {
                 match self {

@@ -19,8 +19,6 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
     };
 
     let mut accessors = Vec::new();
-    // let mut from_node_checks = Vec::new();
-    // let mut from_relation_checks = Vec::new();
     let mut eq_checks = Vec::new();
     let mut call_get_alias_arms = Vec::new();
     let mut call_set_alias_arms = Vec::new();
@@ -58,18 +56,6 @@ pub fn generate_entity_wrapper(input: TokenStream) -> TokenStream {
             continue;
         }
         let var_name_str = var_name.to_string();
-        // let check = quote! {
-        //     if labels.contains(&#var_name_str) {
-        //         return #enum_name::#var_name(#var_name::from(node));
-        //     }
-        // };
-        // from_node_checks.push(check);
-        // let rcheck = quote! {
-        //     if &labels.to_string().to_pascal_case() == &#var_name_str {
-        //         return #enum_name::#var_name(#var_name::from(relation));
-        //     }
-        // };
-        // from_relation_checks.push(rcheck);
         let eq_check = quote! {
             (#enum_name::#var_name(_), #enum_name::#var_name(_)) => true,
         };

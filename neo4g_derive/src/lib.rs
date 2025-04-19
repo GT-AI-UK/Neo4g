@@ -2,7 +2,6 @@ use proc_macro::TokenStream;
 mod node;
 mod relation;
 mod generators;
-mod utils;
 mod entity_wrapper;
 mod props_wrapper;
 mod labels;

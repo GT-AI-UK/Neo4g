@@ -39,28 +39,6 @@ pub fn generate_create_node_from_self(struct_name: &Ident, struct_name_str: &str
     }
 }
 
-// pub fn generate_get_node_by(struct_name: &Ident, struct_name_str: &str, props_enum_name: &Ident) -> proc_macro2::TokenStream {
-//     quote! {
-//         pub fn get_node_by(props: &[#props_enum_name]) -> (String, String, std::collections::HashMap<String, BoltType>) {
-//             let mut query = format!("(neo4g_node:{})", #struct_name_str);
-//             let mut params = std::collections::HashMap::new();
-//             let mut where_str = String::new();
-//             if !props.is_empty() {
-//                 let filters: Vec<String> = props
-//                     .iter()
-//                     .map(|prop| {
-//                         let (key, value) = prop.to_query_param();
-//                         params.insert(key.to_string(), value);
-//                         format!("neo4g_node.{} = ${}", key, key)
-//                     })
-//                     .collect();
-//                 where_str.push_str(&format!("{}", filters.join(" ANDOR ")));
-//             }
-//             (query, where_str, params)
-//         }
-//     }
-// }
-
 pub fn generate_node_by(struct_name: &Ident, struct_name_str: &str, props_enum_name: &Ident) -> proc_macro2::TokenStream {
     quote! {
         pub fn node_by(alias: &str, props: &[#props_enum_name]) -> (String, std::collections::HashMap<String, BoltType>) {
@@ -115,28 +93,6 @@ pub fn generate_get_relation_label(struct_name_str: &str) -> proc_macro2::TokenS
         }
     }
 }
-
-// pub fn generate_get_relation_by(struct_name: &Ident, struct_name_str: &str, props_enum_name: &Ident) -> proc_macro2::TokenStream {
-//     quote! {
-//         pub fn get_relation_by(props: &[#props_enum_name]) -> (String, String, std::collections::HashMap<String, BoltType>) {
-//             let mut query = format!("-[neo4g_rel:{}]->", #struct_name_str);
-//             let mut params = std::collections::HashMap::new();
-//             let mut where_str = String::new();
-//             if !props.is_empty() {
-//                 let filters: Vec<String> = props
-//                     .iter()
-//                     .map(|prop| {
-//                         let (key, value) = prop.to_query_param();
-//                         params.insert(key.to_string(), value);
-//                         format!("neo4g_rel.{} = ${}", key, key)
-//                     })
-//                     .collect();
-//                 where_str.push_str(&format!("{}", filters.join(" ANDOR ")));
-//             }
-//             (query, where_str, params)
-//         }
-//     }
-// }
 
 pub fn generate_relation_by(struct_name: &Ident, struct_name_str: &str, props_enum_name: &Ident) -> proc_macro2::TokenStream {
     quote! {

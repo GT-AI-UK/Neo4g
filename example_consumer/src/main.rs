@@ -5,7 +5,7 @@ use neo4rs::Graph;
 use dotenv::dotenv; 
 use std::{env, result, vec};
 use heck::ToShoutySnakeCase;
-use neo4g::traits::{Aliasable, WrappedNeo4gEntity};
+use neo4g::traits::WrappedNeo4gEntity;
 use neo4g_macro_rules::{arrays, no_props, prop, props, wrap};
 use uuid::Uuid;
 use chrono::{DateTime, Utc, Local};
@@ -66,7 +66,6 @@ async fn main() {
                     .entities(wrap![user])
                     .arrays(arrays![groups])
                     .filter(Where::new()
-                        //.fn_condition(&mut size_groups_fn, CompareOperator::Gt("0".into()))
                         .condition(&size_groups_fn, CompareOperator::by_prop(CompOper::Gt, &ValueProps::Int(0), RefType::Val))
                     )
                 .unwind(&mut unwound_groups)
@@ -92,7 +91,6 @@ async fn main() {
                     .node_ref(&unwound_groups_option_match)
                     .filter(Where::new()
                         .not()
-                        //.condition(&unwound_groups_option_match, None, CompareOperator::from(&collect_groups))
                         .condition(&unwound_groups_option_match, CompareOperator::by_aliasable(CompOper::In, &collect_groups))
                     )
                     .delete(wrap![member_of], false)
