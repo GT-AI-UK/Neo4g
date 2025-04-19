@@ -1,14 +1,9 @@
 use example_consumer::entity_wrapper::{EntityWrapper, Label, ValueProps};
 use example_consumer::objects::{Group, GroupProps, MemberOf, MemberOfProps, User, UserProps, UserTemplate, Page, PageProps, PageTemplate, Component, ComponentProps, ComponentTemplate, ComponentType, HasComponent, HasComponentTemplate, HasComponentProps};
-use neo4g::query_builder::{self, Array, CompareJoiner, CompareOperator, CompOper, Expr, Function, FunctionCall, Neo4gBuilder, Unwinder, Where, RefType};
-use neo4rs::Graph;
+
 use dotenv::dotenv; 
-use std::{env, result, vec};
-use heck::ToShoutySnakeCase;
-use neo4g::traits::WrappedNeo4gEntity;
-use neo4g_macro_rules::{arrays, no_props, prop, props, wrap};
-use uuid::Uuid;
-use chrono::{DateTime, Utc, Local};
+use std::{env, vec};
+use neo4g::prelude::*;
 
 pub async fn connect_neo4j() -> Graph { //return db object, run on startup, bind to state var
 
@@ -102,9 +97,6 @@ async fn main() {
         .run_query(graph, EntityWrapper::from_db_entity).await;
                 
     println!("{:?}", result);
-    // let test = FnArg::from_props(&page1, &[&page1.id]);
-    // let fnargexpr = Expr::from(test);
-    // dbg!(fnargexpr);
     // !!Functional MERGE Query:
     // let result = Neo4gBuilder::new()
     // .merge()
