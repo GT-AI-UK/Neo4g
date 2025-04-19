@@ -1,28 +1,10 @@
 use std::collections::HashMap;
 
-use neo4rs::{
-    Node,
-    Relation,
-    BoltType,
-    BoltString,
-    BoltBoolean,
-    BoltInteger,
-    BoltFloat,
-    BoltList,
-    BoltNode,
-    BoltRelation,
-    BoltUnboundedRelation,
-    BoltPoint2D,
-    BoltPoint3D,
-    BoltBytes,
-    BoltPath,
-    BoltDuration,
-    BoltLocalDateTime,
-};
+use neo4rs::BoltType;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::query_builder::{DbEntityWrapper, EntityType, Expr, Function};
+use crate::query_builder::{DbEntityWrapper, EntityType, Expr};
 
 pub trait WrappedNeo4gEntity: Sized + Aliasable {
     fn from_db_entity(db_entity: DbEntityWrapper) -> Self;

@@ -1,10 +1,9 @@
-use anyhow::{anyhow, Error};
-use neo4rs::{query, BoltNull, BoltType, Graph, Node, Query, Relation};
-use serde::de::value;
+use anyhow::anyhow; // should I use thiserror instead? prolly...
+use neo4rs::{BoltType, Graph, Node, Query, Relation};
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
-use std::fmt::{self, format, Debug};
-use std::{option, vec};
+use std::fmt::{self, Debug};
+use std::vec;
 use uuid::Uuid;
 use crate::traits::*;
 
