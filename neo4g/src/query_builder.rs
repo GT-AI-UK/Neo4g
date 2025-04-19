@@ -28,6 +28,7 @@ pub struct Neo4gBuilder<State> {
 }
 
 impl Neo4gBuilder<Empty> {
+    /// Creates a new query builder.
     pub fn new() -> Self {
         Self {
             query: String::new(),
@@ -1758,6 +1759,7 @@ impl<S> Where<S> {
 }
 
 impl Where<Empty> {
+    /// Creates a Where builder.
     pub fn new() -> Self {
         Self {
             string: String::new(),
