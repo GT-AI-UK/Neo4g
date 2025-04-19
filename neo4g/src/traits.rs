@@ -41,20 +41,6 @@ impl BoltTypeInComparison for BoltString {
     }
 }
 
-// BoltBoolean,
-// BoltInteger,
-// BoltFloat,
-// BoltList,
-// BoltNode,
-// BoltRelation,
-// BoltUnboundedRelation,
-// BoltPoint2D,
-// BoltPoint3D,
-// BoltBytes,
-// BoltPath,
-// BoltDuration,
-// BoltLocalDateTime,
-
 impl BoltTypeInComparison for BoltType {
     fn inside(&self) -> String {
         match &self {
@@ -150,7 +136,6 @@ impl CanCreate for WithConditioned {}
 impl CanDelete for WithConditioned {}
 impl CanSetWith for WithCondition {}
 impl CanSetWith for Withed {}
-//impl CanAddReturn for Withed {}
 impl CanWhere for Withed {}
 impl CanWith for MatchedNode {}
 impl CanWith for CreatedNode {}
