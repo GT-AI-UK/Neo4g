@@ -31,24 +31,6 @@ pub trait WrappedNeo4gEntity: Sized + Aliasable {
 
 pub trait Neo4gLabel: std::fmt::Display {}
 
-pub trait BoltTypeInComparison {
-    fn inside(&self) -> String;
-}
-
-impl BoltTypeInComparison for BoltString {
-    fn inside(&self) -> String {
-        format!("{}", &self)
-    }
-}
-
-impl BoltTypeInComparison for BoltType {
-    fn inside(&self) -> String {
-        match &self {
-            BoltType::String(v) => v.inside(),
-            _ => "not implemented".into(),
-        }
-    }
-}
 pub trait Neo4gEntity: Aliasable {
     type Props: QueryParam;
     fn get_entity_type(&self) -> EntityType;
