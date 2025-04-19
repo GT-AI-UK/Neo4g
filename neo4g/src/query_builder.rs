@@ -412,15 +412,16 @@ impl Neo4gBuilder<WithCondition> {
     /// Generates a WHERE call
     /// # Example
     /// ```rust
+    /// let size_entity_fn = FunctionCall::from(Function::Size(Box::new(Expr::from(&entity2))))
     /// .filter(Where::new()
     ///     .is_not_null(&entity1)
     ///     .join(CompareJoiner::And)
-    ///     .condition_fn(&entity2, CompareOperator::Gt(0), Function::Size(&mut size_entity_fn))       
+    ///     .condition(&size_entity_fn, CompareOperator::by_prop(CompOper::Gt, ValueProps::Int(0))       
     /// )
     /// ```
     /// The example above generates the following query:
     /// ```rust
-    /// WHERE entity1alias IS NOT NULL AND size(entity2alias) > $where_entity2alias1
+    /// WHERE entity1alias IS NOT NULL AND size(entity2alias) > $co_intdead
     /// ```
     /// and asociated params.
     pub fn filter(mut self, filter: Where<Condition>) -> Neo4gBuilder<WithConditioned> {
@@ -1055,14 +1056,14 @@ impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> {
     /// # Example
     /// ```rust
     /// .filter(Where::new()
-    ///     .condition(&node1, prop!(node1.prop1), CompareOperator::Eq)
+    ///     .condition(&paramable1, CompareOperator::by_prop(CompOper::Gt, &ValueProps::Int(0), RefType::Val))
     ///     .join(CompareJoiner::And)
-    ///     .condition(&node1, |_| Node1Props::Prop2(val), CompareOperator::Gt)       
+    ///     .condition(&entity2, None, CompareOperator::by_aliasable(operator: CompOper::In, aliasable: &array)      
     /// )
     /// ```
     /// The example above generates the following query:
     /// ```rust
-    /// WHERE node1alias.prop1 = $where1_prop1 AND node1alias.prop2 > $where2_prop2
+    /// WHERE paramable1alias_or_fncall > $co_intdead AND entity2alias IN arrayalias
     /// ```
     /// and asociated params for the inner builder.
     pub fn filter(mut self, filter: Where<Condition>) -> Self {
@@ -1783,7 +1784,21 @@ impl<Q: CanCondition> Where<Q> {
         self.string.push_str("NOT ");
         self
     }
-    pub fn condition_test<P: Paramable>(mut self, paramable: &P, operator: CompOper) -> Where<Condition> {
+    /// Generates a condition string with a paramable on the left-hand-side.
+    /// # Example
+    /// ```rust
+    /// .condition(&paramable1, CompareOperator::by_prop(CompOper::Gt, &ValueProps::Int(0), RefType::Val))
+    /// .condition(&paramable2, CompareOperator::by_prop(CompOper::Eq, &entity1.prop, RefType::Ref))
+    /// .condition(&paramable3, CompareOperator::by_aliasable(operator: CompOper::In, aliasable: &array) 
+    /// ```
+    /// The examples above generate the following strings:
+    /// ```rust
+    /// paramable1alias_or_fncall > $co_intbeef //last 4 characters of the param name is the first 4 from the uuid
+    /// paramable2alias_or_fncall = entity1alias.prop
+    /// paramable3alias_or_fncall IN arrayalias
+    /// ```
+    /// and asociated params.
+    pub fn condition<P: Paramable>(mut self, paramable: &P, operator: CompareOperator) -> Where<Condition> {
         self.condition_number += 1;
         let (op_string, op_uuids, op_params) = operator.to_query_uuid_param();
         self.params.extend(op_params);
@@ -1797,7 +1812,21 @@ impl<Q: CanCondition> Where<Q> {
         self.string.push_str(&format!("{} {}", p_string, op_string));
         self.transition::<Condition>()
     }
-    pub fn condition_test2<T: Neo4gEntity>(mut self, entity: &T, optional_prop: Option<&T::Props>, operator: CompOper) -> Where<Condition> {
+    /// Generates a condition string with an entity and optionally a .prop on the left-hand-side.
+    /// # Example
+    /// ```rust
+    /// .condition(&entity1, None, CompareOperator::by_prop(CompOper::Gt, &ValueProps::Int(0), RefType::Val))
+    /// .condition(&entity2, Some(&entity2.prop), CompareOperator::by_prop(CompOper::Eq, &entity3.prop, RefType::Ref))
+    /// .condition(&entity4, None, CompareOperator::by_aliasable(operator: CompOper::In, aliasable: &array) 
+    /// ```
+    /// The examples above generate the following strings:
+    /// ```rust
+    /// entity1alias > $co_intbeef //last 4 characters of the param name is the first 4 from the uuid
+    /// entity2alias.prop = entity3alias.prop
+    /// entity4alias IN arrayalias
+    /// ```
+    /// and asociated params.
+    pub fn condition_prop<T: Neo4gEntity>(mut self, entity: &T, optional_prop: Option<&T::Props>, operator: CompareOperator) -> Where<Condition> {
         self.condition_number += 1;
         let (string, mut uuids, params) = operator.to_query_uuid_param();
         let mut prop_name = String::new();
@@ -1814,111 +1843,6 @@ impl<Q: CanCondition> Where<Q> {
         self.params.extend(params);
         self.uuids.extend_from_slice(&uuids);
         self.string.push_str(&format!("{}{} {}", entity_alias, prop_name, string));
-        self.transition::<Condition>()
-    }
-    /// Generates a condition string.
-    /// # Example
-    /// ```rust
-    /// .condition(&entity, Some(&enity.prop), CompareOperator::Eq)
-    /// ```
-    /// The example above generates the following string:
-    /// ```rust
-    /// entityalias.prop = $where_prop11
-    /// ```
-    /// and asociated params.
-    pub fn condition<T: Neo4gEntity>(mut self, entity: &T, optional_prop: Option<&T::Props>, operator: CompareOperator) -> Where<Condition> {
-    //where T: Neo4gEntity, T::Props: Clone, F: FnOnce(&T) -> T::Props {
-        self.condition_number += 1;
-        let mut value = None;
-        let mut _name = String::new();
-        let mut dotname = String::new();
-        let alias = entity.get_alias();
-        if let Some(prop) = optional_prop {
-            let (prop_name, prop_value) = prop.to_query_param();
-            value = Some(prop_value);
-            _name = format!("_{}", prop_name);
-            dotname = format!(".{}", prop_name);
-        }
-        let param_name = format!("where_{}{}{}", &alias, _name, self.condition_number);
-        // println!("condition_alias: {}", &alias);
-        
-        match &operator {
-            CompareOperator::InVec(v) => {
-                self.string.push_str(&format!("{}{} {} ${}", &alias, dotname, operator.to_string(), &param_name));
-                self.params.insert(param_name, v.to_owned().into());
-            },
-            CompareOperator::InAlias(a) => {
-                self.string.push_str(&format!("{} {} {}", &alias, operator, a));
-            },
-            _ => {
-                if let Some(v) = value {
-                    self.string.push_str(&format!("{}{} {} ${}", &alias, dotname, operator.to_string(), &param_name));
-                    self.params.insert(param_name, v);
-                }
-            }
-        }
-            
-        // println!("{}: number{}", alias, self.condition_number);
-        self.transition::<Condition>()
-    }
-    /// Generates a condition string that calls a function.
-    /// # Example
-    /// ```rust
-    /// .condition_fn(&entity1, &entity1.prop, CompareOperator::Gt, Expr::from(Function::Floor(Expr::from_entity_and_prop_name(&entity2, prop!(entity2.prop)))))
-    /// ```
-    /// The example above generates the following string:
-    /// ```rust
-    /// entity1alias.prop > floor(entity2alias.prop)
-    /// ```
-    /// and asociated params.
-    pub fn condition_fn<A: Aliasable>(mut self, aliasable: &A, operator: CompareOperator, function: &mut Function) -> Where<Condition> {
-        // where T: Neo4gEntity, T::Props: Clone, F: FnOnce(&T) -> T::Props {
-            self.condition_number += 1;
-            let mut alias = aliasable.get_alias();
-            let uuid = aliasable.get_uuid();
-            if alias.is_empty() {
-                alias = uuid.to_string();
-                self.uuids.push(uuid);
-            }
-            let (query, uuids, params) = function.to_query_uuid_param();
-            self.uuids.extend(uuids);
-            self.string.push_str(&format!("{} {} {}", &alias, operator, query));
-            self.params.extend(params);
-            self.transition::<Condition>()
-        }
-        pub fn fn_condition(mut self, function: &mut Function, operator: CompareOperator, ) -> Where<Condition> {
-                self.condition_number += 1;
-                let (query, uuids, params) = function.to_query_uuid_param();
-                self.uuids.extend(uuids);
-                self.string.push_str(&format!("{} {}", query, operator.compare_to_inner()));
-                self.params.extend(params);
-                self.transition::<Condition>()
-            }
-    /// Generates a condition string that calls a function.
-    /// # Example
-    /// ```rust
-    /// .condition_fn_props(&entity1, &entity1.prop, CompareOperator::Gt, Expr::from(Function::Floor(Expr::from_entity_and_prop_name(&entity2, prop!(entity2.prop)))))
-    /// ```
-    /// The example above generates the following string:
-    /// ```rust
-    /// entity1alias.prop > floor(entity2alias.prop)
-    /// ```
-    /// and asociated params.
-    pub fn condition_fn_props<T: Neo4gEntity>(mut self, entity: &T, optional_prop: Option<&T::Props>, operator: CompareOperator, function: &mut Function) -> Where<Condition> {
-    // where T: Neo4gEntity, T::Props: Clone, F: FnOnce(&T) -> T::Props {
-        self.condition_number += 1;
-        let mut value = None;
-        let mut dotname = String::new();
-        if let Some(prop) = optional_prop {
-            let (prop_name, prop_value) = prop.to_query_param();
-            value = Some(prop_value);
-            dotname = format!(".{}", prop_name);
-        }
-        let alias = entity.get_alias();
-        let (query, uuids, params) = function.to_query_uuid_param();
-        self.uuids.extend(uuids);
-        self.string.push_str(&format!("{}{} {} {}", &alias, dotname, operator, query));
-        self.params.extend(params);
         self.transition::<Condition>()
     }
     /// Generates a condition string for an entity not being null.
@@ -1995,66 +1919,30 @@ pub enum OnString {
     None,
 }
 
-#[derive(Debug, Clone)]
-pub enum CompareOperator {
-    Eq(BoltType),
-    Gt(BoltType),
-    Ge(BoltType),
-    Lt(BoltType),
-    Le(BoltType),
-    Ne(BoltType),
-    InVec(Vec<BoltType>),
-    InAlias(String),
-    Function(Function, Box<CompareOperator>),
-}
-
-impl fmt::Display for CompareOperator {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            CompareOperator::Eq(_v) => "=",
-            CompareOperator::Gt(_v) => ">",
-            CompareOperator::Ge(_v) => ">=",
-            CompareOperator::Lt(_v) => "<",
-            CompareOperator::Le(_v) => "<=",
-            CompareOperator::Ne(_v) => "<>",
-            CompareOperator::InVec(_v) => "IN",
-            CompareOperator::InAlias(_v) => "IN",
-            CompareOperator::Function(_f, c) => &format!("{}", c),
-        };
-        write!(f, "{}", s)
-    }
-}
-
-impl CompareOperator {
-    fn compare_to_inner(&self) -> String { //should this emit a tuple so that aliases and uuids can be bubbled up?
-        let s = match self {
-            CompareOperator::Eq(v) => format!("= {}", v),
-            CompareOperator::Gt(v) => format!("> {}", v),
-            CompareOperator::Ge(v) => format!(">= {}", v),
-            CompareOperator::Lt(v) => format!("< {}", v),
-            CompareOperator::Le(v) => format!("<= {}", v),
-            CompareOperator::Ne(v) => format!("<> {}", v),
-            CompareOperator::InVec(v) => format!("IN {}", v.iter().map(|b| b.to_string()).collect::<Vec<String>>().join(", ")),
-            CompareOperator::InAlias(v) => format!("IN {}", v),
-            CompareOperator::Function(f, c) => format!("{} {}", c, f.to_query_uuid_param().0),
-        };
-        s
-    }
-}
-
 pub enum RefType {
     Ref,
     Val,
 }
 
-pub struct CompOper {
+pub struct CompareOperator {
     query: String,
     params: HashMap<String, BoltType>,
     uuids: Vec<Uuid>,
 }
 
-impl CompOper {
-    pub fn by_prop<Q: QueryParam>(operator: CompareOperatorEnum, prop: &Q, ref_or_val: RefType) -> Self {
+impl CompareOperator {
+    /// Generates the part of the condition string with the comparison operator and the right-hand-side.
+    /// # Example
+    /// ```rust
+    /// CompareOperator::by_prop(CompOper::Gt, &ValueProps::Int(0), RefType::Val)
+    /// CompareOperator::by_prop(CompOper::Eq, &entity.prop, RefType::Ref)
+    /// ```
+    /// the exmpales above generate:
+    /// ```rust
+    /// > co_intbeef // last 4 characters are from the uuid to decrease collision chance.
+    /// = entityalias.prop
+    /// ```
+    pub fn by_prop<Q: QueryParam>(operator: CompOper, prop: &Q, ref_or_val: RefType) -> Self {
         let (query, bolt) = prop.to_query_param();
         match ref_or_val {
             RefType::Ref => {
@@ -2076,7 +1964,20 @@ impl CompOper {
             }
         }
     }
-    pub fn by_aliasable<A: Aliasable>(operator: CompareOperatorEnum, aliasable: &A) -> Self {
+    /// Generates the part of the condition string with the comparison operator and the right-hand-side.
+    /// # Example
+    /// ```rust
+    /// CompareOperator::by_aliasable(CompOper::Eq, &entity)
+    /// CompareOperator::by_aliasable(CompOper::Gt, &function_call)
+    /// CompareOperator::by_aliasable(CompOper::In, &array)
+    /// ```
+    /// the exmpales above generate:
+    /// ```rust
+    /// = entityalias
+    /// > size(something) // can be any function call
+    /// IN arrayalias
+    /// ```
+    pub fn by_aliasable<A: Aliasable>(operator: CompOper, aliasable: &A) -> Self {
         let mut alias = aliasable.get_alias();
         let mut uuids = Vec::new();
         if alias.is_empty() {
@@ -2095,23 +1996,23 @@ impl CompOper {
     }
 }
 
-impl fmt::Display for CompareOperatorEnum {
+impl fmt::Display for CompOper {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
-            CompareOperatorEnum::Eq => "=",
-            CompareOperatorEnum::Gt => ">",
-            CompareOperatorEnum::Ge => ">=",
-            CompareOperatorEnum::Lt => "<",
-            CompareOperatorEnum::Le => "<=",
-            CompareOperatorEnum::Ne => "<>",
-            CompareOperatorEnum::In => "IN",
+            CompOper::Eq => "=",
+            CompOper::Gt => ">",
+            CompOper::Ge => ">=",
+            CompOper::Lt => "<",
+            CompOper::Le => "<=",
+            CompOper::Ne => "<>",
+            CompOper::In => "IN",
         };
         write!(f, "{}", s)
     }
 }
 
 #[derive(Debug, Clone)]
-pub enum CompareOperatorEnum {
+pub enum CompOper {
     Eq,
     Gt,
     Ge,
@@ -2120,49 +2021,6 @@ pub enum CompareOperatorEnum {
     Ne,
     In,
 }
-
-
-// fn bolt_type_to_string(bolt: BoltType) -> String {
-
-// }
-
-// impl From<&str> for CompareOperator {
-//     fn from(s: &str) -> Self {
-//         match s.to_lowercase().as_str() {
-//             "eq" => CompareOperator::Eq,
-//             "gt" => CompareOperator::Gt,
-//             "ge" => CompareOperator::Ge,
-//             "lt" => CompareOperator::Lt,
-//             "le" => CompareOperator::Le,
-//             "ne" => CompareOperator::Ne,
-//             _ => panic!("Invalid CompareOperator string: {}", s),
-//         }
-//     }
-// }
-
-impl From<&Array> for CompareOperator {
-    fn from(array: &Array) -> Self {
-        Self::InAlias(array.get_alias())
-    }
-}
-
-impl From<&FunctionCall> for CompareOperator {
-    fn from(fn_call: &FunctionCall) -> Self {
-        let alias: String;
-        if !fn_call.get_alias().is_empty() {
-            alias = fn_call.get_alias();
-        } else {
-            alias = "NotSet".to_owned();
-        }
-        Self::InAlias(alias)
-    }
-}
-
-// impl BoltTypeInComparison for FunctionCall {
-//     fn inside(&self) -> String {
-//         // you can't build the function call here - it needs to be passed into the query builder, unless the compare operator can bubble it through...
-//     }
-// }
 
 #[derive(Debug, Clone)]
 pub enum CompareJoiner {
@@ -2227,43 +2085,6 @@ impl From<&str> for Order {
         }
     }
 }
-
-// #[derive(Debug, Clone)]
-// pub struct FnArg {
-//     alias: String,
-//     uuid: Uuid,
-//     prop_names: Vec<String>,
-//     params: HashMap<String, BoltType>,
-// }
-
-// impl Aliasable for FnArg {
-//     fn get_alias(&self) -> String {
-//         self.alias.clone()
-//     }
-//     fn set_alias(&mut self, alias: &str) -> () {
-//         self.alias = alias.to_owned();
-//     }
-//     fn get_uuid(&self) -> Uuid {
-//         self.uuid.clone()
-//     }
-// }
-   
-// impl FnArg {
-//     pub fn from_props<T: Neo4gEntity>(entity: &T, props: &[&T::Props]) -> Self {
-//         let mut params: HashMap<String, BoltType> = HashMap::new();
-//         let prop_names = props.iter().map(|prop| {
-//             let (name, value) = prop.to_query_param();
-//             params.insert(format!("fnarg_{}_{}", entity.get_alias(), name), value);
-//             name.to_string()
-//         }).collect::<Vec<String>>();
-//         Self {
-//             alias: entity.get_alias(),
-//             uuid: Uuid::new_v4(),
-//             prop_names,
-//             params,
-//         }
-//     }
-// }
 
 #[derive(Clone, Debug)]
 pub struct FunctionCall {
@@ -2421,19 +2242,6 @@ impl From<Function> for Expr {
     }
 }
 
-// impl From<FnArg> for Expr {
-//     fn from(value: FnArg) -> Self {
-//         let expr = InnerExpr::Raw(value.prop_names.iter().map(|prop|{
-//             format!("{}.{}", &value.alias, prop)
-//         }).collect::<Vec<String>>().join(", "));
-//         Self {
-//             expr,
-//             uuids: Vec::new(),
-//             params: value.params,
-//         }
-//     }
-// }
-
 impl<A: Aliasable> From<&A> for Expr {
     fn from(aliasable: &A) -> Self {
         Self {
@@ -2454,32 +2262,3 @@ impl <A: Aliasable> From<&[&A]> for Expr {
         }
     }
 }
-
-
-// See conversation: https://chatgpt.com/c/67f2becb-e4cc-8013-8c50-c40598488122
-
-
-// impl fmt::Display for Function {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         match self {
-//             Function::Id(expr) => write!(f, "id({})", expr),
-//             Function::Coalesce(exprs) => {
-//                 let joined = exprs.iter()
-//                     .map(|e| e.to_string())
-//                     .collect::<Vec<_>>()
-//                     .join(", ");
-//                 write!(f, "coalesce({})", joined)
-//             }
-//             Function::Exists(expr) => write!(f, "exists({})", expr),
-//         }
-//     }
-// }
-
-// impl fmt::Display for Expr {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         match &self.expr {
-//             InnerExpr::Raw(s) => write!(f, "{}", s),
-//             InnerExpr::Func(func) => write!(f, "{}", func),
-//         }
-//     }
-// }

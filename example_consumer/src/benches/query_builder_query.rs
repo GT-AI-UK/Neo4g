@@ -1,7 +1,7 @@
 use crate::entity_wrapper::{EntityWrapper, Label};
 use crate::objects::{Group, GroupProps, MemberOf, MemberOfProps, User, UserProps, UserTemplate, Page, PageProps, PageTemplate, Component, ComponentProps, ComponentTemplate, ComponentType, HasComponent, HasComponentTemplate, HasComponentProps};
 use chrono::{NaiveDateTime, Utc};
-use neo4g::query_builder::{self, CompareJoiner, CompareOperator, Neo4gBuilder, Where};
+use neo4g::query_builder::{self, CompareJoiner, CompareOperator, CompOper, Neo4gBuilder, Where};
 use neo4g::traits::WrappedNeo4gEntity;
 use neo4g_macro_rules::{no_props, prop, props};
 use neo4rs::Graph;
@@ -38,13 +38,7 @@ pub async fn query_builder_query_bench() {
             .relation(&mut hcrel1, no_props!())
             .node(&mut component1, props!(component1 => component1.id))
             .filter(Where::new()
-                .condition(&page1, Some(&page1.id), CompareOperator::Eq("pid4".into()))
-                .join(CompareJoiner::And)
-                .nest(|inner| {
-                    inner.condition(&component1, Some(&ComponentProps::Id("asdfasdf".into())), CompareOperator::Ne("asdf-=#=".into()))
-                    .join(CompareJoiner::And)
-                    .condition(&component2, Some(&ComponentProps::Id("asdfasdfasdf".into())), CompareOperator::Ne("324rsafvs".into()))
-                })
+                .condition_prop(&page1, Some(&page1.id), CompareOperator::by_prop(CompOper::Eq, &page1.id, query_builder::RefType::Val))
             )
         .end_statement()
         .run_query(graph, EntityWrapper::from_db_entity).await;
