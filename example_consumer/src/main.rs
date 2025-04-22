@@ -29,7 +29,7 @@ async fn main() {
     let mut component2 = Component::new("cid4", "path4", ComponentType::Type2, Utc::now().naive_local(), Utc::now().naive_local(), false);
     let mut hcrel1 = HasComponent::default();
     let mut hcrel2 = HasComponent::default();
-    let mut page1 = Page::new("pid4", "p1sadfpath234", vec![component1.clone(), component2.clone()], Utc::now().naive_local(), Utc::now().naive_local(), false);
+    let mut page1 = Page::new("pid4", "p1sadfpath234", vec![component1.clone().into(), component2.clone().into()], Utc::now().naive_local(), Utc::now().naive_local(), false);
     let mut page2 = Page::new("pid99", "DID IT WORK?!", Vec::new(), Utc::now().naive_local(), Utc::now().naive_local(), false);
     let mut page3 = Page::new("pid6", "DID IT WORK?!", Vec::new(), Utc::now().naive_local(), Utc::now().naive_local(), false);
     let mut array1 = Array::new("array1", vec!["cid3".into(), "cid4".into()]);

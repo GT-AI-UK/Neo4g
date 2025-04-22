@@ -349,6 +349,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
     
     // Generate a constructor method for the generated struct.
     let generated_constructor = quote! {
+        #[cfg(feature = "ssr")]
         impl #new_struct_name {
             pub fn new( #(#constructor_params),* ) -> Self {
                 Self {
@@ -360,8 +361,9 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
             }
         }
     };
-
+    
     let generated_default = quote! {
+        #[cfg(feature = "ssr")]
         impl Default for #new_struct_name {
             fn default() -> Self {
                 Self {
@@ -404,6 +406,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
 
     // Generate the impl block for the new struct with accessor methods
     let struct_impl = quote! {
+        #[cfg(feature = "ssr")]
         impl #new_struct_name {
             #(#struct_accessor_methods)*
         }
@@ -503,6 +506,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
         }).collect();
 
         let to_template_impl = quote! {
+            #[cfg(feature = "ssr")]
             impl From<#new_struct_name> for #struct_name {
                 fn from(new: #new_struct_name) -> Self {
                     Self {
@@ -527,6 +531,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
         }).collect();
 
         let from_template_impl = quote! {
+            #[cfg(feature = "ssr")]
             impl From<#struct_name> for #new_struct_name {
                 fn from(template: #struct_name) -> Self {
                     Self {
@@ -549,12 +554,13 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
     // Assemble the final output.
     let expanded = quote! {
         // Generated Props enum.
+        #[cfg(feature = "ssr")]
         #[derive(Debug, Clone, Serialize, Deserialize)]
         pub enum #props_enum_name {
             #(#props_enum_variants),*,
             #(#props_enum_current_variants),*
         }
-
+        #[cfg(feature = "ssr")]
         impl QueryParam for #props_enum_name {
             fn to_query_param(&self) -> (&'static str, BoltType) {
                 match self {
@@ -563,12 +569,13 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
                 }
             }
         }
-
+        #[cfg(feature = "ssr")]
         impl #props_enum_name {
             #(#props_accessor_methods)*
         }
 
         // Generated new struct (e.g., `User` from `UserTemplate`) whose fields are wrapped in the Props enum.
+        #[cfg(feature = "ssr")]
         #[derive(Debug, Clone, Serialize, Deserialize)]
         pub struct #new_struct_name {
             pub alias: String,
@@ -578,6 +585,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
         }
 
         // Implement the Neo4gEntity trait from neo4g_traits.
+        #[cfg(feature = "ssr")]
         impl Neo4gEntity for #new_struct_name {
             type Props = #props_enum_name;
 
@@ -602,6 +610,7 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
             }
         }
 
+        #[cfg(feature = "ssr")]
         impl Aliasable for #new_struct_name {
             fn set_alias(&mut self, alias: &str) {
                 self.set_entity_alias(alias);
@@ -614,12 +623,14 @@ let struct_accessor_methods: Vec<_> = all_fields_full.iter().map(|field| {
             }
         }
 
+        #[cfg(feature = "ssr")]
         impl Paramable for #new_struct_name {
             fn to_query_uuid_param(&self) -> (String, Vec<Uuid>, HashMap<String, BoltType>) {
                 (self.get_entity_alias(), Vec::new(), HashMap::new())
             }
         }
-        
+
+        #[cfg(feature = "ssr")]
         impl #new_struct_name {
             #get_node_entity_type_fn
             #wrap_fn

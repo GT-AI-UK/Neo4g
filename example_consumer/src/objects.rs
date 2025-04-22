@@ -62,7 +62,7 @@ pub struct PageTemplate {
     id: String,
     path: String,
     #[not_query_param]
-    components: Vec<Component>,
+    components: Vec<ComponentTemplate>,
     created: NaiveDateTime,
     updated: NaiveDateTime,
     deleted: bool,

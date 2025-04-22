@@ -13,7 +13,7 @@ pub fn query_builder_string_bench() {
     let mut component2 = Component::new("cid73", "path16", ComponentType::Type2, Utc::now().naive_local(), Utc::now().naive_local(), false);
     let mut hcrel1 = HasComponent::default();
     let mut hcrel2 = HasComponent::default();
-    let mut page1 = Page::new("pid4", "ppath4", vec![component1.clone(), component2.clone()], Utc::now().naive_local(), Utc::now().naive_local(), false);
+    let mut page1 = Page::new("pid4", "ppath4", vec![component1.clone().into(), component2.clone().into()], Utc::now().naive_local(), Utc::now().naive_local(), false);
     let result = Neo4gBuilder::new()
         .get()
             .node(&mut page1, props!(page1 => page1.id))
