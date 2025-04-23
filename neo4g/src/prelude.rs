@@ -1,3 +1,4 @@
+#[cfg(feature = "ssr")]
 pub use crate::{
     query_builder::{
         Neo4gBuilder,
@@ -24,6 +25,7 @@ pub use crate::{
     }
 };
 
+#[cfg(feature = "ssr")]
 pub use neo4rs::{
     Graph,
     Node,
@@ -49,6 +51,7 @@ pub use heck::{
     ToPascalCase,
 };
 
+#[cfg(feature = "ssr")]
 pub use uuid::Uuid;
 
 pub use std::collections::HashMap;
@@ -57,6 +60,7 @@ pub use chrono::{NaiveDateTime, Utc, Local};
 
 pub use serde::{Serialize, Deserialize};
 
+#[cfg(feature = "ssr")]
 pub use neo4g_derive::{
     Neo4gProp,
     Neo4gEntityWrapper,
@@ -65,6 +69,13 @@ pub use neo4g_derive::{
     not_query_param,
 };
 
+#[cfg(feature = "hydrate")]
+pub use neo4g_derive::{
+    Neo4gNode,
+    Neo4gRelation,
+};
+
+#[cfg(feature = "ssr")]
 pub use neo4g_macro_rules::{
     prop,
     props,
