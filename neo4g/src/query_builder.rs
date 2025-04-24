@@ -49,7 +49,7 @@ impl Neo4gBuilder<Empty> {
         Self {
             query: String::new(),
             params: HashMap::new(),
-            entity_aliases: HashMap::new(),
+            entity_aliases: parent.entity_aliases.clone(),
             node_number: parent.node_number,
             relation_number: parent.relation_number,
             unwind_number: parent.unwind_number,
