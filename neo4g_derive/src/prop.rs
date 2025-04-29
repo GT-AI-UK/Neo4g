@@ -59,6 +59,7 @@ pub fn generate_neo4g_prop(input: TokenStream) -> TokenStream {
             }
         }
 
+        #[cfg(feature = "ssr")]
         impl From<#enum_name> for BoltType {
             fn from(value: #enum_name) -> Self {
                 BoltType::String(format!("{}", value).into())
