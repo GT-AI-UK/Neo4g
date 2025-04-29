@@ -66,6 +66,7 @@ pub fn generate_neo4g_prop(input: TokenStream) -> TokenStream {
             }
         }
 
+        #[cfg(feature = "ssr")]
         impl Prop for #enum_name {}
     };
 
