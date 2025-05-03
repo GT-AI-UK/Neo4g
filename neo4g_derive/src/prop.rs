@@ -3,6 +3,11 @@ use quote::{quote, format_ident};
 use syn::{parse_macro_input, DeriveInput};
 
 pub fn generate_neo4g_prop(input: TokenStream) -> TokenStream {
+    let conditional_attr = if cfg!(feature = "leptos") {
+        quote! { #[cfg(feature = "ssr")] }
+    } else {
+        quote! {}
+    };
     let input = parse_macro_input!(input as DeriveInput);
     let enum_name = &input.ident;
 
@@ -59,14 +64,14 @@ pub fn generate_neo4g_prop(input: TokenStream) -> TokenStream {
             }
         }
 
-        #[cfg(feature = "ssr")]
+        #conditional_attr
         impl From<#enum_name> for BoltType {
             fn from(value: #enum_name) -> Self {
                 BoltType::String(format!("{}", value).into())
             }
         }
 
-        #[cfg(feature = "ssr")]
+        #conditional_attr
         impl Prop for #enum_name {}
     };
 

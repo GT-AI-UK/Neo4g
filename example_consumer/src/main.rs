@@ -3,7 +3,7 @@ use example_consumer::objects::{Group, GroupProps, MemberOf, MemberOfProps, User
 
 use dotenv::dotenv; 
 use std::{env, vec};
-use neo4g::prelude::*;
+use neo4g::prelude::ssr::*;
 
 pub async fn connect_neo4j() -> Graph { //return db object, run on startup, bind to state var
 
@@ -46,7 +46,7 @@ async fn main() {
     //complex, real-world query test
     let result = Neo4gBuilder::new()
         .merge()
-            .node(&mut user, props!(user => user.id))
+            .node(&mut user, props!(user => user.name))
             .on_create()
                 .set(&user, props!(user => user.name, user.forename, user.surname, user.password, user.deleted))
             .on_match()
@@ -92,7 +92,7 @@ async fn main() {
                 .end_statement()
         })
         .get()
-            .node(&mut user, props!(user => user.id)).add_to_return()
+            .node(&mut user, props!(user => user.name)).add_to_return()
         .end_statement()
         .run_query(graph, EntityWrapper::from_db_entity).await;
                 
