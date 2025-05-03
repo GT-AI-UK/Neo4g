@@ -1,4 +1,5 @@
-use neo4g::prelude::ssr::*;
+use neo4g::prelude::*;
+pub use neo4g_derive::*;
 use crate::entity_wrapper::{EntityWrapper, Nothing};
 
 #[derive(Neo4gNode, Serialize, Deserialize, Debug, Clone)]
