@@ -5,6 +5,7 @@ use dotenv::dotenv;
 use std::{env, vec};
 use neo4g::prelude::*;
 use neo4g_derive::*;
+use neo4g_macro_rules::*;
 
 pub async fn connect_neo4j() -> Graph { //return db object, run on startup, bind to state var
 
