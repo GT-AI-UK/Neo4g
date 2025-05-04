@@ -531,7 +531,7 @@ impl Neo4gCreateStatement<CreatedNode> {
     /// The example above inserts the labels within a node object, eg. (node1:Node) becomes (node1:Node:Any:SysObj):
     pub fn set_additional_labels<T: Neo4gLabel>(mut self, labels: &[T]) -> Self {
         let additional_lables: Vec<String> = labels.iter().map(|l| l.to_string()).collect();
-        self.query = self.query.replace(":AdditionalLabels", &additional_lables.join(":"));
+        self.query = self.query.replace("AdditionalLabels", &additional_lables.join(":"));
         self
     }
 }
@@ -742,7 +742,7 @@ impl Neo4gMergeStatement<CreatedNode> {
     /// The example above inserts the labels within a node object, eg. (node1:Node) becomes (node1:Node:Any:SysObj):
     pub fn set_additional_labels<T: Neo4gLabel>(mut self, labels: &[T]) -> Self {
         let additional_lables: Vec<String> = labels.iter().map(|l| l.to_string()).collect();
-        self.query = self.query.replace(":AdditionalLabels", &additional_lables.join(":"));
+        self.query = self.query.replace("AdditionalLabels", &additional_lables.join(":"));
         self
     }
 }
@@ -1034,7 +1034,7 @@ impl Neo4gMatchStatement<MatchedNode> {
     /// The example above inserts the labels within a node object, eg. (node1:Node) becomes (node1:Node:Any:SysObj):
     pub fn set_additional_labels<T: Neo4gLabel>(mut self, labels: &[T]) -> Self {
         let additional_lables: Vec<String> = labels.iter().map(|l| l.to_string()).collect();
-        self.query = self.query.replace(":AdditionalLabels", &additional_lables.join(":"));
+        self.query = self.query.replace("AdditionalLabels", &additional_lables.join(":"));
         self
     }
 }
