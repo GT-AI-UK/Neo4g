@@ -572,7 +572,7 @@ impl<Q: CanNode> Neo4gMergeStatement<Q> {
         let alias = format!("{}{}", label.to_lowercase(), self.node_number);
         entity.set_alias(&alias);
         let name = format!("{}:{}:AdditionalLabels", &alias, &label);
-        self.previous_entity = Some((alias.clone(), EntityType::Node));
+        self.previous_entity = Some((name.clone(), EntityType::Node));
         if props.is_empty() {
             self.query.push_str(&format!("({})", name));
         } else {
