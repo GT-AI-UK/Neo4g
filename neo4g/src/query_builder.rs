@@ -1229,7 +1229,8 @@ impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
         self.order_by_str.push_str(&format!("{}.{} {}", alias, &name, order.to_string()));
         self
     }
-    /// Runs the query against a provided Graph and returns the registered return objects.
+    /// Runs the query against a provided Graph and returns the registered return objects in nested Vecs.
+    /// The outer Vec contains Vecs that represent rows. The inner Vec contains wrapped entities within each row.
     /// # Example:
     /// ```rust
     /// .run_query(graph, EntityWrapper::from_db_entity).await;
