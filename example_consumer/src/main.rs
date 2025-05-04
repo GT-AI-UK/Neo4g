@@ -96,9 +96,22 @@ async fn main() {
         .get()
             .node(&mut user, props!(user => user.name)).add_to_return()
         .end_statement()
-        .run_query(graph, EntityWrapper::from_db_entity).await;
+        .run_query(graph.clone(), EntityWrapper::from_db_entity).await;
                 
     println!("{:?}", result);
+
+
+    let mut user = User::new("8f8c54b6-5d22-45d6-9a24-dfacaa8d37f5", "admin", "8f327a097ce4b035bd0425c9782f756c4b3e6a080bae8ad2b139cbc6c31e6575", "system3", "user3", Vec::new(), Utc::now().naive_local(), Utc::now().naive_local(), false);
+    let mut group = Group::new("8f8c54b6-5d22-45d6-9a24-dfacaa8d37f6", "default_access", Utc::now().naive_local(), Utc::now().naive_local(), false);
+    let mut member_of = MemberOf::new(Utc::now().naive_local(), Utc::now().naive_local(), false);
+    let result = Neo4gBuilder::new()
+        .get()
+            .node(&mut user, no_props!()).add_to_return()
+            .relation(&mut member_of, no_props!()).add_to_return()
+            .node(&mut group, no_props!()).add_to_return()
+        .end_statement()
+        .run_query(graph, EntityWrapper::from_db_entity).await;
+    dbg!(result);
     // !!Functional MERGE Query:
     // let result = Neo4gBuilder::new()
     // .merge()
