@@ -1229,6 +1229,24 @@ impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
         self.order_by_str.push_str(&format!("{}.{} {}", alias, &name, order.to_string()));
         self
     }
+    /// Appends RETURN statement and UNION keyword to the query.
+    /// USE WITH CAUTION - RETURN ALIASES MUST MATCH!
+    pub fn union(mut self) -> Neo4gBuilder<WithConditioned> {
+        if !self.return_refs.is_empty() {
+            self.query.push_str("\nRETURN ");
+            let aliases: Vec<&str> = self.return_refs.iter().map(|(alias, _)| alias.as_str()).collect();
+            self.query.push_str(&aliases.join(", "));
+        }
+        self.query.push_str("\nUNION");
+        self.previous_entity = None;
+        self.node_number = 0;
+        self.relation_number = 0;
+        self.set_number = 0;
+        self.with_number = 0;
+        self.unwind_number = 0;
+        self.return_refs.clear();
+        self.transition::<WithConditioned>()
+    }
     /// Runs the query against a provided Graph and returns the registered return objects in nested Vecs.
     /// The outer Vec contains Vecs that represent rows. The inner Vec contains wrapped entities within each row.
     /// # Example:
