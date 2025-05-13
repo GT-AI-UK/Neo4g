@@ -7,7 +7,7 @@ use std::vec;
 use uuid::Uuid;
 use crate::traits::*;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone)]
 pub struct Neo4gBuilder<State> {
@@ -19,7 +19,7 @@ pub struct Neo4gBuilder<State> {
     unwind_number: u32,
     set_number: u32,
     with_number: u32,
-    return_refs: Vec<(String, EntityType)>,
+    return_refs: HashSet<(String, EntityType)>,
     order_by_str: String,
     previous_entity: Option<(String, EntityType)>,
     clause: Clause,
@@ -39,7 +39,7 @@ impl Neo4gBuilder<Empty> {
             unwind_number: 0,
             set_number: 0,
             with_number: 0,
-            return_refs: Vec::new(),
+            return_refs: HashSet::new(),
             order_by_str: String::new(),
             previous_entity: None,
             clause: Clause::None,
@@ -57,7 +57,7 @@ impl Neo4gBuilder<Empty> {
             unwind_number: parent.unwind_number,
             set_number: parent.set_number,
             with_number: parent.with_number,
-            return_refs: Vec::new(),
+            return_refs: HashSet::new(),
             order_by_str: String::new(),
             previous_entity: None,
             clause: Clause::None,
@@ -124,7 +124,7 @@ impl<Q: CanCreate> Neo4gBuilder<Q> {
     }
 }
 
-impl<Q: CanMatch> Neo4gBuilder<Q> {
+impl<Q: CanMatch+Debug> Neo4gBuilder<Q> {
     /// Generates a CALL call
     /// # Example
     /// ```rust
@@ -147,7 +147,7 @@ impl<Q: CanMatch> Neo4gBuilder<Q> {
     /// NOTE: You can't return anything from within a CALL block. This is a limitation of Neo4j.
     /// pub fn call<A, F, B>(mut self, entities_to_alias: &[&A], inner_builder_closure: F) -> Neo4gBuilder<Called>
     pub fn call<F, B>(mut self, inner_builder_closure: F) -> Neo4gBuilder<Called>
-    where F: FnOnce(Neo4gBuilder<Empty>) -> Neo4gBuilder<B>, B: PossibleQueryEnd {
+    where F: FnOnce(Neo4gBuilder<Empty>) -> Neo4gBuilder<B>, B: PossibleQueryEnd+Debug {
         let inner_builder = Neo4gBuilder::new_with_parent(&self);
         let (
             query,
@@ -166,7 +166,7 @@ impl<Q: CanMatch> Neo4gBuilder<Q> {
         self.set_number = set_number;
         self.with_number = with_number;
         self.unwind_number = unwind_number;
-        self.return_refs.extend_from_slice(&return_refs);
+        return_refs.iter().map(|i| self.return_refs.insert(i.clone()));
         self.query.push_str(format!("\nCALL {{{} \n}}", &query).as_str());
         //self.query.push_str(format!("\nCALL {{\n{}\n}}", &query).as_str());
         self.params.extend(params);
@@ -194,7 +194,7 @@ impl<Q: CanMatch> Neo4gBuilder<Q> {
     /// NOTE: You can't return anything from within a CALL block. This is a limitation of Neo4j.
     /// pub fn call<A, F, B>(mut self, entities_to_alias: &[&A], inner_builder_closure: F) -> Neo4gBuilder<Called>
     pub fn call_with<F, B, W>(mut self, wrapped_slice: &[W], inner_builder_closure: F) -> Neo4gBuilder<Called>
-    where W: WrappedNeo4gEntity, F: FnOnce(Neo4gBuilder<Empty>) -> Neo4gBuilder<B>, B: PossibleQueryEnd {
+    where W: WrappedNeo4gEntity, F: FnOnce(Neo4gBuilder<Empty>) -> Neo4gBuilder<B>, B: PossibleQueryEnd+Debug {
         let inner_builder = Neo4gBuilder::new_with_parent(&self);
         let (
             query,
@@ -213,7 +213,7 @@ impl<Q: CanMatch> Neo4gBuilder<Q> {
         self.set_number = set_number;
         self.with_number = with_number;
         self.unwind_number = unwind_number;
-        self.return_refs.extend_from_slice(&return_refs);
+        return_refs.iter().map(|i| self.return_refs.insert(i.clone()));
         let aliases: Vec<String> = wrapped_slice.iter().map(|entity| {
             entity.get_alias()
         }).collect();
@@ -307,7 +307,7 @@ impl<Q: CanMatch> Neo4gBuilder<Q> {
     }
 }
 
-impl<Q: CanWith> Neo4gBuilder<Q> {
+impl<Q: CanWith+Debug> Neo4gBuilder<Q> {
     /// Appends WITH to the query and exposes further methods to craft a WITH string. 
     /// # Examples
     /// ```rust
@@ -331,7 +331,7 @@ impl<Q: CanWith> Neo4gBuilder<Q> {
     }
 }
 
-impl<Q: CanSetWith> Neo4gBuilder<Q> {
+impl<Q: CanSetWith+Debug> Neo4gBuilder<Q> {
         /// Generates comma separated entity aliases.
         /// # Example
         /// ```rust
@@ -440,7 +440,7 @@ impl Neo4gBuilder<WithCondition> {
 }
 
 //Create statement methods
-impl<Q: CanNode> Neo4gCreateStatement<Q> {
+impl<Q: CanNode+Debug> Neo4gCreateStatement<Q> {
     /// Generates a node query object. 
     /// Uses all of the properties of the node object as properties of the node in the database.
     /// # Example
@@ -557,7 +557,7 @@ impl Neo4gCreateStatement<CreatedNode> {
 impl <Q: CanAddReturn> Neo4gCreateStatement<Q> {
     pub fn add_to_return(mut self) -> Self {
         if let Some((alias, entity_type)) = self.previous_entity.clone() {
-            self.return_refs.push((alias, entity_type));
+            self.return_refs.insert((alias, entity_type));
         }
         self
     }
@@ -571,7 +571,7 @@ impl <Q: PossibleStatementEnd> Neo4gCreateStatement<Q> {
 }
 
 //Merge statement methods
-impl<Q: CanNode> Neo4gMergeStatement<Q> {
+impl<Q: CanNode+Debug> Neo4gMergeStatement<Q> {
     /// Generates a node query object. 
     /// Uses the props! macro to set the conditions for the MERGE.
     /// # Example
@@ -800,7 +800,7 @@ impl Neo4gMergeStatement<CreatedNode> {
 impl <Q: CanAddReturn> Neo4gMergeStatement<Q> {
     pub fn add_to_return(mut self) -> Self {
         if let Some((alias, entity_type)) = self.previous_entity.clone() {
-            self.return_refs.push((alias, entity_type));
+            self.return_refs.insert((alias, entity_type));
         }
         self
     }
@@ -891,7 +891,7 @@ impl <Q: PossibleStatementEnd> Neo4gMergeStatement<Q> {
 }
 
 //Match statement methods
-impl<Q: CanNode> Neo4gMatchStatement<Q> {
+impl<Q: CanNode+Debug> Neo4gMatchStatement<Q> {
     /// Generates a node query object. 
     /// Uses the props! macro to set the conditions for the MATCH.
     /// # Example
@@ -1119,12 +1119,12 @@ impl Neo4gMatchStatement<MatchedNode> {
 impl <Q: CanAddReturn> Neo4gMatchStatement<Q> {
     pub fn add_to_return(mut self) -> Self {
         if let Some((alias, entity_type)) = self.previous_entity.clone() {
-            self.return_refs.push((alias, entity_type));
+            self.return_refs.insert((alias, entity_type));
         }
         self
     }
 }
-impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> {
+impl <Q: PossibleStatementEnd+Debug> Neo4gMatchStatement<Q> {
     /// Generates a WHERE call
     /// # Example
     /// ```rust
@@ -1228,7 +1228,7 @@ impl <Q: PossibleStatementEnd> Neo4gMatchStatement<Q> {
     }
 }
 //Statement combiners
-impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
+impl <Q: PossibleQueryEnd+Debug> Neo4gBuilder<Q> {
     /// Builds the query and params. This is used by .call(), and should otherwise not be used unless you know what you're doing. 
     /// It has to be a pub fn to allow .call() to work as intended, but is not intended for use by API consumers.
     pub fn build(self) -> (String, HashMap<String, BoltType>) {
@@ -1378,7 +1378,7 @@ impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub enum EntityType {
     Node,
     Relation,
@@ -1408,7 +1408,7 @@ pub struct Neo4gMatchStatement<State> {
     with_number: u32,
     where_str: String,
     set_str: String,
-    return_refs: Vec<(String, EntityType)>,
+    return_refs: HashSet<(String, EntityType)>,
     previous_entity: Option<(String, EntityType)>,
     clause: Clause,
     unioned: bool,
@@ -1428,7 +1428,7 @@ pub struct Neo4gMergeStatement<State> {
     on_create_str: String,
     on_match_str: String,
     current_on_str: OnString,
-    return_refs: Vec<(String, EntityType)>,
+    return_refs: HashSet<(String, EntityType)>,
     previous_entity: Option<(String, EntityType)>,
     clause: Clause,
     unioned: bool,
@@ -1445,14 +1445,14 @@ pub struct Neo4gCreateStatement<State> {
     unwind_number: u32,
     set_number: u32,
     with_number: u32,
-    return_refs: Vec<(String, EntityType)>,
+    return_refs: HashSet<(String, EntityType)>,
     previous_entity: Option<(String, EntityType)>,
     clause: Clause,
     unioned: bool,
     _state: PhantomData<State>,
 }
 
-impl<S> Neo4gBuilder<S> {
+impl<S: Debug> Neo4gBuilder<S> {
     /// Consumes self and returns a new builder with the marker type changed to NewState.
     fn transition<NewState>(self) -> Neo4gBuilder<NewState> {
         let Neo4gBuilder {
@@ -1488,15 +1488,15 @@ impl<S> Neo4gBuilder<S> {
             _state: std::marker::PhantomData,
         }
     }
-    fn build_inner(self) -> (String, HashMap<String, BoltType>, HashMap<Uuid, String>, u32, u32, u32, u32, u32, Vec<(String, EntityType)>) {
+    fn build_inner(self) -> (String, HashMap<String, BoltType>, HashMap<Uuid, String>, u32, u32, u32, u32, u32, HashSet<(String, EntityType)>) {
         (self.query, self.params, self.entity_aliases, self.node_number, self.relation_number, self.unwind_number, self.set_number, self.with_number, self.return_refs)
     }
-    pub fn debug() {
-        todo!()
+    pub fn debug(self) {
+        dbg!(&self);
     }
 }
 
-impl<S> Neo4gMatchStatement<S> {
+impl<S: Debug> Neo4gMatchStatement<S> {
     /// Consumes self and returns a new builder with the marker type changed to NewState.
     fn transition<NewState>(self) -> Neo4gMatchStatement<NewState> {
         let Neo4gMatchStatement {
@@ -1534,12 +1534,12 @@ impl<S> Neo4gMatchStatement<S> {
             _state: std::marker::PhantomData,
         }
     }
-    pub fn debug() {
-        todo!()
+    pub fn debug(self) {
+        dbg!(&self);
     }
 }
 
-impl<S> Neo4gMergeStatement<S> {
+impl<S: Debug> Neo4gMergeStatement<S> {
     /// Consumes self and returns a new builder with the marker type changed to NewState.
     fn transition<NewState>(self) -> Neo4gMergeStatement<NewState> {
         let Neo4gMergeStatement {
@@ -1579,12 +1579,12 @@ impl<S> Neo4gMergeStatement<S> {
             _state: std::marker::PhantomData,
         }
     }
-    pub fn debug() {
-        todo!()
+    pub fn debug(self) {
+        dbg!(&self);
     }
 }
 
-impl<S> Neo4gCreateStatement<S> {
+impl<S: Debug> Neo4gCreateStatement<S> {
     /// Consumes self and returns a new builder with the marker type changed to NewState.
     fn transition<NewState>(self) -> Neo4gCreateStatement<NewState> {
         let Neo4gCreateStatement {
@@ -1618,8 +1618,8 @@ impl<S> Neo4gCreateStatement<S> {
             _state: std::marker::PhantomData,
         }
     }
-    pub fn debug() {
-        todo!()
+    pub fn debug(self) {
+        dbg!(&self);
     }
 }
 
