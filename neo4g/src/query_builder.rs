@@ -23,6 +23,7 @@ pub struct Neo4gBuilder<State> {
     order_by_str: String,
     previous_entity: Option<(String, EntityType)>,
     clause: Clause,
+    unioned: bool,
     _state: PhantomData<State>,
 }
 
@@ -42,6 +43,7 @@ impl Neo4gBuilder<Empty> {
             order_by_str: String::new(),
             previous_entity: None,
             clause: Clause::None,
+            unioned: false,
             _state: PhantomData,
         }
     }
@@ -59,6 +61,7 @@ impl Neo4gBuilder<Empty> {
             order_by_str: String::new(),
             previous_entity: None,
             clause: Clause::None,
+            unioned: false,
             _state: PhantomData,
         }
     }
@@ -453,8 +456,16 @@ impl<Q: CanNode> Neo4gCreateStatement<Q> {
     { //where EntityWrapper: From<T>, T: Clone {
         self.node_number += 1;
         let label = entity.get_label();
-        let alias = format!("{}{}", label.to_lowercase(), self.node_number);
-        entity.set_alias(&alias);
+        let mut alias = format!("{}{}", label.to_lowercase(), self.node_number);
+        if self.unioned {
+            if let Some(a) = self.entity_aliases.get(&entity.get_uuid()) {
+                alias = a.to_owned();
+            } else {
+                entity.set_alias(&alias);
+            }
+        } else {
+            entity.set_alias(&alias);
+        }
         let name = format!("{}:{}:AdditionalLabels", &alias, &label);
         self.previous_entity = Some((alias.clone(), EntityType::Node));
         self.entity_aliases.insert(entity.get_uuid(), alias);
@@ -495,8 +506,16 @@ impl Neo4gCreateStatement<CreatedNode> {
     { //where EntityWrapper: From<T>, T: Clone {
         self.relation_number += 1;
         let label = entity.get_label();
-        let alias = format!("{}{}", label.to_lowercase(), self.relation_number);
-        entity.set_alias(&alias);
+        let mut alias = format!("{}{}", label.to_lowercase(), self.relation_number);
+        if self.unioned {
+            if let Some(a) = self.entity_aliases.get(&entity.get_uuid()) {
+                alias = a.to_owned();
+            } else {
+                entity.set_alias(&alias);
+            }
+        } else {
+            entity.set_alias(&alias);
+        }
         let name = format!("{}:{}", &alias, &label);
         self.previous_entity = Some((alias.clone(), EntityType::Relation));
         self.entity_aliases.insert(entity.get_uuid(), alias);
@@ -569,8 +588,16 @@ impl<Q: CanNode> Neo4gMergeStatement<Q> {
         self.node_number += 1;
         let props = props_macro(entity);
         let label = entity.get_label();
-        let alias = format!("{}{}", label.to_lowercase(), self.node_number);
-        entity.set_alias(&alias);
+        let mut alias = format!("{}{}", label.to_lowercase(), self.node_number);
+        if self.unioned {
+            if let Some(a) = self.entity_aliases.get(&entity.get_uuid()) {
+                alias = a.to_owned();
+            } else {
+                entity.set_alias(&alias);
+            }
+        } else {
+            entity.set_alias(&alias);
+        }
         let name = format!("{}:{}:AdditionalLabels", &alias, &label);
         self.previous_entity = Some((name.clone(), EntityType::Node));
         if props.is_empty() {
@@ -649,8 +676,16 @@ impl Neo4gMergeStatement<CreatedNode> {
         self.relation_number += 1;
         let props = props_macro(entity);
         let label = entity.get_label();
-        let alias = format!("{}{}", label.to_lowercase(), self.relation_number);
-        entity.set_alias(&alias);
+        let mut alias = format!("{}{}", label.to_lowercase(), self.relation_number);
+        if self.unioned {
+            if let Some(a) = self.entity_aliases.get(&entity.get_uuid()) {
+                alias = a.to_owned();
+            } else {
+                entity.set_alias(&alias);
+            }
+        } else {
+            entity.set_alias(&alias);
+        }
         let name = format!("{}:{}", &alias, &label);
         self.previous_entity = Some((alias.clone(), EntityType::Relation));
         let (query_part, params) = entity.entity_by(&alias, &props);
@@ -675,8 +710,16 @@ impl Neo4gMergeStatement<CreatedNode> {
         self.relation_number += 1;
         let props = props_macro(entity);
         let label = entity.get_label();
-        let alias = format!("{}{}", label.to_lowercase(), self.relation_number);
-        entity.set_alias(&alias);
+        let mut alias = format!("{}{}", label.to_lowercase(), self.relation_number);
+        if self.unioned {
+            if let Some(a) = self.entity_aliases.get(&entity.get_uuid()) {
+                alias = a.to_owned();
+            } else {
+                entity.set_alias(&alias);
+            }
+        } else {
+            entity.set_alias(&alias);
+        }
         let name = format!("{}:{}", &alias, &label);
         self.previous_entity = Some((alias.clone(), EntityType::Relation));
         let (query_part, params) = entity.entity_by(&alias, &props);
@@ -702,8 +745,16 @@ impl Neo4gMergeStatement<CreatedNode> {
         let props = props_macro(entity);
         self.relation_number += 1;
         let label = entity.get_label();
-        let alias = format!("{}{}", label.to_lowercase(), self.relation_number);
-        entity.set_alias(&alias);
+        let mut alias = format!("{}{}", label.to_lowercase(), self.relation_number);
+        if self.unioned {
+            if let Some(a) = self.entity_aliases.get(&entity.get_uuid()) {
+                alias = a.to_owned();
+            } else {
+                entity.set_alias(&alias);
+            }
+        } else {
+            entity.set_alias(&alias);
+        }
         let name = format!("{}:{}", &alias, &label);
         self.previous_entity = Some((alias.clone(), EntityType::Relation));
         let (query_part, params) = entity.entity_by(&alias,&props);
@@ -857,9 +908,16 @@ impl<Q: CanNode> Neo4gMatchStatement<Q> {
         self.node_number += 1;
         let props = props_macro(entity);
         let label = entity.get_label();
-        dbg!(&label);
-        let alias = format!("{}{}", label.to_lowercase(), self.node_number);
-        entity.set_alias(&alias);
+        let mut alias = format!("{}{}", label.to_lowercase(), self.node_number);
+        if self.unioned {
+            if let Some(a) = self.entity_aliases.get(&entity.get_uuid()) {
+                alias = a.to_owned();
+            } else {
+                entity.set_alias(&alias);
+            }
+        } else {
+            entity.set_alias(&alias);
+        }
         let name = format!("{}:{}:AdditionalLabels", &alias, &label);
         self.previous_entity = Some((alias.clone(), EntityType::Node));
         if props.is_empty() {
@@ -938,8 +996,16 @@ impl Neo4gMatchStatement<MatchedNode> {
         self.relation_number += 1;
         let props = props_macro(entity);
         let label = entity.get_label();
-        let alias = format!("{}{}", label.to_lowercase(), self.relation_number);
-        entity.set_alias(&alias);
+        let mut alias = format!("{}{}", label.to_lowercase(), self.relation_number);
+        if self.unioned {
+            if let Some(a) = self.entity_aliases.get(&entity.get_uuid()) {
+                alias = a.to_owned();
+            } else {
+                entity.set_alias(&alias);
+            }
+        } else {
+            entity.set_alias(&alias);
+        }
         let name = format!("{}{}", label.to_lowercase(), self.relation_number);
         self.previous_entity = Some((name.clone(), EntityType::Relation));
         let (query_part, params) = entity.entity_by(&alias, &props);
@@ -961,15 +1027,19 @@ impl Neo4gMatchStatement<MatchedNode> {
     /// and asociated params.
     pub fn relation<T, F>(mut self, entity: &mut T, props_macro: F) -> Neo4gMatchStatement<MatchedRelation>
     where T: Neo4gEntity, T::Props: Clone, F: FnOnce(&T) -> Vec<T::Props> {
-        // println!("incoming rel: {}", self.relation_number);
         self.relation_number += 1;
         let props: Vec<<T as Neo4gEntity>::Props> = props_macro(entity);
         let label = entity.get_label();
-        // println!("rel num pre alias: {}", self.relation_number);
-        let alias = format!("{}{}", label.to_lowercase(), self.relation_number);
-        // println!("alias to be set: {}", &alias);
-        entity.set_alias(&alias);
-        // println!("actual alias: {}", &entity.get_alias());
+        let mut alias = format!("{}{}", label.to_lowercase(), self.relation_number);
+        if self.unioned {
+            if let Some(a) = self.entity_aliases.get(&entity.get_uuid()) {
+                alias = a.to_owned();
+            } else {
+                entity.set_alias(&alias);
+            }
+        } else {
+            entity.set_alias(&alias);
+        }
         let name = format!("{}:{}", &alias, &label);
         self.previous_entity = Some((alias.clone(), EntityType::Relation));
         let (query_part, params) = entity.entity_by(&alias, &props);
@@ -994,8 +1064,16 @@ impl Neo4gMatchStatement<MatchedNode> {
         self.relation_number += 1;
         let props = props_macro(entity);
         let label = entity.get_label();
-        let alias = format!("{}{}", label.to_lowercase(), self.relation_number);
-        entity.set_alias(&alias);
+        let mut alias = format!("{}{}", label.to_lowercase(), self.relation_number);
+        if self.unioned {
+            if let Some(a) = self.entity_aliases.get(&entity.get_uuid()) {
+                alias = a.to_owned();
+            } else {
+                entity.set_alias(&alias);
+            }
+        } else {
+            entity.set_alias(&alias);
+        }
         self.previous_entity = Some((alias.clone(), EntityType::Relation));
         let (query_part, params) = entity.create_from_self();
         self.query.push_str(&query_part.replace("-[", "<-[").replace("]->", "]-"));
@@ -1239,12 +1317,13 @@ impl <Q: PossibleQueryEnd> Neo4gBuilder<Q> {
         }
         self.query.push_str("\nUNION");
         self.previous_entity = None;
-        self.node_number = 0;
-        self.relation_number = 0;
-        self.set_number = 0;
-        self.with_number = 0;
-        self.unwind_number = 0;
-        self.return_refs.clear();
+        // self.node_number = 0;
+        // self.relation_number = 0;
+        // self.set_number = 0;
+        // self.with_number = 0;
+        // self.unwind_number = 0;
+        // self.return_refs.clear();
+        self.unioned = true;
         self.transition::<WithConditioned>()
     }
     /// Runs the query against a provided Graph and returns the registered return objects in nested Vecs.
@@ -1332,6 +1411,7 @@ pub struct Neo4gMatchStatement<State> {
     return_refs: Vec<(String, EntityType)>,
     previous_entity: Option<(String, EntityType)>,
     clause: Clause,
+    unioned: bool,
     _state: PhantomData<State>,
 }
 
@@ -1351,6 +1431,7 @@ pub struct Neo4gMergeStatement<State> {
     return_refs: Vec<(String, EntityType)>,
     previous_entity: Option<(String, EntityType)>,
     clause: Clause,
+    unioned: bool,
     _state: PhantomData<State>,
 }
 
@@ -1367,6 +1448,7 @@ pub struct Neo4gCreateStatement<State> {
     return_refs: Vec<(String, EntityType)>,
     previous_entity: Option<(String, EntityType)>,
     clause: Clause,
+    unioned: bool,
     _state: PhantomData<State>,
 }
 
@@ -1386,6 +1468,7 @@ impl<S> Neo4gBuilder<S> {
             order_by_str,
             previous_entity,
             clause,
+            unioned,
             ..
         } = self;
         Neo4gBuilder {
@@ -1401,6 +1484,7 @@ impl<S> Neo4gBuilder<S> {
             order_by_str,
             previous_entity,
             clause,
+            unioned,
             _state: std::marker::PhantomData,
         }
     }
@@ -1429,6 +1513,7 @@ impl<S> Neo4gMatchStatement<S> {
             return_refs,
             previous_entity,
             clause,
+            unioned,
             ..
         } = self;
         Neo4gMatchStatement {
@@ -1445,6 +1530,7 @@ impl<S> Neo4gMatchStatement<S> {
             return_refs,
             previous_entity,
             clause,
+            unioned,
             _state: std::marker::PhantomData,
         }
     }
@@ -1471,6 +1557,7 @@ impl<S> Neo4gMergeStatement<S> {
             return_refs,
             previous_entity,
             clause,
+            unioned,
             ..
         } = self;
         Neo4gMergeStatement {
@@ -1488,6 +1575,7 @@ impl<S> Neo4gMergeStatement<S> {
             return_refs,
             previous_entity,
             clause,
+            unioned,
             _state: std::marker::PhantomData,
         }
     }
@@ -1511,6 +1599,7 @@ impl<S> Neo4gCreateStatement<S> {
             return_refs,
             previous_entity,
             clause,
+            unioned,
             ..
         } = self;
         Neo4gCreateStatement {
@@ -1525,6 +1614,7 @@ impl<S> Neo4gCreateStatement<S> {
             return_refs,
             previous_entity,
             clause,
+            unioned,
             _state: std::marker::PhantomData,
         }
     }
@@ -1547,6 +1637,7 @@ impl<S> From<Neo4gBuilder<S>> for Neo4gCreateStatement<Empty> {
             return_refs: value.return_refs,
             previous_entity: value.previous_entity,
             clause: value.clause,
+            unioned: value.unioned,
             _state: std::marker::PhantomData,
         }
     }
@@ -1569,6 +1660,7 @@ impl<S> From<Neo4gBuilder<S>> for Neo4gMergeStatement<Empty> {
             return_refs: value.return_refs,
             previous_entity: value.previous_entity,
             clause: value.clause,
+            unioned: value.unioned,
             _state: std::marker::PhantomData,
         }
     }
@@ -1590,6 +1682,7 @@ impl<S> From<Neo4gBuilder<S>> for Neo4gMatchStatement<Empty> {
             return_refs: value.return_refs,
             previous_entity: value.previous_entity,
             clause: value.clause,
+            unioned: value.unioned,
             _state: std::marker::PhantomData,
         }
     }
@@ -1610,6 +1703,7 @@ impl<S> From<Neo4gMatchStatement<S>> for Neo4gBuilder<MatchedNode> {
             order_by_str: String::new(),
             previous_entity: value.previous_entity,
             clause: value.clause,
+            unioned: value.unioned,
             _state: std::marker::PhantomData,
         }
     }
@@ -1630,6 +1724,7 @@ impl<S> From<Neo4gMergeStatement<S>> for Neo4gBuilder<CreatedNode> {
             order_by_str: String::new(),
             previous_entity: value.previous_entity,
             clause: value.clause,
+            unioned: value.unioned,
             _state: std::marker::PhantomData,
         }
     }
@@ -1650,6 +1745,7 @@ impl<S> From<Neo4gCreateStatement<S>> for Neo4gBuilder<CreatedNode> {
             order_by_str: String::new(),
             previous_entity: value.previous_entity,
             clause: value.clause,
+            unioned: value.unioned,
             _state: std::marker::PhantomData,
         }
     }
