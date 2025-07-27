@@ -1340,39 +1340,42 @@ impl <Q: PossibleQueryEnd+Debug> Neo4gBuilder<Q> {
             self.query.push_str(&aliases.join(", "));
         }
         self.query.push_str(&self.order_by_str);
-        println!("query: {}", self.query.clone());
-        println!("params: {:?}", self.params.clone());
+        //println!("query: {}", self.query.clone());
+        //println!("params: {:?}", self.params.clone());
         let query = Query::new(self.query).params(self.params);
         let mut return_vec: Vec<Vec<R>> = Vec::new();
-        if let Ok(mut result) = graph.execute(query).await {
-            println!("query ran");
-            while let Ok(Some(row)) = result.next().await {
-                let mut row_vec: Vec<R> = Vec::new();
-                for (alias, entity_type) in &self.return_refs {
-                    match entity_type {
-                        EntityType::Node => {
-                            if let Ok(node) = row.get::<Node>(&alias) {
-                                let wrapped_entity = unpack(DbEntityWrapper::Node(node));
-                                row_vec.push(wrapped_entity);
-                            } else {
-                                return Err(anyhow!(format!("Failed to get Node from db for {}", &alias)));
+        match graph.execute(query).await {
+            Ok(mut result) => {
+                println!("query ran");
+                while let Ok(Some(row)) = result.next().await {
+                    let mut row_vec: Vec<R> = Vec::new();
+                    for (alias, entity_type) in &self.return_refs {
+                        match entity_type {
+                            EntityType::Node => {
+                                if let Ok(node) = row.get::<Node>(&alias) {
+                                    let wrapped_entity = unpack(DbEntityWrapper::Node(node));
+                                    row_vec.push(wrapped_entity);
+                                } else {
+                                    return Err(anyhow!(format!("Failed to get Node from db for {}", &alias)));
+                                }
+                            },
+                            EntityType::Relation => {
+                                if let Ok(relation) = row.get::<Relation>(&alias) {
+                                    let wrapped_entity = unpack(DbEntityWrapper::Relation(relation));
+                                    row_vec.push(wrapped_entity);
+                                } else {
+                                    return Err(anyhow!(format!("Failed to get Relation from db for {}", &alias)));
+                                }
+                            },
+                            _ => {
+                                return Err(anyhow!(format!("Not a Node or Relation not sure what you were trying to return here, or why...")));
                             }
-                        },
-                        EntityType::Relation => {
-                            if let Ok(relation) = row.get::<Relation>(&alias) {
-                                let wrapped_entity = unpack(DbEntityWrapper::Relation(relation));
-                                row_vec.push(wrapped_entity);
-                            } else {
-                                return Err(anyhow!(format!("Failed to get Relation from db for {}", &alias)));
-                            }
-                        },
-                        _ => {
-                            return Err(anyhow!(format!("Not a Node or Relation not sure what you were trying to return here, or why...")));
                         }
                     }
+                    return_vec.push(row_vec);
                 }
-                return_vec.push(row_vec);
-            }
+            },
+            Err(e) => return Err(anyhow!("Query didn't run. Error: {}", e)),
         }
         Ok(return_vec)
     }
