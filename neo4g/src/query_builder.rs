@@ -466,7 +466,6 @@ impl<Q: CanNode+Debug> Neo4gCreateStatement<Q> {
         } else {
             entity.set_alias(&alias);
         }
-        let name = format!("{}:{}:AdditionalLabels", &alias, &label);
         self.previous_entity = Some((alias.clone(), EntityType::Node));
         self.entity_aliases.insert(entity.get_uuid(), alias);
         let (query_part, params) = entity.create_from_self();
@@ -599,7 +598,7 @@ impl<Q: CanNode+Debug> Neo4gMergeStatement<Q> {
             entity.set_alias(&alias);
         }
         let name = format!("{}:{}:AdditionalLabels", &alias, &label);
-        self.previous_entity = Some((name.clone(), EntityType::Node));
+        self.previous_entity = Some((alias.clone(), EntityType::Node));
         if props.is_empty() {
             self.query.push_str(&format!("({})", name));
         } else {
@@ -632,7 +631,7 @@ impl<Q: CanNode+Debug> Neo4gMergeStatement<Q> {
             self.entity_aliases.insert(entity.get_uuid(), alias.clone());
         }
         let name = format!("{}:AdditionalLabels", &alias);
-        self.previous_entity = Some((name.clone(), EntityType::Node));
+        self.previous_entity = Some((alias.clone(), EntityType::Node));
         let mut unwound_alias = unwound.get_alias();
         if unwound_alias.is_empty() {
             let unwound_uuid = unwound.get_uuid();
@@ -952,7 +951,7 @@ impl<Q: CanNode+Debug> Neo4gMatchStatement<Q> {
             self.entity_aliases.insert(entity.get_uuid(), alias.clone());
         }
         let name = format!("{}:AdditionalLabels", &alias);
-        self.previous_entity = Some((name.clone(), EntityType::Node));
+        self.previous_entity = Some((alias.clone(), EntityType::Node));
         let mut unwound_alias = unwound.get_alias();
         if unwound_alias.is_empty() {
             let unwound_uuid = unwound.get_uuid();
