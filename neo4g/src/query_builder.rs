@@ -1,5 +1,5 @@
 use anyhow::anyhow; // should I use thiserror instead? prolly...
-use neo4rs::{BoltType, Graph, Node, Query, Relation};
+use neo4rs::{BoltType, Graph, Node, Query, Relation, Txn};
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use std::fmt::{self, Debug};
@@ -1324,6 +1324,69 @@ impl <Q: PossibleQueryEnd+Debug> Neo4gBuilder<Q> {
         // self.return_refs.clear();
         self.unioned = true;
         self.transition::<WithConditioned>()
+    }
+    /// Runs the query against a provided Graph and returns the registered return objects in nested Vecs.
+    /// The outer Vec contains Vecs that represent rows. The inner Vec contains wrapped entities within each row.
+    /// # Example:
+    /// ```rust
+    /// .execute(graph, EntityWrapper::from_db_entity).await;
+    /// ```
+    pub async fn execute<F, R>(self, graph: Graph, unpack: F) -> anyhow::Result<Vec<Vec<F::Output>>>
+    where F: Fn(DbEntityWrapper) -> R {
+        self.run_query(graph, unpack).await
+    }
+    /// Runs the query against a provided Txn and returns the registered return objects in nested Vecs.
+    /// The outer Vec contains Vecs that represent rows. The inner Vec contains wrapped entities within each row.
+    /// # Example:
+    /// ```rust
+    /// .execute_in_txn(txn, EntityWrapper::from_db_entity).await;
+    /// ```
+    pub async fn execute_in_txn<F, R>(mut self, txn: &mut Txn, unpack: F) -> anyhow::Result<Vec<Vec<F::Output>>>
+    where F: Fn(DbEntityWrapper) -> R {
+        if !self.return_refs.is_empty() {
+            self.query.push_str("\nRETURN ");
+            let aliases: Vec<&str> = self.return_refs.iter().map(|(alias, _)| alias.as_str()).collect();
+            self.query.push_str(&aliases.join(", "));
+        }
+        self.query.push_str(&self.order_by_str);
+        //println!("query: {}", self.query.clone());
+        //println!("params: {:?}", self.params.clone());
+        let query = Query::new(self.query).params(self.params);
+        let mut return_vec: Vec<Vec<R>> = Vec::new();
+        match txn.execute(query).await {
+            Ok(mut result) => {
+                println!("query ran");
+                while let Ok(Some(row)) = result.next(txn.handle()).await {
+                    let mut row_vec: Vec<R> = Vec::new();
+                    for (alias, entity_type) in &self.return_refs {
+                        match entity_type {
+                            EntityType::Node => {
+                                if let Ok(node) = row.get::<Node>(&alias) {
+                                    let wrapped_entity = unpack(DbEntityWrapper::Node(node));
+                                    row_vec.push(wrapped_entity);
+                                } else {
+                                    return Err(anyhow!(format!("Failed to get Node from db for {}", &alias)));
+                                }
+                            },
+                            EntityType::Relation => {
+                                if let Ok(relation) = row.get::<Relation>(&alias) {
+                                    let wrapped_entity = unpack(DbEntityWrapper::Relation(relation));
+                                    row_vec.push(wrapped_entity);
+                                } else {
+                                    return Err(anyhow!(format!("Failed to get Relation from db for {}", &alias)));
+                                }
+                            },
+                            _ => {
+                                return Err(anyhow!(format!("Not a Node or Relation not sure what you were trying to return here, or why...")));
+                            }
+                        }
+                    }
+                    return_vec.push(row_vec);
+                }
+            },
+            Err(e) => return Err(anyhow!("Query didn't run. Error: {}", e)),
+        }
+        Ok(return_vec)
     }
     /// Runs the query against a provided Graph and returns the registered return objects in nested Vecs.
     /// The outer Vec contains Vecs that represent rows. The inner Vec contains wrapped entities within each row.
