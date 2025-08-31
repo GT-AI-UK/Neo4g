@@ -1,4 +1,5 @@
-use anyhow::anyhow; // should I use thiserror instead? prolly...
+//use anyhow::anyhow; // should I use thiserror instead? prolly...
+use thiserror::Error;
 use neo4rs::{BoltType, Graph, Node, Query, Relation, Txn};
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
@@ -6,6 +7,19 @@ use std::fmt::{self, Debug};
 use std::vec;
 use uuid::Uuid;
 use crate::traits::*;
+pub type Result<T> = std::result::Result<T, Neo4gError>;
+
+#[derive(Debug, Error)]
+pub enum Neo4gError {
+    #[error("failed to get node from db for alias '{alias}'")]
+    NodeNotFound {alias: String},
+    #[error("failed to get relation from db for alias '{alias}'")]
+    RelationNotFound {alias: String},
+    #[error("the item with alias '{alias}' is not a node or a relation, which should never happen")]
+    UnexpectedError {alias: String},
+    #[error(transparent)]
+    Db(#[from] neo4rs::Error),
+}
 
 use std::collections::{HashMap, HashSet};
 
@@ -1331,7 +1345,7 @@ impl <Q: PossibleQueryEnd+Debug> Neo4gBuilder<Q> {
     /// ```rust
     /// .execute(graph, EntityWrapper::from_db_entity).await;
     /// ```
-    pub async fn execute<F, R>(self, graph: Graph, unpack: F) -> anyhow::Result<Vec<Vec<F::Output>>>
+    pub async fn execute<F, R>(self, graph: Graph, unpack: F) -> Result<Vec<Vec<F::Output>>>
     where F: Fn(DbEntityWrapper) -> R {
         self.run_query(graph, unpack).await
     }
@@ -1341,7 +1355,7 @@ impl <Q: PossibleQueryEnd+Debug> Neo4gBuilder<Q> {
     /// ```rust
     /// .execute_in_txn(txn, EntityWrapper::from_db_entity).await;
     /// ```
-    pub async fn execute_in_txn<F, R>(mut self, txn: &mut Txn, unpack: F) -> anyhow::Result<Vec<Vec<F::Output>>>
+    pub async fn execute_in_txn<F, R>(mut self, txn: &mut Txn, unpack: F) -> Result<Vec<Vec<F::Output>>>
     where F: Fn(DbEntityWrapper) -> R {
         if !self.return_refs.is_empty() {
             self.query.push_str("\nRETURN ");
@@ -1353,39 +1367,39 @@ impl <Q: PossibleQueryEnd+Debug> Neo4gBuilder<Q> {
         //println!("params: {:?}", self.params.clone());
         let query = Query::new(self.query).params(self.params);
         let mut return_vec: Vec<Vec<R>> = Vec::new();
-        match txn.execute(query).await {
-            Ok(mut result) => {
-                println!("query ran");
-                while let Ok(Some(row)) = result.next(txn.handle()).await {
-                    let mut row_vec: Vec<R> = Vec::new();
-                    for (alias, entity_type) in &self.return_refs {
-                        match entity_type {
-                            EntityType::Node => {
-                                if let Ok(node) = row.get::<Node>(&alias) {
-                                    let wrapped_entity = unpack(DbEntityWrapper::Node(node));
-                                    row_vec.push(wrapped_entity);
-                                } else {
-                                    return Err(anyhow!(format!("Failed to get Node from db for {}", &alias)));
-                                }
-                            },
-                            EntityType::Relation => {
-                                if let Ok(relation) = row.get::<Relation>(&alias) {
-                                    let wrapped_entity = unpack(DbEntityWrapper::Relation(relation));
-                                    row_vec.push(wrapped_entity);
-                                } else {
-                                    return Err(anyhow!(format!("Failed to get Relation from db for {}", &alias)));
-                                }
-                            },
-                            _ => {
-                                return Err(anyhow!(format!("Not a Node or Relation not sure what you were trying to return here, or why...")));
-                            }
+        let mut result = txn.execute(query).await?;
+            //Ok(mut result) => {
+        println!("query ran");
+        while let Ok(Some(row)) = result.next(txn.handle()).await {
+            let mut row_vec: Vec<R> = Vec::new();
+            for (alias, entity_type) in &self.return_refs {
+                match entity_type {
+                    EntityType::Node => {
+                        if let Ok(node) = row.get::<Node>(&alias) {
+                            let wrapped_entity = unpack(DbEntityWrapper::Node(node));
+                            row_vec.push(wrapped_entity);
+                        } else {
+                            return Err(Neo4gError::NodeNotFound { alias: alias.clone() });
                         }
+                    },
+                    EntityType::Relation => {
+                        if let Ok(relation) = row.get::<Relation>(&alias) {
+                            let wrapped_entity = unpack(DbEntityWrapper::Relation(relation));
+                            row_vec.push(wrapped_entity);
+                        } else {
+                            return Err(Neo4gError::RelationNotFound { alias: alias.clone() });
+                        }
+                    },
+                    _ => {
+                        return Err(Neo4gError::UnexpectedError { alias: alias.clone() });
                     }
-                    return_vec.push(row_vec);
                 }
-            },
-            Err(e) => return Err(anyhow!("Query didn't run. Error: {}", e)),
+            }
+            return_vec.push(row_vec);
         }
+            //},
+            //Err(e) => return Err(anyhow!("Query didn't run. Error: {}", e)),
+        //}
         Ok(return_vec)
     }
     /// Runs the query against a provided Graph and returns the registered return objects in nested Vecs.
@@ -1394,7 +1408,7 @@ impl <Q: PossibleQueryEnd+Debug> Neo4gBuilder<Q> {
     /// ```rust
     /// .run_query(graph, EntityWrapper::from_db_entity).await;
     /// ```
-    pub async fn run_query<F, R>(mut self, graph: Graph, unpack: F) -> anyhow::Result<Vec<Vec<F::Output>>>
+    pub async fn run_query<F, R>(mut self, graph: Graph, unpack: F) -> Result<Vec<Vec<F::Output>>>
     where F: Fn(DbEntityWrapper) -> R {
         if !self.return_refs.is_empty() {
             self.query.push_str("\nRETURN ");
@@ -1406,38 +1420,34 @@ impl <Q: PossibleQueryEnd+Debug> Neo4gBuilder<Q> {
         //println!("params: {:?}", self.params.clone());
         let query = Query::new(self.query).params(self.params);
         let mut return_vec: Vec<Vec<R>> = Vec::new();
-        match graph.execute(query).await {
-            Ok(mut result) => {
-                println!("query ran");
-                while let Ok(Some(row)) = result.next().await {
-                    let mut row_vec: Vec<R> = Vec::new();
-                    for (alias, entity_type) in &self.return_refs {
-                        match entity_type {
-                            EntityType::Node => {
-                                if let Ok(node) = row.get::<Node>(&alias) {
-                                    let wrapped_entity = unpack(DbEntityWrapper::Node(node));
-                                    row_vec.push(wrapped_entity);
-                                } else {
-                                    return Err(anyhow!(format!("Failed to get Node from db for {}", &alias)));
-                                }
-                            },
-                            EntityType::Relation => {
-                                if let Ok(relation) = row.get::<Relation>(&alias) {
-                                    let wrapped_entity = unpack(DbEntityWrapper::Relation(relation));
-                                    row_vec.push(wrapped_entity);
-                                } else {
-                                    return Err(anyhow!(format!("Failed to get Relation from db for {}", &alias)));
-                                }
-                            },
-                            _ => {
-                                return Err(anyhow!(format!("Not a Node or Relation not sure what you were trying to return here, or why...")));
-                            }
+        let mut result = graph.execute(query).await?;
+        println!("query ran");
+        while let Ok(Some(row)) = result.next().await {
+            let mut row_vec: Vec<R> = Vec::new();
+            for (alias, entity_type) in &self.return_refs {
+                match entity_type {
+                    EntityType::Node => {
+                        if let Ok(node) = row.get::<Node>(&alias) {
+                            let wrapped_entity = unpack(DbEntityWrapper::Node(node));
+                            row_vec.push(wrapped_entity);
+                        } else {
+                            return Err(Neo4gError::NodeNotFound { alias: alias.clone() });
                         }
+                    },
+                    EntityType::Relation => {
+                        if let Ok(relation) = row.get::<Relation>(&alias) {
+                            let wrapped_entity = unpack(DbEntityWrapper::Relation(relation));
+                            row_vec.push(wrapped_entity);
+                        } else {
+                            return Err(Neo4gError::RelationNotFound { alias: alias.clone() });
+                        }
+                    },
+                    _ => {
+                        return Err(Neo4gError::UnexpectedError { alias: alias.clone() });
                     }
-                    return_vec.push(row_vec);
                 }
-            },
-            Err(e) => return Err(anyhow!("Query didn't run. Error: {}", e)),
+            }
+            return_vec.push(row_vec);
         }
         Ok(return_vec)
     }
